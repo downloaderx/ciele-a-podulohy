@@ -159,6 +159,14 @@ h1 {
   text-shadow: 2px 2px 0 #ffffff, 4px 4px 0 rgb(53 208 186 / 22%);
 }
 
+h1 span {
+  color: #126fbe;
+  display: inline-block;
+  font-size: 0.58em;
+  margin-left: 10px;
+  vertical-align: 0.12em;
+}
+
 .team-switcher {
   align-items: center;
   display: flex;

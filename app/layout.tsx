@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Virtuálna tabuľa plánov',
-  description: 'Modrá virtuálna tabuľa pre dve líštičky, spoločné plány a vnorené podúlohy s priebežným progresom.',
+  title: 'Little acorns... (Foxies)',
+  description: 'Modrá virtuálna tabuľa plánov pre Foxies, spoločné ciele a vnorené podúlohy s priebežným progresom.',
 };
 
 export default function RootLayout({

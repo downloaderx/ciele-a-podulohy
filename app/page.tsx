@@ -318,8 +318,11 @@ export default function Home() {
             <PixelFox flipped />
           </div>
           <div>
-            <p className="eyebrow">Líštičky plánujú spolu</p>
-            <h1>Virtuálna tabuľa plánov</h1>
+            <p className="eyebrow">Virtuálna tabuľa plánov</p>
+            <h1>
+              Little acorns...
+              <span>(Foxies)</span>
+            </h1>
           </div>
         </div>
         <div className="team-switcher" aria-label="Aktívny používateľ">
