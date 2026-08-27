@@ -215,7 +215,6 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
-  const [selectedActivityPersonId, setSelectedActivityPersonId] = useState<string | null>(null);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
@@ -436,9 +435,6 @@ export default function Home() {
     ].slice(0, 80));
   }
 
-  const selectedActivityPerson = selectedActivityPersonId
-    ? people.find((person) => person.id === selectedActivityPersonId)
-    : null;
   const recentActivity = activityLog.slice(0, 12);
 
   return (
@@ -465,14 +461,9 @@ export default function Home() {
               style={{ '--person-tone': person.tone } as React.CSSProperties}
             >
               <button
-                aria-label={`Zobraziť denník osoby ${person.name}`}
+                aria-label={`Prepnúť na osobu ${person.name}`}
                 className="person-fox"
-                onClick={() => {
-                  setActivePersonId(person.id);
-                  setSelectedActivityPersonId((current) =>
-                    current === person.id ? null : person.id,
-                  );
-                }}
+                onClick={() => setActivePersonId(person.id)}
                 type="button"
               >
                 <PixelFox small flipped={person.id === 'person-2'} />
@@ -488,61 +479,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {selectedActivityPerson ? (
-        <section className="activity-panel" aria-label="Posledné zmeny na tabuli">
-          <div className="activity-heading">
-            <div>
-              <span className="label">Posledné zmeny</span>
-              <h2>Čo sa pohlo na tabuli</h2>
-              <p>
-                Otvorené cez {selectedActivityPerson.name}, ale ukazuje spoločnú históriu.
-              </p>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => setSelectedActivityPersonId(null)}
-              type="button"
-            >
-              Zavrieť
-            </button>
-          </div>
-          {recentActivity.length > 0 ? (
-            <ol className="activity-list">
-              {recentActivity.map((item) => {
-                const actor = people.find((person) => person.id === item.actorId);
-
-                return (
-                <li
-                  key={item.id}
-                  style={{ '--activity-tone': actor?.tone ?? '#35d0ba' } as React.CSSProperties}
-                >
-                  <span className="activity-actor">
-                    <PixelFox small flipped={actor?.id === 'person-2'} />
-                    {actor?.name ?? 'Foxie'}
-                  </span>
-                  <span>{item.action}</span>
-                  <strong>{item.target}</strong>
-                  <time dateTime={item.createdAt}>
-                    {new Date(item.createdAt).toLocaleString('sk-SK', {
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      month: '2-digit',
-                    })}
-                  </time>
-                </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="empty-activity">
-              Tu sa začnú ukladať posledné zmeny: kto niečo pridal, premenoval,
-              označil ako hotové alebo zmazal.
-            </p>
-          )}
-        </section>
-      ) : null}
 
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
@@ -578,6 +514,10 @@ export default function Home() {
         </form>
       </section>
 
+      {recentActivity.length > 0 ? (
+        <RecentActivityPanel activityLog={recentActivity} people={people} />
+      ) : null}
+
       <section className="board" aria-label="Zoznam cieľov">
         {goals.map((goal) => (
           <GoalPanel
@@ -594,6 +534,52 @@ export default function Home() {
         ))}
       </section>
     </main>
+  );
+}
+
+function RecentActivityPanel({
+  activityLog,
+  people,
+}: {
+  activityLog: ActivityItem[];
+  people: Person[];
+}) {
+  return (
+    <section className="activity-panel" aria-label="Posledné zmeny na tabuli">
+      <div className="activity-heading">
+        <div>
+          <span className="label">Posledné zmeny</span>
+          <h2>Čo sa pohlo na tabuli</h2>
+        </div>
+      </div>
+      <ol className="activity-list">
+        {activityLog.map((item) => {
+          const actor = people.find((person) => person.id === item.actorId);
+
+          return (
+            <li
+              key={item.id}
+              style={{ '--activity-tone': actor?.tone ?? '#35d0ba' } as React.CSSProperties}
+            >
+              <span className="activity-actor">
+                <PixelFox small flipped={actor?.id === 'person-2'} />
+                {actor?.name ?? 'Foxie'}
+              </span>
+              <span>{item.action}</span>
+              <strong>{item.target}</strong>
+              <time dateTime={item.createdAt}>
+                {new Date(item.createdAt).toLocaleString('sk-SK', {
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  month: '2-digit',
+                })}
+              </time>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
