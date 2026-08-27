@@ -86,10 +86,10 @@ button:disabled {
 
 .fox-pair {
   align-items: end;
-  background: #f7fcff;
+  background: linear-gradient(180deg, #f7fcff 0%, #e5f6ff 100%);
   border: 2px solid #081827;
   border-radius: 8px;
-  box-shadow: 0 9px 0 rgb(53 208 186 / 24%);
+  box-shadow: 0 4px 0 #081827, 0 11px 0 rgb(53 208 186 / 24%);
   display: flex;
   gap: 2px;
   justify-content: center;
@@ -122,11 +122,13 @@ button:disabled {
 }
 
 .pixel.f {
-  background: #f7fcff;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(7 17 31 / 45%);
 }
 
 .pixel.w {
-  background: #c8f7ef;
+  background: #d8fff8;
+  box-shadow: 0 0 0 1px rgb(7 17 31 / 55%);
 }
 
 .pixel.h {
@@ -135,6 +137,10 @@ button:disabled {
 
 .pixel.b {
   background: #35d0ba;
+}
+
+.pixel.k {
+  background: #07111f;
 }
 
 .eyebrow,

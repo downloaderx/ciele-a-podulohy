@@ -473,14 +473,14 @@ function GoalPanel(props: GoalPanelProps) {
 
 function PixelFox({ flipped = false }: { flipped?: boolean }) {
   const pixels = [
-    'O......O',
-    'OO....OO',
-    'OFO..OFO',
-    'OFFOOFFO',
-    '.FOOOOF.',
+    'K......K',
+    'KO....OK',
+    'KFO..OFK',
+    'KFFOOFFK',
+    '.KFOOFK.',
     '.FWHHWF.',
-    '..FBBF..',
-    '..FWWF..',
+    '..KBBK..',
+    '.KKWWKK.',
   ];
 
   return (
