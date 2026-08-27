@@ -271,6 +271,16 @@ export default function Home() {
     };
   }, [goals]);
 
+  const goalSnapshots = useMemo(
+    () =>
+      goals.map((goal) => ({
+        id: goal.id,
+        title: goal.title,
+        ...calculateProgress(goal),
+      })),
+    [goals],
+  );
+
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = newGoalTitle.trim();
@@ -526,11 +536,13 @@ export default function Home() {
           <div className="meter" aria-hidden="true">
             <span style={{ width: `${totals.percent}%` }} />
           </div>
+          <GrowthBranch percent={totals.percent} />
           <p>
             Hotovo {totals.done} z {totals.total} drobných krokov vo vašich spoločných plánoch.
           </p>
         </div>
         <form className="new-goal" onSubmit={addGoal}>
+          <ProjectProgressStrip goals={goalSnapshots} />
           <label>
             Nový spoločný plán
             <input
@@ -567,6 +579,62 @@ export default function Home() {
         ))}
       </section>
     </main>
+  );
+}
+
+function GrowthBranch({ percent }: { percent: number }) {
+  const markers = [20, 40, 60, 80, 100];
+
+  return (
+    <div className="growth-branch" aria-label={`Vetvička plánov je na ${percent}%`}>
+      <span className="branch-line" />
+      {markers.map((marker, index) => (
+        <span
+          className={percent >= marker ? 'branch-marker active' : 'branch-marker'}
+          key={marker}
+          style={{ '--marker-index': index } as React.CSSProperties}
+        >
+          <span className="leaf" />
+          <span className="acorn" />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ProjectProgressStrip({
+  goals,
+}: {
+  goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
+}) {
+  const visibleGoals = goals.slice(0, 4);
+
+  return (
+    <div className="project-strip" aria-label="Progres jednotlivých plánov">
+      <div className="project-strip-heading">
+        <span className="label">Plány na očiach</span>
+        <strong>{goals.length}</strong>
+      </div>
+      {visibleGoals.length > 0 ? (
+        <div className="project-bars">
+          {visibleGoals.map((goal) => (
+            <div className="project-bar" key={goal.id}>
+              <div className="project-bar-copy">
+                <span>{goal.title}</span>
+                <strong>
+                  {goal.percent}% · {goal.done}/{goal.total}
+                </strong>
+              </div>
+              <div className="meter mini" aria-hidden="true">
+                <span style={{ width: `${goal.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p>Prvý plán si nájde miesto hneď tu.</p>
+      )}
+    </div>
   );
 }
 

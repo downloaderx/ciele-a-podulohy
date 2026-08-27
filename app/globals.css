@@ -359,12 +359,160 @@ h1 span {
   margin: 12px 18px 0;
 }
 
+.meter.mini {
+  height: 7px;
+  margin-top: 6px;
+}
+
+.growth-branch {
+  height: 42px;
+  margin-top: 14px;
+  position: relative;
+}
+
+.branch-line {
+  background: linear-gradient(90deg, #07111f, #126fbe 58%, #35d0ba);
+  border-radius: 999px;
+  height: 6px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 22px;
+  transform: rotate(-2deg);
+}
+
+.branch-marker {
+  --marker-left: calc((var(--marker-index) + 1) * 18%);
+  display: block;
+  height: 30px;
+  left: var(--marker-left);
+  opacity: 0.25;
+  position: absolute;
+  top: 5px;
+  transition: opacity 180ms ease, transform 180ms ease;
+  width: 30px;
+}
+
+.branch-marker.active {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.leaf {
+  background: #35d0ba;
+  border: 2px solid #07111f;
+  border-radius: 999px 0 999px 0;
+  display: block;
+  height: 18px;
+  left: 2px;
+  position: absolute;
+  top: 0;
+  transform: rotate(-18deg);
+  width: 12px;
+}
+
+.acorn {
+  background: linear-gradient(180deg, #8bd7ff, #4b8dff);
+  border: 2px solid #07111f;
+  border-radius: 45% 45% 55% 55%;
+  display: block;
+  height: 15px;
+  left: 13px;
+  position: absolute;
+  top: 13px;
+  width: 13px;
+}
+
+.acorn::before {
+  background: #07111f;
+  border-radius: 999px 999px 4px 4px;
+  content: "";
+  height: 5px;
+  left: -2px;
+  position: absolute;
+  top: -3px;
+  width: 13px;
+}
+
 .new-goal {
   align-items: end;
   display: grid;
   gap: 12px;
   grid-template-columns: 1fr 1fr auto;
   padding: 14px;
+}
+
+.project-strip {
+  align-self: stretch;
+  background:
+    linear-gradient(135deg, rgb(53 208 186 / 13%), transparent 44%),
+    linear-gradient(180deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  min-height: 86px;
+  padding: 10px;
+}
+
+.project-strip-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.project-strip-heading .label {
+  margin: 0;
+}
+
+.project-strip-heading strong {
+  align-items: center;
+  background: #07111f;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 12px;
+  height: 24px;
+  justify-content: center;
+  min-width: 24px;
+  padding: 0 7px;
+}
+
+.project-bars {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.project-bar {
+  min-width: 0;
+}
+
+.project-bar-copy {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.project-bar-copy span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-bar-copy strong,
+.project-strip p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  white-space: nowrap;
 }
 
 label {
@@ -602,7 +750,8 @@ select:focus {
 
   .new-goal,
   .task-row,
-  .activity-list li {
+  .activity-list li,
+  .project-bars {
     grid-template-columns: 1fr;
   }
 
