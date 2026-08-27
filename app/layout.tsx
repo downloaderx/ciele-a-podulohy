@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Dvaja a plány',
-  description: 'Cute spoločný plánovač pre pár, viac cieľov a vnorené podúlohy s priebežným progresom.',
+  title: 'Virtuálna tabuľa plánov',
+  description: 'Modrá virtuálna tabuľa pre dve líštičky, spoločné plány a vnorené podúlohy s priebežným progresom.',
 };
 
 export default function RootLayout({

@@ -318,8 +318,8 @@ export default function Home() {
             <PixelFox flipped />
           </div>
           <div>
-            <p className="eyebrow">Tichý plánovač pre dvoch</p>
-            <h1>Dvaja a plány</h1>
+            <p className="eyebrow">Líštičky plánujú spolu</p>
+            <h1>Virtuálna tabuľa plánov</h1>
           </div>
         </div>
         <div className="team-switcher" aria-label="Aktívny používateľ">
@@ -340,7 +340,7 @@ export default function Home() {
 
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
-          <span className="label">Celkový progres</span>
+          <span className="label">Stav na tabuli</span>
           <strong>{totals.percent}%</strong>
           <div className="meter" aria-hidden="true">
             <span style={{ width: `${totals.percent}%` }} />
