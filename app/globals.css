@@ -250,12 +250,74 @@ h1 span {
 
 .summary-panel,
 .new-goal,
-.goal-panel {
+.goal-panel,
+.activity-panel {
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 14px 0 rgb(7 17 31 / 7%), 0 22px 42px rgb(27 83 120 / 12%);
   position: relative;
+}
+
+.activity-panel {
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 16px;
+}
+
+.activity-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.activity-heading h2 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+}
+
+.activity-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.activity-list li {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(140px, 1fr) auto;
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.activity-list span,
+.activity-list time,
+.empty-activity {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.activity-list strong {
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.activity-list time {
+  text-align: right;
+}
+
+.empty-activity {
+  margin: 12px 0 0;
 }
 
 .summary-panel {
@@ -527,8 +589,13 @@ select:focus {
   }
 
   .new-goal,
-  .task-row {
+  .task-row,
+  .activity-list li {
     grid-template-columns: 1fr;
+  }
+
+  .activity-list time {
+    text-align: left;
   }
 
   .goal-header {

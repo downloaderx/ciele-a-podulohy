@@ -21,6 +21,14 @@ type Goal = Task & {
   description: string;
 };
 
+type ActivityItem = {
+  id: string;
+  actorId: string;
+  action: string;
+  target: string;
+  createdAt: string;
+};
+
 const defaultPeople: Person[] = [
   { id: 'person-1', name: 'Rini', tone: '#35d0ba' },
   { id: 'person-2', name: 'Fluffy', tone: '#4b8dff' },
@@ -173,10 +181,41 @@ function removeFromChildren(tasks: Task[], id: string): Task[] {
     }));
 }
 
+function findTaskById(tasks: Task[], id: string): Task | undefined {
+  for (const task of tasks) {
+    if (task.id === id) {
+      return task;
+    }
+
+    const child = findTaskById(task.children, id);
+
+    if (child) {
+      return child;
+    }
+  }
+}
+
+function normalizePeople(savedPeople: Person[]) {
+  return defaultPeople.map((defaultPerson) => {
+    const savedPerson = savedPeople.find((person) => person.id === defaultPerson.id);
+    const savedName = savedPerson?.name.trim();
+    const oldDefaultName =
+      (defaultPerson.id === 'person-1' && savedName === 'Ja') ||
+      (defaultPerson.id === 'person-2' && savedName === 'Ty');
+
+    return {
+      ...defaultPerson,
+      name: savedName && !oldDefaultName ? savedName : defaultPerson.name,
+    };
+  });
+}
+
 export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
+  const [selectedActivityPersonId, setSelectedActivityPersonId] = useState<string | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -185,6 +224,7 @@ export default function Home() {
     const savedGoals = window.localStorage.getItem('ciele-goals');
     const savedPerson = window.localStorage.getItem('ciele-active-person');
     const savedPeople = window.localStorage.getItem('ciele-people');
+    const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
 
     if (savedGoals) {
       const parsedGoals = JSON.parse(savedGoals) as Goal[];
@@ -193,18 +233,15 @@ export default function Home() {
 
     if (savedPeople) {
       const parsedPeople = JSON.parse(savedPeople) as Person[];
-      setPeople(
-        defaultPeople.map((defaultPerson) => ({
-          ...defaultPerson,
-          name:
-            parsedPeople.find((person) => person.id === defaultPerson.id)?.name ||
-            defaultPerson.name,
-        })),
-      );
+      setPeople(normalizePeople(parsedPeople));
     }
 
     if (savedPerson && defaultPeople.some((person) => person.id === savedPerson)) {
       setActivePersonId(savedPerson);
+    }
+
+    if (savedActivityLog) {
+      setActivityLog(JSON.parse(savedActivityLog));
     }
 
     setLoaded(true);
@@ -218,7 +255,8 @@ export default function Home() {
     window.localStorage.setItem('ciele-goals', JSON.stringify(goals));
     window.localStorage.setItem('ciele-active-person', activePersonId);
     window.localStorage.setItem('ciele-people', JSON.stringify(people));
-  }, [activePersonId, goals, loaded, people]);
+    window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
+  }, [activePersonId, activityLog, goals, loaded, people]);
 
   const totals = useMemo(() => {
     const allTasks = goals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
@@ -252,6 +290,7 @@ export default function Home() {
       },
       ...current,
     ]);
+    addActivity('pridal(a) plán', title);
     setNewGoalTitle('');
     setNewGoalDescription('');
   }
@@ -280,15 +319,22 @@ export default function Home() {
         ],
       })),
     );
+    addActivity('pridal(a) podúlohu', trimmed);
   }
 
   function toggleDone(taskId: string) {
+    const task = findTaskById(goals, taskId);
+
     setGoals((current) =>
       updateTaskTree(current, taskId, (task) => ({
         ...task,
         done: !task.done,
       })),
     );
+
+    if (task) {
+      addActivity(task.done ? 'vrátil(a) späť' : 'označil(a) ako hotové', task.title);
+    }
   }
 
   function toggleExpanded(taskId: string) {
@@ -302,8 +348,9 @@ export default function Home() {
 
   function renameTask(taskId: string, title: string) {
     const trimmed = title.trim();
+    const task = findTaskById(goals, taskId);
 
-    if (!trimmed) {
+    if (!trimmed || !task || task.title === trimmed) {
       return;
     }
 
@@ -313,21 +360,41 @@ export default function Home() {
         title: trimmed,
       })),
     );
+    addActivity('premenil(a)', `${task.title} → ${trimmed}`);
   }
 
   function changeOwner(taskId: string, ownerId: string) {
+    const task = findTaskById(goals, taskId);
+    const newOwner = people.find((person) => person.id === ownerId);
+
+    if (!task || task.ownerId === ownerId) {
+      return;
+    }
+
     setGoals((current) =>
       updateTaskTree(current, taskId, (task) => ({
         ...task,
         ownerId,
       })),
     );
+    addActivity('zmenil(a) zodpovednosť', `${task.title} → ${newOwner?.name ?? 'Foxie'}`);
+  }
+
+  function deleteTask(taskId: string) {
+    const task = findTaskById(goals, taskId);
+
+    setGoals((current) => removeTask(current, taskId));
+
+    if (task) {
+      addActivity('zmazal(a)', task.title);
+    }
   }
 
   function renamePerson(personId: string, name: string) {
     const fallbackName =
       defaultPeople.find((person) => person.id === personId)?.name ?? 'Foxie';
     const trimmed = name.trim() || fallbackName;
+    const oldName = people.find((person) => person.id === personId)?.name.trim() || fallbackName;
 
     setPeople((current) =>
       current.map((person) =>
@@ -339,6 +406,10 @@ export default function Home() {
           : person,
       ),
     );
+
+    if (oldName !== trimmed) {
+      addActivity('upravil(a) menovku', `${oldName} → ${trimmed}`);
+    }
   }
 
   function changePersonName(personId: string, name: string) {
@@ -353,6 +424,26 @@ export default function Home() {
       ),
     );
   }
+
+  function addActivity(action: string, target: string) {
+    setActivityLog((current) => [
+      {
+        id: createId(),
+        actorId: activePersonId,
+        action,
+        target,
+        createdAt: new Date().toISOString(),
+      },
+      ...current,
+    ].slice(0, 80));
+  }
+
+  const selectedActivityPerson = selectedActivityPersonId
+    ? people.find((person) => person.id === selectedActivityPersonId)
+    : null;
+  const selectedActivity = selectedActivityPerson
+    ? activityLog.filter((item) => item.actorId === selectedActivityPerson.id)
+    : [];
 
   return (
     <main className="app-shell">
@@ -378,9 +469,14 @@ export default function Home() {
               style={{ '--person-tone': person.tone } as React.CSSProperties}
             >
               <button
-                aria-label={`Prepnúť na ${person.name}`}
+                aria-label={`Zobraziť denník osoby ${person.name}`}
                 className="person-fox"
-                onClick={() => setActivePersonId(person.id)}
+                onClick={() => {
+                  setActivePersonId(person.id);
+                  setSelectedActivityPersonId((current) =>
+                    current === person.id ? null : person.id,
+                  );
+                }}
                 type="button"
               >
                 <PixelFox small flipped={person.id === 'person-2'} />
@@ -396,6 +492,44 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {selectedActivityPerson ? (
+        <section className="activity-panel" aria-label={`Denník osoby ${selectedActivityPerson.name}`}>
+          <div className="activity-heading">
+            <div>
+              <span className="label">Denník líštičky</span>
+              <h2>{selectedActivityPerson.name}</h2>
+            </div>
+            <button
+              className="text-button"
+              onClick={() => setSelectedActivityPersonId(null)}
+              type="button"
+            >
+              Zavrieť
+            </button>
+          </div>
+          {selectedActivity.length > 0 ? (
+            <ol className="activity-list">
+              {selectedActivity.slice(0, 12).map((item) => (
+                <li key={item.id}>
+                  <span>{item.action}</span>
+                  <strong>{item.target}</strong>
+                  <time dateTime={item.createdAt}>
+                    {new Date(item.createdAt).toLocaleString('sk-SK', {
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      month: '2-digit',
+                    })}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="empty-activity">Táto líštička ešte nič nezmenila.</p>
+          )}
+        </section>
+      ) : null}
 
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
@@ -437,7 +571,7 @@ export default function Home() {
             goal={goal}
             key={goal.id}
             onAddSubtask={addSubtask}
-            onDelete={(id) => setGoals((current) => removeTask(current, id))}
+            onDelete={deleteTask}
             onRename={renameTask}
             people={people}
             toggleDone={toggleDone}
