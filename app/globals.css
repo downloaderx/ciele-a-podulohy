@@ -176,6 +176,7 @@ h1 span {
 }
 
 .crossed-word {
+  margin-left: 2px;
   position: relative;
 }
 
