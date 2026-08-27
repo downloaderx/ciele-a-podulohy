@@ -30,10 +30,18 @@ type ActivityItem = {
   createdAt: string;
 };
 
+type AuthRecord = {
+  hash: string;
+  salt: string;
+};
+
 const defaultPeople: Person[] = [
   { id: 'person-1', name: 'Rini', tone: '#35d0ba' },
   { id: 'person-2', name: 'Fluffy', tone: '#4b8dff' },
 ];
+
+const authRecordsKey = 'ciele-auth-records';
+const sessionPersonKey = 'ciele-session-person';
 
 const starterGoals: Goal[] = [
   {
@@ -211,11 +219,37 @@ function normalizePeople(savedPeople: Person[]) {
   });
 }
 
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function createSalt() {
+  const bytes = new Uint8Array(16);
+
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+    return bytesToHex(bytes);
+  }
+
+  return createId();
+}
+
+async function hashPassword(password: string, salt: string) {
+  const payload = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest('SHA-256', payload);
+
+  return bytesToHex(new Uint8Array(digest));
+}
+
 export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
+  const [authRecords, setAuthRecords] = useState<Record<string, AuthRecord>>({});
+  const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -225,6 +259,9 @@ export default function Home() {
     const savedPerson = window.localStorage.getItem('ciele-active-person');
     const savedPeople = window.localStorage.getItem('ciele-people');
     const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
+    const savedAuthRecords = window.localStorage.getItem(authRecordsKey);
+    const savedSessionPerson = window.localStorage.getItem(sessionPersonKey);
+    let parsedAuthRecords: Record<string, AuthRecord> = {};
 
     if (savedGoals) {
       const parsedGoals = JSON.parse(savedGoals) as Goal[];
@@ -244,6 +281,16 @@ export default function Home() {
       setActivityLog(JSON.parse(savedActivityLog));
     }
 
+    if (savedAuthRecords) {
+      parsedAuthRecords = JSON.parse(savedAuthRecords) as Record<string, AuthRecord>;
+      setAuthRecords(parsedAuthRecords);
+    }
+
+    if (savedSessionPerson && parsedAuthRecords[savedSessionPerson]) {
+      setActivePersonId(savedSessionPerson);
+      setAuthenticated(true);
+    }
+
     setLoaded(true);
   }, []);
 
@@ -256,7 +303,8 @@ export default function Home() {
     window.localStorage.setItem('ciele-active-person', activePersonId);
     window.localStorage.setItem('ciele-people', JSON.stringify(people));
     window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
-  }, [activePersonId, activityLog, goals, loaded, people]);
+    window.localStorage.setItem(authRecordsKey, JSON.stringify(authRecords));
+  }, [activePersonId, activityLog, authRecords, goals, loaded, people]);
 
   const totals = useMemo(() => {
     const allTasks = goals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
@@ -435,7 +483,77 @@ export default function Home() {
     ].slice(0, 80));
   }
 
+  async function authenticatePerson(personId: string, password: string) {
+    const trimmed = password.trim();
+
+    if (trimmed.length < 8) {
+      return {
+        ok: false,
+        message: 'Hesielko nech má aspoň 8 znakov, nech nie je úplne ľahké uhádnuť.',
+      };
+    }
+
+    const savedRecord = authRecords[personId];
+
+    if (savedRecord) {
+      const attemptHash = await hashPassword(trimmed, savedRecord.salt);
+
+      if (attemptHash !== savedRecord.hash) {
+        return { ok: false, message: 'Toto hesielko nesedí.' };
+      }
+
+      setActivePersonId(personId);
+      setAuthenticated(true);
+      window.localStorage.setItem(sessionPersonKey, personId);
+      return { ok: true, message: '' };
+    }
+
+    const salt = createSalt();
+    const hash = await hashPassword(trimmed, salt);
+
+    setAuthRecords((current) => ({
+      ...current,
+      [personId]: { hash, salt },
+    }));
+    setActivePersonId(personId);
+    setAuthenticated(true);
+    window.localStorage.setItem(sessionPersonKey, personId);
+    addActivity('nastavil(a) hesielko', 'svoj vstup do tabule');
+
+    return { ok: true, message: '' };
+  }
+
+  function logout() {
+    window.localStorage.removeItem(sessionPersonKey);
+    setAuthenticated(false);
+  }
+
+  function requestPersonSwitch(personId: string) {
+    if (personId === activePersonId) {
+      return;
+    }
+
+    window.localStorage.removeItem(sessionPersonKey);
+    setActivePersonId(personId);
+    setAuthenticated(false);
+  }
+
   const recentActivity = activityLog.slice(0, 12);
+
+  if (!loaded) {
+    return null;
+  }
+
+  if (!authenticated) {
+    return (
+      <AuthGate
+        initialPersonId={activePersonId}
+        authRecords={authRecords}
+        onAuthenticate={authenticatePerson}
+        people={people}
+      />
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -461,9 +579,13 @@ export default function Home() {
               style={{ '--person-tone': person.tone } as React.CSSProperties}
             >
               <button
-                aria-label={`Prepnúť na osobu ${person.name}`}
+                aria-label={
+                  person.id === activePersonId
+                    ? `Prihlásená osoba ${person.name}`
+                    : `Prihlásiť sa ako ${person.name}`
+                }
                 className="person-fox"
-                onClick={() => setActivePersonId(person.id)}
+                onClick={() => requestPersonSwitch(person.id)}
                 type="button"
               >
                 <PixelFox small flipped={person.id === 'person-2'} />
@@ -477,6 +599,9 @@ export default function Home() {
               />
             </div>
           ))}
+          <button className="logout-button" onClick={logout} type="button">
+            Odhlásiť
+          </button>
         </div>
       </section>
 
@@ -532,6 +657,100 @@ export default function Home() {
             toggleExpanded={toggleExpanded}
           />
         ))}
+      </section>
+    </main>
+  );
+}
+
+function AuthGate({
+  authRecords,
+  initialPersonId,
+  onAuthenticate,
+  people,
+}: {
+  authRecords: Record<string, AuthRecord>;
+  initialPersonId: string;
+  onAuthenticate: (personId: string, password: string) => Promise<{ ok: boolean; message: string }>;
+  people: Person[];
+}) {
+  const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId);
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const selectedPerson = people.find((person) => person.id === selectedPersonId) ?? people[0];
+  const hasPassword = Boolean(authRecords[selectedPersonId]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage('');
+
+    const result = await onAuthenticate(selectedPersonId, password);
+
+    if (!result.ok) {
+      setMessage(result.message);
+      setSubmitting(false);
+      return;
+    }
+
+    setPassword('');
+    setSubmitting(false);
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-card" aria-label="Prihlásenie do tabule">
+        <div className="auth-brand">
+          <div className="fox-pair" aria-hidden="true">
+            <PixelFox />
+            <PixelFox flipped />
+          </div>
+          <div>
+            <p className="eyebrow">Little acorns Foxies</p>
+            <h1>Ktorá líštička ide plánovať?</h1>
+          </div>
+        </div>
+
+        <div className="auth-people" role="group" aria-label="Výber osoby">
+          {people.map((person) => (
+            <button
+              className={person.id === selectedPersonId ? 'auth-person active' : 'auth-person'}
+              key={person.id}
+              onClick={() => {
+                setSelectedPersonId(person.id);
+                setMessage('');
+                setPassword('');
+              }}
+              style={{ '--person-tone': person.tone } as React.CSSProperties}
+              type="button"
+            >
+              <PixelFox small flipped={person.id === 'person-2'} />
+              <span>{person.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <form className="auth-form" onSubmit={submit}>
+          <label>
+            {hasPassword ? `Hesielko pre ${selectedPerson?.name}` : `Nové hesielko pre ${selectedPerson?.name}`}
+            <input
+              autoComplete={hasPassword ? 'current-password' : 'new-password'}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder={hasPassword ? 'Napíš svoje hesielko' : 'Aspoň 8 znakov'}
+              type="password"
+              value={password}
+            />
+          </label>
+          <p>
+            {hasPassword
+              ? 'Toto zariadenie si ťa po vstupe zapamätá.'
+              : 'Hesielko si hneď zapíš do svojho note-u, appka ho potom ukáže už iba ako overenie.'}
+          </p>
+          {message ? <strong className="auth-error">{message}</strong> : null}
+          <button disabled={submitting} type="submit">
+            {hasPassword ? 'Vojsť do tabule' : 'Uložiť a vojsť'}
+          </button>
+        </form>
       </section>
     </main>
   );
