@@ -160,11 +160,8 @@ h1 {
 }
 
 h1 span {
-  color: #126fbe;
   display: inline-block;
-  font-size: 0.58em;
   margin-left: 10px;
-  vertical-align: 0.12em;
 }
 
 .team-switcher {
