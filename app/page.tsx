@@ -20,6 +20,7 @@ type Task = {
 
 type Goal = Task & {
   description: string;
+  deletedAt?: string;
 };
 
 type ActivityItem = {
@@ -170,6 +171,18 @@ function updateSingleTask(task: Task, id: string, update: (task: Task) => Task):
 }
 
 function removeTask(goals: Goal[], id: string) {
+  if (goals.some((goal) => goal.id === id)) {
+    return goals.map((goal) =>
+      goal.id === id
+        ? {
+            ...goal,
+            deletedAt: new Date().toISOString(),
+            updatedById: goal.updatedById,
+          }
+        : goal,
+    );
+  }
+
   return goals
     .filter((goal) => goal.id !== id)
     .map(
@@ -254,6 +267,15 @@ export default function Home() {
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [loaded, setLoaded] = useState(false);
 
+  const activeGoals = useMemo(
+    () => goals.filter((goal) => !goal.deletedAt),
+    [goals],
+  );
+  const trashedGoals = useMemo(
+    () => goals.filter((goal) => goal.deletedAt),
+    [goals],
+  );
+
   useEffect(() => {
     const savedGoals = window.localStorage.getItem('ciele-goals');
     const savedPerson = window.localStorage.getItem('ciele-active-person');
@@ -307,7 +329,7 @@ export default function Home() {
   }, [activePersonId, activityLog, authRecords, goals, loaded, people]);
 
   const totals = useMemo(() => {
-    const allTasks = goals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
+    const allTasks = activeGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
     const done = allTasks.filter((task) => task.done).length;
     const total = allTasks.length;
 
@@ -316,16 +338,16 @@ export default function Home() {
       total,
       percent: total === 0 ? 0 : Math.round((done / total) * 100),
     };
-  }, [goals]);
+  }, [activeGoals]);
 
   const goalSnapshots = useMemo(
     () =>
-      goals.map((goal) => ({
+      activeGoals.map((goal) => ({
         id: goal.id,
         title: goal.title,
         ...calculateProgress(goal),
       })),
-    [goals],
+    [activeGoals],
   );
 
   function addGoal(event: FormEvent<HTMLFormElement>) {
@@ -431,7 +453,30 @@ export default function Home() {
     setGoals((current) => removeTask(current, taskId));
 
     if (task) {
-      addActivity('zmazal(a)', task.title);
+      addActivity(
+        goals.some((goal) => goal.id === taskId) ? 'presunul(a) plán do koša' : 'zmazal(a)',
+        task.title,
+      );
+    }
+  }
+
+  function restoreGoal(goalId: string) {
+    const goal = goals.find((goal) => goal.id === goalId);
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              deletedAt: undefined,
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+
+    if (goal) {
+      addActivity('obnovil(a) plán z koša', goal.title);
     }
   }
 
@@ -644,8 +689,12 @@ export default function Home() {
         <RecentActivityPanel activityLog={recentActivity} people={people} />
       ) : null}
 
+      {trashedGoals.length > 0 ? (
+        <TrashPanel goals={trashedGoals} onRestore={restoreGoal} />
+      ) : null}
+
       <section className="board" aria-label="Zoznam cieľov">
-        {goals.map((goal) => (
+        {activeGoals.map((goal) => (
           <GoalPanel
             activePersonId={activePersonId}
             goal={goal}
@@ -660,6 +709,48 @@ export default function Home() {
         ))}
       </section>
     </main>
+  );
+}
+
+function TrashPanel({
+  goals,
+  onRestore,
+}: {
+  goals: Goal[];
+  onRestore: (goalId: string) => void;
+}) {
+  return (
+    <section className="trash-panel" aria-label="Kôš plánov">
+      <div className="trash-heading">
+        <div>
+          <span className="label">Kôš plánov</span>
+          <h2>Odložené bokom</h2>
+        </div>
+        <strong>{goals.length}</strong>
+      </div>
+      <div className="trash-list">
+        {goals.map((goal) => (
+          <div className="trash-item" key={goal.id}>
+            <div>
+              <span>{goal.title}</span>
+              <small>
+                Presunuté {goal.deletedAt
+                  ? new Date(goal.deletedAt).toLocaleString('sk-SK', {
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      month: '2-digit',
+                    })
+                  : 'nedávno'}
+              </small>
+            </div>
+            <button onClick={() => onRestore(goal.id)} type="button">
+              Obnoviť
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -899,6 +990,14 @@ function GoalPanel(props: GoalPanelProps) {
             {progress.done}/{progress.total}
           </span>
         </div>
+        <button
+          aria-label="Presunúť plán do koša"
+          className="icon-button danger"
+          onClick={() => props.onDelete(props.goal.id)}
+          type="button"
+        >
+          ×
+        </button>
       </div>
 
       <div className="goal-meta">

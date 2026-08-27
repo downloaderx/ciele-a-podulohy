@@ -376,7 +376,8 @@ h1 {
 .summary-panel,
 .new-goal,
 .goal-panel,
-.activity-panel {
+.activity-panel,
+.trash-panel {
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: 8px;
@@ -388,6 +389,83 @@ h1 {
   margin: 0 auto 16px;
   max-width: 1180px;
   padding: 16px;
+}
+
+.trash-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 16px;
+}
+
+.trash-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.trash-heading h2 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+}
+
+.trash-heading strong {
+  align-items: center;
+  background: #07111f;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 13px;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.trash-list {
+  display: grid;
+  gap: 8px;
+}
+
+.trash-item {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  min-height: 48px;
+  padding: 8px 10px;
+}
+
+.trash-item span {
+  color: var(--foreground);
+  display: block;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.trash-item small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.trash-item button {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 11px;
 }
 
 .activity-heading {
@@ -713,7 +791,7 @@ select:focus {
   align-items: start;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   padding: 18px 18px 0;
 }
 
@@ -907,6 +985,7 @@ select:focus {
   .new-goal,
   .task-row,
   .activity-list li,
+  .trash-item,
   .project-bars {
     grid-template-columns: 1fr;
   }

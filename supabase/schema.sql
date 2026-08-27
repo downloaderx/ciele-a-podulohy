@@ -25,6 +25,7 @@ create table public.items (
   title text not null,
   description text not null default '',
   is_done boolean not null default false,
+  deleted_at timestamptz,
   sort_order integer not null default 0,
   created_by uuid not null references auth.users(id),
   updated_by uuid references auth.users(id),
