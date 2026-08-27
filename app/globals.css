@@ -1,14 +1,17 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #f6f2ea;
-  --foreground: #191814;
-  --panel: #fffdfa;
-  --line: #ded6c8;
-  --muted: #6f6a60;
-  --accent: #0f766e;
-  --accent-2: #8b5cf6;
-  --danger: #b42318;
+  --background: #fff4f6;
+  --foreground: #35273a;
+  --panel: #fffaf2;
+  --panel-soft: #fff0d7;
+  --line: #f3bed1;
+  --muted: #8a6874;
+  --accent: #ff7a90;
+  --accent-2: #5aa8ff;
+  --sunny: #ffd166;
+  --leaf: #78d6a3;
+  --danger: #c2415d;
 }
 
 @theme inline {
@@ -24,9 +27,12 @@
 
 body {
   margin: 0;
-  background: var(--background);
+  background:
+    radial-gradient(circle at 12% 8%, rgb(255 209 102 / 38%), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgb(127 199 255 / 34%), transparent 30%),
+    linear-gradient(135deg, #fff7fb 0%, #fff2db 48%, #edf8ff 100%);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: "Trebuchet MS", "Comic Sans MS", var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 button,
@@ -49,6 +55,19 @@ button:disabled {
   padding: 28px;
 }
 
+.app-shell::before {
+  background-image:
+    linear-gradient(90deg, rgb(255 122 144 / 10%) 1px, transparent 1px),
+    linear-gradient(rgb(255 122 144 / 10%) 1px, transparent 1px);
+  background-size: 24px 24px;
+  content: "";
+  inset: 0;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+  position: fixed;
+}
+
 .topbar {
   align-items: center;
   display: flex;
@@ -56,6 +75,66 @@ button:disabled {
   justify-content: space-between;
   margin: 0 auto 18px;
   max-width: 1180px;
+  position: relative;
+}
+
+.brand-lockup {
+  align-items: center;
+  display: flex;
+  gap: 15px;
+}
+
+.fox-pair {
+  align-items: end;
+  background: #ffffff;
+  border: 2px solid #ffc1cf;
+  border-radius: 8px;
+  box-shadow: 0 10px 0 rgb(255 122 144 / 12%);
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  min-height: 62px;
+  min-width: 86px;
+  padding: 8px 10px;
+  transform: rotate(-2deg);
+}
+
+.pixel-fox {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(8, 4px);
+  grid-template-rows: repeat(8, 4px);
+  image-rendering: pixelated;
+}
+
+.pixel-fox.flipped {
+  transform: scaleX(-1) translateY(2px);
+}
+
+.pixel,
+.empty {
+  height: 4px;
+  width: 4px;
+}
+
+.pixel.o {
+  background: #b4532a;
+}
+
+.pixel.f {
+  background: #f97316;
+}
+
+.pixel.w {
+  background: #fff7ed;
+}
+
+.pixel.h {
+  background: #3b2532;
+}
+
+.pixel.b {
+  background: #2f1726;
 }
 
 .eyebrow,
@@ -70,8 +149,10 @@ button:disabled {
 
 h1 {
   font-size: clamp(30px, 4vw, 48px);
+  font-weight: 900;
   line-height: 1;
   margin: 0;
+  text-shadow: 2px 2px 0 #ffffff;
 }
 
 .team-switcher {
@@ -83,8 +164,8 @@ h1 {
 
 .person {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: rgb(255 255 255 / 82%);
+  border: 2px solid var(--line);
   border-radius: 8px;
   color: var(--foreground);
   display: flex;
@@ -108,7 +189,8 @@ h1 {
 
 .person.active {
   border-color: var(--person-tone);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--person-tone) 18%, transparent);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--person-tone) 28%, transparent);
+  transform: translateY(-2px);
 }
 
 .summary-grid {
@@ -123,9 +205,10 @@ h1 {
 .new-goal,
 .goal-panel {
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 18px 42px rgb(69 55 32 / 8%);
+  box-shadow: 0 16px 0 rgb(255 122 144 / 10%), 0 22px 42px rgb(108 74 92 / 10%);
+  position: relative;
 }
 
 .summary-panel {
@@ -134,8 +217,10 @@ h1 {
 
 .summary-panel strong {
   display: block;
-  font-size: 42px;
+  color: #d94674;
+  font-size: 46px;
   line-height: 1;
+  text-shadow: 2px 2px 0 #ffffff;
 }
 
 .summary-panel p {
@@ -144,7 +229,7 @@ h1 {
 }
 
 .meter {
-  background: #ebe4d8;
+  background: #ffe1e8;
   border-radius: 999px;
   height: 12px;
   margin-top: 14px;
@@ -152,7 +237,7 @@ h1 {
 }
 
 .meter span {
-  background: linear-gradient(90deg, var(--accent), #d97706);
+  background: linear-gradient(90deg, var(--accent), var(--sunny), var(--leaf), var(--accent-2));
   border-radius: inherit;
   display: block;
   height: 100%;
@@ -184,7 +269,7 @@ label {
 input,
 select {
   background: #ffffff;
-  border: 1px solid var(--line);
+  border: 2px solid #f4cada;
   border-radius: 7px;
   color: var(--foreground);
   min-height: 40px;
@@ -195,17 +280,19 @@ select {
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(15 118 110 / 14%);
+  box-shadow: 0 0 0 4px rgb(255 122 144 / 18%);
 }
 
 .new-goal button,
 .add-task button {
-  background: var(--foreground);
-  border: 1px solid var(--foreground);
+  background: linear-gradient(135deg, #ff7a90, #ff9f68);
+  border: 2px solid #d94674;
   border-radius: 7px;
   color: #ffffff;
+  font-weight: 800;
   min-height: 40px;
   padding: 0 14px;
+  text-shadow: 1px 1px 0 rgb(112 33 62 / 30%);
 }
 
 .board {
@@ -235,8 +322,9 @@ select:focus {
 .title-input {
   background: transparent;
   border-color: transparent;
-  font-size: 24px;
-  font-weight: 800;
+  color: #4b294f;
+  font-size: 25px;
+  font-weight: 900;
   min-height: 34px;
   padding: 0;
   width: 100%;
@@ -250,6 +338,7 @@ select:focus {
 }
 
 .progress-badge strong {
+  color: #e05279;
   font-size: 26px;
   line-height: 1;
 }
@@ -290,7 +379,7 @@ select:focus {
 .icon-button {
   align-items: center;
   background: #ffffff;
-  border: 1px solid var(--line);
+  border: 2px solid #f4cada;
   border-radius: 8px;
   display: inline-flex;
   font-size: 22px;
@@ -327,8 +416,8 @@ select:focus {
 
 .task-row {
   align-items: center;
-  background: #f8f5ef;
-  border: 1px solid #e7ded0;
+  background: linear-gradient(135deg, #fff9ef, #fff2f6);
+  border: 2px solid #f6cfdf;
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -352,9 +441,10 @@ select:focus {
 
 .text-button {
   background: #ffffff;
-  border: 1px solid var(--line);
+  border: 2px solid #f4cada;
   border-radius: 7px;
   color: var(--foreground);
+  font-weight: 800;
   min-height: 30px;
   padding: 0 10px;
   white-space: nowrap;

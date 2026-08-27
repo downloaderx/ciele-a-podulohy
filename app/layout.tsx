@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Ciele a podúlohy',
-  description: 'Spoločný priestor pre dvojicu ľudí, viac cieľov a vnorené podúlohy s priebežným progresom.',
+  title: 'Dvaja a plány',
+  description: 'Cute spoločný plánovač pre pár, viac cieľov a vnorené podúlohy s priebežným progresom.',
 };
 
 export default function RootLayout({

@@ -22,15 +22,15 @@ type Goal = Task & {
 };
 
 const people: Person[] = [
-  { id: 'person-1', name: 'Mária', tone: '#0f766e' },
-  { id: 'person-2', name: 'Tomáš', tone: '#7c3aed' },
+  { id: 'person-1', name: 'Ja', tone: '#ff7a90' },
+  { id: 'person-2', name: 'Ty', tone: '#7fc7ff' },
 ];
 
 const starterGoals: Goal[] = [
   {
     id: 'goal-launch',
-    title: 'Spustiť klientsky portál',
-    description: 'Hlavný cieľ s návrhom, obsahom a technickou prípravou.',
+    title: 'Naplánovať spoločný víkend',
+    description: 'Malý spoločný cieľ s výletom, oddychom a dobrým jedlom.',
     ownerId: 'person-1',
     done: false,
     expanded: true,
@@ -44,7 +44,7 @@ const starterGoals: Goal[] = [
         children: [
           {
             id: 'task-interviews',
-            title: 'Zapísať potreby oboch používateľov',
+            title: 'Vybrať miesto, kam sa obaja tešíme',
             ownerId: 'person-1',
             done: true,
             expanded: false,
@@ -52,7 +52,7 @@ const starterGoals: Goal[] = [
           },
           {
             id: 'task-risks',
-            title: 'Označiť najväčšie riziká',
+            title: 'Pozrieť cestu a počasie',
             ownerId: 'person-2',
             done: false,
             expanded: false,
@@ -62,7 +62,7 @@ const starterGoals: Goal[] = [
       },
       {
         id: 'task-content',
-        title: 'Pripraviť ukážkové projekty',
+        title: 'Zbaliť deku, termosku a niečo sladké',
         ownerId: 'person-2',
         done: false,
         expanded: false,
@@ -72,15 +72,15 @@ const starterGoals: Goal[] = [
   },
   {
     id: 'goal-marketing',
-    title: 'Dokončiť jesennú kampaň',
-    description: 'Menší cieľ na koordináciu textov, kreatívy a kontroly.',
+    title: 'Zútulniť domácnosť',
+    description: 'Veci, ktoré spravia spoločný priestor krajší a pokojnejší.',
     ownerId: 'person-2',
     done: false,
     expanded: true,
     children: [
       {
         id: 'task-copy',
-        title: 'Napísať texty k emailom',
+        title: 'Vybrať svetielka alebo lampu',
         ownerId: 'person-2',
         done: false,
         expanded: false,
@@ -88,7 +88,7 @@ const starterGoals: Goal[] = [
       },
       {
         id: 'task-review',
-        title: 'Schválenie finálnej verzie',
+        title: 'Dohodnúť, čo upratať ako prvé',
         ownerId: 'person-1',
         done: false,
         expanded: false,
@@ -97,6 +97,16 @@ const starterGoals: Goal[] = [
     ],
   },
 ];
+
+function isOldStarterData(goals: Goal[]) {
+  return (
+    goals.length === 2 &&
+    goals[0]?.id === 'goal-launch' &&
+    goals[0]?.title === 'Spustiť klientsky portál' &&
+    goals[1]?.id === 'goal-marketing' &&
+    goals[1]?.title === 'Dokončiť jesennú kampaň'
+  );
+}
 
 function createId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -175,7 +185,8 @@ export default function Home() {
     const savedPerson = window.localStorage.getItem('ciele-active-person');
 
     if (savedGoals) {
-      setGoals(JSON.parse(savedGoals));
+      const parsedGoals = JSON.parse(savedGoals) as Goal[];
+      setGoals(isOldStarterData(parsedGoals) ? starterGoals : parsedGoals);
     }
 
     if (savedPerson && people.some((person) => person.id === savedPerson)) {
@@ -218,7 +229,7 @@ export default function Home() {
       {
         id: createId(),
         title,
-        description: newGoalDescription.trim() || 'Bez popisu.',
+        description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
         ownerId: activePersonId,
         done: false,
         expanded: true,
@@ -301,9 +312,15 @@ export default function Home() {
   return (
     <main className="app-shell">
       <section className="topbar" aria-label="Prehľad tímu">
-        <div>
-          <p className="eyebrow">Spoločné ciele</p>
-          <h1>Ciele a podúlohy</h1>
+        <div className="brand-lockup">
+          <div className="fox-pair" aria-hidden="true">
+            <PixelFox />
+            <PixelFox flipped />
+          </div>
+          <div>
+            <p className="eyebrow">Naše malé dobrodružstvá</p>
+            <h1>Dvaja a plány</h1>
+          </div>
         </div>
         <div className="team-switcher" aria-label="Aktívny používateľ">
           {people.map((person) => (
@@ -329,27 +346,27 @@ export default function Home() {
             <span style={{ width: `${totals.percent}%` }} />
           </div>
           <p>
-            Hotovo {totals.done} z {totals.total} položiek naprieč všetkými cieľmi.
+            Hotovo {totals.done} z {totals.total} drobných krokov vo vašich spoločných plánoch.
           </p>
         </div>
         <form className="new-goal" onSubmit={addGoal}>
           <label>
-            Nový cieľ
+            Nový spoločný plán
             <input
               onChange={(event) => setNewGoalTitle(event.target.value)}
-              placeholder="Napr. pripraviť onboarding"
+              placeholder="Napr. spraviť filmový večer"
               value={newGoalTitle}
             />
           </label>
           <label>
-            Popis
+            Malá poznámka
             <input
               onChange={(event) => setNewGoalDescription(event.target.value)}
-              placeholder="Krátky kontext alebo výsledok"
+              placeholder="Čo by malo byť hotové alebo milé"
               value={newGoalDescription}
             />
           </label>
-          <button type="submit">Pridať cieľ</button>
+          <button type="submit">Pridať plán</button>
         </form>
       </section>
 
@@ -422,7 +439,7 @@ function GoalPanel(props: GoalPanelProps) {
             onChange={() => props.toggleDone(props.goal.id)}
             type="checkbox"
           />
-          Cieľ označený ako hotový
+          Plán označený ako hotový
         </label>
         <OwnerSelect
           onChange={(ownerId) => props.changeOwner(props.goal.id, ownerId)}
@@ -451,6 +468,32 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function PixelFox({ flipped = false }: { flipped?: boolean }) {
+  const pixels = [
+    'O......O',
+    'OO....OO',
+    'OFO..OFO',
+    'OFFOOFFO',
+    '.FOOOOF.',
+    '.FWHHWF.',
+    '..FBBF..',
+    '..FWWF..',
+  ];
+
+  return (
+    <span className={flipped ? 'pixel-fox flipped' : 'pixel-fox'} aria-hidden="true">
+      {pixels.flatMap((row, rowIndex) =>
+        row.split('').map((pixel, columnIndex) => (
+          <span
+            className={pixel === '.' ? 'empty' : `pixel ${pixel.toLowerCase()}`}
+            key={`${rowIndex}-${columnIndex}`}
+          />
+        )),
+      )}
+    </span>
   );
 }
 
