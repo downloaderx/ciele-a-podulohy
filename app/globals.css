@@ -33,46 +33,30 @@ body {
     linear-gradient(135deg, #f7fcff 0%, #dff0ff 48%, #dff7f2 100%);
   color: var(--foreground);
   font-family: "Trebuchet MS", "Comic Sans MS", var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  position: relative;
 }
 
 body::before {
   background-image:
-    linear-gradient(rgb(7 17 31 / 34%), rgb(7 17 31 / 34%)),
-    linear-gradient(rgb(7 17 31 / 34%), rgb(7 17 31 / 34%)),
-    linear-gradient(rgb(75 141 255 / 48%), rgb(75 141 255 / 48%)),
-    linear-gradient(rgb(75 141 255 / 48%), rgb(75 141 255 / 48%)),
-    linear-gradient(rgb(75 141 255 / 48%), rgb(75 141 255 / 48%)),
-    linear-gradient(rgb(139 215 255 / 58%), rgb(139 215 255 / 58%)),
-    linear-gradient(rgb(139 215 255 / 58%), rgb(139 215 255 / 58%)),
-    linear-gradient(rgb(53 208 186 / 46%), rgb(53 208 186 / 46%)),
-    linear-gradient(rgb(53 208 186 / 46%), rgb(53 208 186 / 46%));
-  background-position:
-    24px 18px,
-    30px 18px,
-    18px 24px,
-    24px 24px,
-    30px 24px,
-    18px 30px,
-    24px 30px,
-    30px 30px,
-    24px 36px;
+    radial-gradient(circle at 23px 12px, rgb(7 17 31 / 42%) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 20px 18px, rgb(7 17 31 / 34%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 26px 18px, rgb(7 17 31 / 34%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 17px 25px, rgb(75 141 255 / 50%) 0 4px, transparent 4.5px),
+    radial-gradient(circle at 23px 28px, rgb(139 215 255 / 58%) 0 6px, transparent 6.5px),
+    radial-gradient(circle at 29px 25px, rgb(53 208 186 / 48%) 0 4px, transparent 4.5px),
+    radial-gradient(circle at 69px 44px, rgb(7 17 31 / 30%) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 66px 50px, rgb(18 111 190 / 38%) 0 4px, transparent 4.5px),
+    radial-gradient(circle at 72px 53px, rgb(53 208 186 / 44%) 0 5px, transparent 5.5px);
   background-repeat: repeat;
-  background-size:
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px,
-    96px 84px;
+  background-size: 112px 92px;
   content: "";
   inset: 0;
   mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
-  opacity: 0.42;
+  opacity: 0.72;
   pointer-events: none;
   position: fixed;
+  z-index: 0;
 }
 
 button,
@@ -94,6 +78,7 @@ button:disabled {
   min-height: 100vh;
   padding: 28px;
   position: relative;
+  z-index: 1;
 }
 
 .app-shell::before {
@@ -304,6 +289,7 @@ h1 {
   min-height: 100vh;
   padding: 24px;
   position: relative;
+  z-index: 1;
 }
 
 .auth-shell::before {
