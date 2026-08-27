@@ -107,6 +107,11 @@ button:disabled {
   image-rendering: pixelated;
 }
 
+.pixel-fox.small {
+  grid-template-columns: repeat(8, 3px);
+  grid-template-rows: repeat(8, 3px);
+}
+
 .pixel-fox.flipped {
   transform: scaleX(-1) translateY(2px);
 }
@@ -115,6 +120,12 @@ button:disabled {
 .empty {
   height: 4px;
   width: 4px;
+}
+
+.pixel-fox.small .pixel,
+.pixel-fox.small .empty {
+  height: 3px;
+  width: 3px;
 }
 
 .pixel.o {
@@ -188,7 +199,7 @@ h1 span {
   justify-content: flex-end;
 }
 
-.person {
+.person-card {
   align-items: center;
   background: rgb(255 255 255 / 82%);
   border: 2px solid #7eb6d6;
@@ -197,23 +208,33 @@ h1 span {
   display: flex;
   gap: 8px;
   min-height: 40px;
-  padding: 7px 12px 7px 8px;
+  padding: 6px 9px 6px 6px;
 }
 
-.person span {
+.person-fox {
   align-items: center;
-  background: var(--person-tone);
-  border-radius: 50%;
-  color: #ffffff;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  height: 26px;
+  background: color-mix(in srgb, var(--person-tone) 18%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--person-tone) 65%, #07111f);
+  border-radius: 7px;
+  display: flex;
+  height: 34px;
   justify-content: center;
-  width: 26px;
+  padding: 0;
+  width: 34px;
 }
 
-.person.active {
+.person-name {
+  background: transparent;
+  border-color: transparent;
+  color: var(--foreground);
+  font-weight: 900;
+  min-height: 32px;
+  min-width: 74px;
+  padding: 4px 2px;
+  width: 88px;
+}
+
+.person-card.active {
   border-color: var(--person-tone);
   box-shadow: 0 5px 0 color-mix(in srgb, var(--person-tone) 28%, transparent);
   transform: translateY(-2px);

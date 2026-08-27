@@ -21,9 +21,9 @@ type Goal = Task & {
   description: string;
 };
 
-const people: Person[] = [
-  { id: 'person-1', name: 'Ja', tone: '#35d0ba' },
-  { id: 'person-2', name: 'Ty', tone: '#4b8dff' },
+const defaultPeople: Person[] = [
+  { id: 'person-1', name: 'Rini', tone: '#35d0ba' },
+  { id: 'person-2', name: 'Fluffy', tone: '#4b8dff' },
 ];
 
 const starterGoals: Goal[] = [
@@ -175,7 +175,8 @@ function removeFromChildren(tasks: Task[], id: string): Task[] {
 
 export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
-  const [activePersonId, setActivePersonId] = useState(people[0].id);
+  const [people, setPeople] = useState<Person[]>(defaultPeople);
+  const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -183,13 +184,26 @@ export default function Home() {
   useEffect(() => {
     const savedGoals = window.localStorage.getItem('ciele-goals');
     const savedPerson = window.localStorage.getItem('ciele-active-person');
+    const savedPeople = window.localStorage.getItem('ciele-people');
 
     if (savedGoals) {
       const parsedGoals = JSON.parse(savedGoals) as Goal[];
       setGoals(isOldStarterData(parsedGoals) ? starterGoals : parsedGoals);
     }
 
-    if (savedPerson && people.some((person) => person.id === savedPerson)) {
+    if (savedPeople) {
+      const parsedPeople = JSON.parse(savedPeople) as Person[];
+      setPeople(
+        defaultPeople.map((defaultPerson) => ({
+          ...defaultPerson,
+          name:
+            parsedPeople.find((person) => person.id === defaultPerson.id)?.name ||
+            defaultPerson.name,
+        })),
+      );
+    }
+
+    if (savedPerson && defaultPeople.some((person) => person.id === savedPerson)) {
       setActivePersonId(savedPerson);
     }
 
@@ -203,7 +217,8 @@ export default function Home() {
 
     window.localStorage.setItem('ciele-goals', JSON.stringify(goals));
     window.localStorage.setItem('ciele-active-person', activePersonId);
-  }, [activePersonId, goals, loaded]);
+    window.localStorage.setItem('ciele-people', JSON.stringify(people));
+  }, [activePersonId, goals, loaded, people]);
 
   const totals = useMemo(() => {
     const allTasks = goals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
@@ -309,6 +324,36 @@ export default function Home() {
     );
   }
 
+  function renamePerson(personId: string, name: string) {
+    const fallbackName =
+      defaultPeople.find((person) => person.id === personId)?.name ?? 'Foxie';
+    const trimmed = name.trim() || fallbackName;
+
+    setPeople((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? {
+              ...person,
+              name: trimmed,
+            }
+          : person,
+      ),
+    );
+  }
+
+  function changePersonName(personId: string, name: string) {
+    setPeople((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? {
+              ...person,
+              name,
+            }
+          : person,
+      ),
+    );
+  }
+
   return (
     <main className="app-shell">
       <section className="topbar" aria-label="Prehľad tímu">
@@ -327,16 +372,27 @@ export default function Home() {
         </div>
         <div className="team-switcher" aria-label="Aktívny používateľ">
           {people.map((person) => (
-            <button
+            <div
               key={person.id}
-              className={person.id === activePersonId ? 'person active' : 'person'}
-              onClick={() => setActivePersonId(person.id)}
+              className={person.id === activePersonId ? 'person-card active' : 'person-card'}
               style={{ '--person-tone': person.tone } as React.CSSProperties}
-              type="button"
             >
-              <span>{person.name.slice(0, 1)}</span>
-              {person.name}
-            </button>
+              <button
+                aria-label={`Prepnúť na ${person.name}`}
+                className="person-fox"
+                onClick={() => setActivePersonId(person.id)}
+                type="button"
+              >
+                <PixelFox small flipped={person.id === 'person-2'} />
+              </button>
+              <input
+                aria-label={`Meno osoby ${person.name}`}
+                className="person-name"
+                onChange={(event) => changePersonName(person.id, event.target.value)}
+                onBlur={(event) => renamePerson(person.id, event.target.value)}
+                value={person.name}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -383,6 +439,7 @@ export default function Home() {
             onAddSubtask={addSubtask}
             onDelete={(id) => setGoals((current) => removeTask(current, id))}
             onRename={renameTask}
+            people={people}
             toggleDone={toggleDone}
             toggleExpanded={toggleExpanded}
           />
@@ -399,13 +456,14 @@ type GoalPanelProps = {
   onAddSubtask: (parentId: string, title: string) => void;
   onDelete: (taskId: string) => void;
   onRename: (taskId: string, title: string) => void;
+  people: Person[];
   toggleDone: (taskId: string) => void;
   toggleExpanded: (taskId: string) => void;
 };
 
 function GoalPanel(props: GoalPanelProps) {
   const progress = calculateProgress(props.goal);
-  const owner = people.find((person) => person.id === props.goal.ownerId) ?? people[0];
+  const owner = props.people.find((person) => person.id === props.goal.ownerId) ?? props.people[0];
 
   return (
     <article className="goal-panel">
@@ -447,6 +505,7 @@ function GoalPanel(props: GoalPanelProps) {
         <OwnerSelect
           onChange={(ownerId) => props.changeOwner(props.goal.id, ownerId)}
           ownerId={owner.id}
+          people={props.people}
         />
       </div>
 
@@ -474,7 +533,7 @@ function GoalPanel(props: GoalPanelProps) {
   );
 }
 
-function PixelFox({ flipped = false }: { flipped?: boolean }) {
+function PixelFox({ flipped = false, small = false }: { flipped?: boolean; small?: boolean }) {
   const pixels = [
     'K......K',
     'KO....OK',
@@ -487,7 +546,14 @@ function PixelFox({ flipped = false }: { flipped?: boolean }) {
   ];
 
   return (
-    <span className={flipped ? 'pixel-fox flipped' : 'pixel-fox'} aria-hidden="true">
+    <span
+      className={[
+        'pixel-fox',
+        flipped ? 'flipped' : '',
+        small ? 'small' : '',
+      ].join(' ')}
+      aria-hidden="true"
+    >
       {pixels.flatMap((row, rowIndex) =>
         row.split('').map((pixel, columnIndex) => (
           <span
@@ -538,6 +604,7 @@ function TaskRow(props: TaskRowProps) {
         <OwnerSelect
           onChange={(ownerId) => props.changeOwner(props.task.id, ownerId)}
           ownerId={props.task.ownerId}
+          people={props.people}
         />
         <span className="mini-progress">
           {progress.percent}% · {progress.done}/{progress.total}
@@ -584,9 +651,11 @@ function TaskRow(props: TaskRowProps) {
 function OwnerSelect({
   onChange,
   ownerId,
+  people,
 }: {
   onChange: (ownerId: string) => void;
   ownerId: string;
+  people: Person[];
 }) {
   return (
     <select
