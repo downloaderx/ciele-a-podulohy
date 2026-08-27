@@ -320,8 +320,8 @@ export default function Home() {
           <div>
             <p className="eyebrow">Virtuálna tabuľa plánov</p>
             <h1>
-              Little acorns...
-              <span>(Foxies)</span>
+              Little <span className="crossed-word">acorns</span>
+              <span>Foxies</span>
             </h1>
           </div>
         </div>

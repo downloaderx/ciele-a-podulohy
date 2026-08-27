@@ -164,6 +164,23 @@ h1 span {
   margin-left: 10px;
 }
 
+.crossed-word {
+  position: relative;
+}
+
+.crossed-word::after {
+  background: #35d0ba;
+  border-radius: 999px;
+  box-shadow: 0 2px 0 rgb(255 255 255 / 70%);
+  content: "";
+  height: 0.12em;
+  left: -0.04em;
+  position: absolute;
+  right: -0.04em;
+  top: 54%;
+  transform: rotate(-6deg);
+}
+
 .team-switcher {
   align-items: center;
   display: flex;
