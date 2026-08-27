@@ -485,6 +485,18 @@ select:focus {
   padding: 6px 28px 6px 10px;
 }
 
+.item-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 132px;
+  white-space: nowrap;
+}
+
+.item-meta strong {
+  color: #126fbe;
+}
+
 .icon-button {
   align-items: center;
   background: #ffffff;

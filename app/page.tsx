@@ -12,6 +12,7 @@ type Task = {
   id: string;
   title: string;
   ownerId: string;
+  updatedById?: string;
   done: boolean;
   expanded: boolean;
   children: Task[];
@@ -284,6 +285,7 @@ export default function Home() {
         title,
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
         ownerId: activePersonId,
+        updatedById: activePersonId,
         done: false,
         expanded: true,
         children: [],
@@ -312,6 +314,7 @@ export default function Home() {
             id: createId(),
             title: trimmed,
             ownerId: activePersonId,
+            updatedById: activePersonId,
             done: false,
             expanded: true,
             children: [],
@@ -329,6 +332,7 @@ export default function Home() {
       updateTaskTree(current, taskId, (task) => ({
         ...task,
         done: !task.done,
+        updatedById: activePersonId,
       })),
     );
 
@@ -358,26 +362,10 @@ export default function Home() {
       updateTaskTree(current, taskId, (task) => ({
         ...task,
         title: trimmed,
+        updatedById: activePersonId,
       })),
     );
     addActivity('premenil(a)', `${task.title} → ${trimmed}`);
-  }
-
-  function changeOwner(taskId: string, ownerId: string) {
-    const task = findTaskById(goals, taskId);
-    const newOwner = people.find((person) => person.id === ownerId);
-
-    if (!task || task.ownerId === ownerId) {
-      return;
-    }
-
-    setGoals((current) =>
-      updateTaskTree(current, taskId, (task) => ({
-        ...task,
-        ownerId,
-      })),
-    );
-    addActivity('zmenil(a) zodpovednosť', `${task.title} → ${newOwner?.name ?? 'Foxie'}`);
   }
 
   function deleteTask(taskId: string) {
@@ -567,7 +555,6 @@ export default function Home() {
         {goals.map((goal) => (
           <GoalPanel
             activePersonId={activePersonId}
-            changeOwner={changeOwner}
             goal={goal}
             key={goal.id}
             onAddSubtask={addSubtask}
@@ -585,7 +572,6 @@ export default function Home() {
 
 type GoalPanelProps = {
   activePersonId: string;
-  changeOwner: (taskId: string, ownerId: string) => void;
   goal: Goal;
   onAddSubtask: (parentId: string, title: string) => void;
   onDelete: (taskId: string) => void;
@@ -597,7 +583,6 @@ type GoalPanelProps = {
 
 function GoalPanel(props: GoalPanelProps) {
   const progress = calculateProgress(props.goal);
-  const owner = props.people.find((person) => person.id === props.goal.ownerId) ?? props.people[0];
 
   return (
     <article className="goal-panel">
@@ -636,10 +621,10 @@ function GoalPanel(props: GoalPanelProps) {
           />
           Plán označený ako hotový
         </label>
-        <OwnerSelect
-          onChange={(ownerId) => props.changeOwner(props.goal.id, ownerId)}
-          ownerId={owner.id}
+        <ItemMeta
+          createdById={props.goal.ownerId}
           people={props.people}
+          updatedById={props.goal.updatedById}
         />
       </div>
 
@@ -735,10 +720,10 @@ function TaskRow(props: TaskRowProps) {
           defaultValue={props.task.title}
           onBlur={(event) => props.onRename(props.task.id, event.target.value)}
         />
-        <OwnerSelect
-          onChange={(ownerId) => props.changeOwner(props.task.id, ownerId)}
-          ownerId={props.task.ownerId}
+        <ItemMeta
+          createdById={props.task.ownerId}
           people={props.people}
+          updatedById={props.task.updatedById}
         />
         <span className="mini-progress">
           {progress.percent}% · {progress.done}/{progress.total}
@@ -782,28 +767,30 @@ function TaskRow(props: TaskRowProps) {
   );
 }
 
-function OwnerSelect({
-  onChange,
-  ownerId,
+function ItemMeta({
+  createdById,
   people,
+  updatedById,
 }: {
-  onChange: (ownerId: string) => void;
-  ownerId: string;
+  createdById: string;
   people: Person[];
+  updatedById?: string;
 }) {
+  const creator = people.find((person) => person.id === createdById)?.name ?? 'Foxie';
+  const editor = updatedById
+    ? people.find((person) => person.id === updatedById)?.name ?? 'Foxie'
+    : null;
+
   return (
-    <select
-      aria-label="Zodpovedná osoba"
-      className="owner-select"
-      onChange={(event) => onChange(event.target.value)}
-      value={ownerId}
-    >
-      {people.map((person) => (
-        <option key={person.id} value={person.id}>
-          {person.name}
-        </option>
-      ))}
-    </select>
+    <span className="item-meta">
+      pridal(a) <strong>{creator}</strong>
+      {editor && editor !== creator ? (
+        <>
+          {' '}
+          · menil(a) <strong>{editor}</strong>
+        </>
+      ) : null}
+    </span>
   );
 }
 
