@@ -439,9 +439,7 @@ export default function Home() {
   const selectedActivityPerson = selectedActivityPersonId
     ? people.find((person) => person.id === selectedActivityPersonId)
     : null;
-  const selectedActivity = selectedActivityPerson
-    ? activityLog.filter((item) => item.actorId === selectedActivityPerson.id)
-    : [];
+  const recentActivity = activityLog.slice(0, 12);
 
   return (
     <main className="app-shell">
@@ -492,11 +490,14 @@ export default function Home() {
       </section>
 
       {selectedActivityPerson ? (
-        <section className="activity-panel" aria-label={`Denník osoby ${selectedActivityPerson.name}`}>
+        <section className="activity-panel" aria-label="Posledné zmeny na tabuli">
           <div className="activity-heading">
             <div>
-              <span className="label">Denník líštičky</span>
-              <h2>{selectedActivityPerson.name}</h2>
+              <span className="label">Posledné zmeny</span>
+              <h2>Čo sa pohlo na tabuli</h2>
+              <p>
+                Otvorené cez {selectedActivityPerson.name}, ale ukazuje spoločnú históriu.
+              </p>
             </div>
             <button
               className="text-button"
@@ -506,10 +507,20 @@ export default function Home() {
               Zavrieť
             </button>
           </div>
-          {selectedActivity.length > 0 ? (
+          {recentActivity.length > 0 ? (
             <ol className="activity-list">
-              {selectedActivity.slice(0, 12).map((item) => (
-                <li key={item.id}>
+              {recentActivity.map((item) => {
+                const actor = people.find((person) => person.id === item.actorId);
+
+                return (
+                <li
+                  key={item.id}
+                  style={{ '--activity-tone': actor?.tone ?? '#35d0ba' } as React.CSSProperties}
+                >
+                  <span className="activity-actor">
+                    <PixelFox small flipped={actor?.id === 'person-2'} />
+                    {actor?.name ?? 'Foxie'}
+                  </span>
                   <span>{item.action}</span>
                   <strong>{item.target}</strong>
                   <time dateTime={item.createdAt}>
@@ -521,10 +532,14 @@ export default function Home() {
                     })}
                   </time>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           ) : (
-            <p className="empty-activity">Táto líštička ešte nič nezmenila.</p>
+            <p className="empty-activity">
+              Tu sa začnú ukladať posledné zmeny: kto niečo pridal, premenoval,
+              označil ako hotové alebo zmazal.
+            </p>
           )}
         </section>
       ) : null}

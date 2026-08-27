@@ -279,6 +279,13 @@ h1 span {
   margin: 0;
 }
 
+.activity-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 6px 0 0;
+}
+
 .activity-list {
   display: grid;
   gap: 8px;
@@ -294,9 +301,23 @@ h1 span {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: auto minmax(140px, 1fr) auto;
+  grid-template-columns: minmax(112px, auto) auto minmax(140px, 1fr) auto;
   min-height: 42px;
   padding: 8px 10px;
+}
+
+.activity-actor {
+  align-items: center;
+  background: color-mix(in srgb, var(--activity-tone) 16%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--activity-tone) 55%, #b5d6e9);
+  border-radius: 7px;
+  color: var(--foreground);
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 2px 8px 2px 5px;
+  white-space: nowrap;
 }
 
 .activity-list span,
