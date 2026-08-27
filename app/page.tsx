@@ -22,8 +22,8 @@ type Goal = Task & {
 };
 
 const people: Person[] = [
-  { id: 'person-1', name: 'Ja', tone: '#ff7a90' },
-  { id: 'person-2', name: 'Ty', tone: '#7fc7ff' },
+  { id: 'person-1', name: 'Ja', tone: '#35d0ba' },
+  { id: 'person-2', name: 'Ty', tone: '#4b8dff' },
 ];
 
 const starterGoals: Goal[] = [
@@ -318,7 +318,7 @@ export default function Home() {
             <PixelFox flipped />
           </div>
           <div>
-            <p className="eyebrow">Naše malé dobrodružstvá</p>
+            <p className="eyebrow">Tichý plánovač pre dvoch</p>
             <h1>Dvaja a plány</h1>
           </div>
         </div>

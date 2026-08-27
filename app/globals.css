@@ -1,17 +1,17 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #fff4f6;
-  --foreground: #35273a;
-  --panel: #fffaf2;
-  --panel-soft: #fff0d7;
-  --line: #f3bed1;
-  --muted: #8a6874;
-  --accent: #ff7a90;
-  --accent-2: #5aa8ff;
-  --sunny: #ffd166;
-  --leaf: #78d6a3;
-  --danger: #c2415d;
+  --background: #eaf6ff;
+  --foreground: #061826;
+  --panel: #fbfdff;
+  --panel-soft: #dff7f2;
+  --line: #97c4df;
+  --muted: #527082;
+  --accent: #35d0ba;
+  --accent-2: #4b8dff;
+  --ink: #07111f;
+  --cloud: #ffffff;
+  --danger: #b32645;
 }
 
 @theme inline {
@@ -28,9 +28,9 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 12% 8%, rgb(255 209 102 / 38%), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgb(127 199 255 / 34%), transparent 30%),
-    linear-gradient(135deg, #fff7fb 0%, #fff2db 48%, #edf8ff 100%);
+    radial-gradient(circle at 15% 10%, rgb(53 208 186 / 26%), transparent 26%),
+    radial-gradient(circle at 84% 12%, rgb(75 141 255 / 22%), transparent 30%),
+    linear-gradient(135deg, #f7fcff 0%, #dff0ff 48%, #dff7f2 100%);
   color: var(--foreground);
   font-family: "Trebuchet MS", "Comic Sans MS", var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
@@ -57,8 +57,8 @@ button:disabled {
 
 .app-shell::before {
   background-image:
-    linear-gradient(90deg, rgb(255 122 144 / 10%) 1px, transparent 1px),
-    linear-gradient(rgb(255 122 144 / 10%) 1px, transparent 1px);
+    linear-gradient(90deg, rgb(7 17 31 / 8%) 1px, transparent 1px),
+    linear-gradient(rgb(7 17 31 / 8%) 1px, transparent 1px);
   background-size: 24px 24px;
   content: "";
   inset: 0;
@@ -86,10 +86,10 @@ button:disabled {
 
 .fox-pair {
   align-items: end;
-  background: #ffffff;
-  border: 2px solid #ffc1cf;
+  background: #f7fcff;
+  border: 2px solid #081827;
   border-radius: 8px;
-  box-shadow: 0 10px 0 rgb(255 122 144 / 12%);
+  box-shadow: 0 9px 0 rgb(53 208 186 / 24%);
   display: flex;
   gap: 2px;
   justify-content: center;
@@ -118,23 +118,23 @@ button:disabled {
 }
 
 .pixel.o {
-  background: #b4532a;
+  background: #07111f;
 }
 
 .pixel.f {
-  background: #f97316;
+  background: #f7fcff;
 }
 
 .pixel.w {
-  background: #fff7ed;
+  background: #c8f7ef;
 }
 
 .pixel.h {
-  background: #3b2532;
+  background: #07111f;
 }
 
 .pixel.b {
-  background: #2f1726;
+  background: #35d0ba;
 }
 
 .eyebrow,
@@ -152,7 +152,7 @@ h1 {
   font-weight: 900;
   line-height: 1;
   margin: 0;
-  text-shadow: 2px 2px 0 #ffffff;
+  text-shadow: 2px 2px 0 #ffffff, 4px 4px 0 rgb(53 208 186 / 22%);
 }
 
 .team-switcher {
@@ -165,7 +165,7 @@ h1 {
 .person {
   align-items: center;
   background: rgb(255 255 255 / 82%);
-  border: 2px solid var(--line);
+  border: 2px solid #7eb6d6;
   border-radius: 8px;
   color: var(--foreground);
   display: flex;
@@ -207,7 +207,7 @@ h1 {
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 16px 0 rgb(255 122 144 / 10%), 0 22px 42px rgb(108 74 92 / 10%);
+  box-shadow: 0 14px 0 rgb(7 17 31 / 7%), 0 22px 42px rgb(27 83 120 / 12%);
   position: relative;
 }
 
@@ -217,7 +217,7 @@ h1 {
 
 .summary-panel strong {
   display: block;
-  color: #d94674;
+  color: #126fbe;
   font-size: 46px;
   line-height: 1;
   text-shadow: 2px 2px 0 #ffffff;
@@ -229,7 +229,7 @@ h1 {
 }
 
 .meter {
-  background: #ffe1e8;
+  background: #d6eaff;
   border-radius: 999px;
   height: 12px;
   margin-top: 14px;
@@ -237,7 +237,7 @@ h1 {
 }
 
 .meter span {
-  background: linear-gradient(90deg, var(--accent), var(--sunny), var(--leaf), var(--accent-2));
+  background: linear-gradient(90deg, #07111f 0%, var(--accent) 44%, var(--accent-2) 100%);
   border-radius: inherit;
   display: block;
   height: 100%;
@@ -269,7 +269,7 @@ label {
 input,
 select {
   background: #ffffff;
-  border: 2px solid #f4cada;
+  border: 2px solid #b5d6e9;
   border-radius: 7px;
   color: var(--foreground);
   min-height: 40px;
@@ -280,19 +280,19 @@ select {
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgb(255 122 144 / 18%);
+  box-shadow: 0 0 0 4px rgb(53 208 186 / 18%);
 }
 
 .new-goal button,
 .add-task button {
-  background: linear-gradient(135deg, #ff7a90, #ff9f68);
-  border: 2px solid #d94674;
+  background: linear-gradient(135deg, #07111f, #126fbe);
+  border: 2px solid #07111f;
   border-radius: 7px;
   color: #ffffff;
   font-weight: 800;
   min-height: 40px;
   padding: 0 14px;
-  text-shadow: 1px 1px 0 rgb(112 33 62 / 30%);
+  text-shadow: 1px 1px 0 rgb(7 17 31 / 45%);
 }
 
 .board {
@@ -322,7 +322,7 @@ select:focus {
 .title-input {
   background: transparent;
   border-color: transparent;
-  color: #4b294f;
+  color: #09213a;
   font-size: 25px;
   font-weight: 900;
   min-height: 34px;
@@ -338,7 +338,7 @@ select:focus {
 }
 
 .progress-badge strong {
-  color: #e05279;
+  color: #126fbe;
   font-size: 26px;
   line-height: 1;
 }
@@ -379,7 +379,7 @@ select:focus {
 .icon-button {
   align-items: center;
   background: #ffffff;
-  border: 2px solid #f4cada;
+  border: 2px solid #b5d6e9;
   border-radius: 8px;
   display: inline-flex;
   font-size: 22px;
@@ -416,8 +416,8 @@ select:focus {
 
 .task-row {
   align-items: center;
-  background: linear-gradient(135deg, #fff9ef, #fff2f6);
-  border: 2px solid #f6cfdf;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -441,7 +441,7 @@ select:focus {
 
 .text-button {
   background: #ffffff;
-  border: 2px solid #f4cada;
+  border: 2px solid #b5d6e9;
   border-radius: 7px;
   color: var(--foreground);
   font-weight: 800;
