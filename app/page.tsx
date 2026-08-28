@@ -605,8 +605,7 @@ export default function Home() {
       <section className="topbar" aria-label="Prehľad tímu">
         <div className="brand-lockup">
           <div className="fox-pair" aria-hidden="true">
-            <PixelFox />
-            <PixelFox flipped />
+            <img alt="" className="foxies-logo" src="/foxies-logo.png" />
           </div>
           <div>
             <p className="eyebrow">Virtuálna tabuľa plánov</p>
@@ -794,8 +793,7 @@ function AuthGate({
       <section className="auth-card" aria-label="Prihlásenie do tabule">
         <div className="auth-brand">
           <div className="fox-pair" aria-hidden="true">
-            <PixelFox />
-            <PixelFox flipped />
+            <img alt="" className="foxies-logo" src="/foxies-logo.png" />
           </div>
           <div>
             <p className="eyebrow">Little acorns Foxies</p>

@@ -102,18 +102,24 @@ button:disabled {
 }
 
 .fox-pair {
-  align-items: end;
+  align-items: center;
   background: linear-gradient(180deg, #f8fdff 0%, #e7f6ff 100%);
   border: 2px solid #7eb6d6;
   border-radius: 8px;
   box-shadow: 0 7px 0 rgb(18 111 190 / 16%);
   display: flex;
-  gap: 2px;
   justify-content: center;
-  min-height: 62px;
-  min-width: 86px;
-  padding: 8px 10px;
+  min-height: 68px;
+  min-width: 92px;
+  padding: 4px 6px;
   transform: rotate(-2deg);
+}
+
+.foxies-logo {
+  display: block;
+  height: 64px;
+  object-fit: contain;
+  width: 86px;
 }
 
 .pixel-fox {
