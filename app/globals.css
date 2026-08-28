@@ -109,17 +109,17 @@ button:disabled {
   box-shadow: 0 7px 0 rgb(18 111 190 / 16%);
   display: flex;
   justify-content: center;
-  min-height: 68px;
-  min-width: 92px;
-  padding: 4px 6px;
+  min-height: 72px;
+  min-width: 98px;
+  padding: 2px 4px;
   transform: rotate(-2deg);
 }
 
 .foxies-logo {
   display: block;
-  height: 64px;
+  height: 74px;
   object-fit: contain;
-  width: 86px;
+  width: 98px;
 }
 
 .pixel-fox {
