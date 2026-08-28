@@ -38,22 +38,12 @@ body {
 }
 
 body::before {
-  background-image:
-    radial-gradient(circle at 23px 12px, rgb(7 17 31 / 42%) 0 2px, transparent 2.5px),
-    radial-gradient(circle at 20px 18px, rgb(7 17 31 / 34%) 0 3px, transparent 3.5px),
-    radial-gradient(circle at 26px 18px, rgb(7 17 31 / 34%) 0 3px, transparent 3.5px),
-    radial-gradient(circle at 17px 25px, rgb(75 141 255 / 50%) 0 4px, transparent 4.5px),
-    radial-gradient(circle at 23px 28px, rgb(139 215 255 / 58%) 0 6px, transparent 6.5px),
-    radial-gradient(circle at 29px 25px, rgb(53 208 186 / 48%) 0 4px, transparent 4.5px),
-    radial-gradient(circle at 69px 44px, rgb(7 17 31 / 30%) 0 2px, transparent 2.5px),
-    radial-gradient(circle at 66px 50px, rgb(18 111 190 / 38%) 0 4px, transparent 4.5px),
-    radial-gradient(circle at 72px 53px, rgb(53 208 186 / 44%) 0 5px, transparent 5.5px);
+  background-image: url("/fox-acorn-wallpaper.png");
   background-repeat: repeat;
-  background-size: 112px 92px;
+  background-size: 720px 720px;
   content: "";
   inset: 0;
-  mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
-  opacity: 0.72;
+  opacity: 0.78;
   pointer-events: none;
   position: fixed;
   z-index: 0;
@@ -89,7 +79,7 @@ button:disabled {
   content: "";
   inset: 0;
   mask-image: linear-gradient(to bottom, black, transparent 70%);
-  opacity: 0.5;
+  opacity: 0.14;
   pointer-events: none;
   position: fixed;
 }
