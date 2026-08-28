@@ -6,6 +6,7 @@ type Person = {
   id: string;
   name: string;
   tone: string;
+  avatarId: string;
 };
 
 type Task = {
@@ -36,9 +37,54 @@ type AuthRecord = {
   salt: string;
 };
 
+const avatarOptions = [
+  {
+    id: 'lavender',
+    label: 'Fialová líštička',
+    src: '/avatar-lavender.png',
+    tone: '#a98dff',
+  },
+  {
+    id: 'mint-leaf',
+    label: 'Mätová líštička s lístkom',
+    src: '/avatar-mint-leaf.png',
+    tone: '#35d0ba',
+  },
+  {
+    id: 'golden',
+    label: 'Žltá líštička',
+    src: '/avatar-golden.png',
+    tone: '#f4b942',
+  },
+  {
+    id: 'mint',
+    label: 'Mätová líštička',
+    src: '/avatar-mint.png',
+    tone: '#58dcca',
+  },
+  {
+    id: 'cyan-flower',
+    label: 'Cyan líštička s kvietkom',
+    src: '/avatar-cyan-flower.png',
+    tone: '#43c7d5',
+  },
+  {
+    id: 'cyan-flower-soft',
+    label: 'Svetlá cyan líštička s kvietkom',
+    src: '/avatar-cyan-flower-soft.png',
+    tone: '#62d8dd',
+  },
+  {
+    id: 'cyan-flower-bright',
+    label: 'Jasná cyan líštička s kvietkom',
+    src: '/avatar-cyan-flower-bright.png',
+    tone: '#35d0ba',
+  },
+];
+
 const defaultPeople: Person[] = [
-  { id: 'person-1', name: 'Rini', tone: '#35d0ba' },
-  { id: 'person-2', name: 'Fluffy', tone: '#4b8dff' },
+  { id: 'person-1', name: 'Rini', tone: '#43c7d5', avatarId: 'cyan-flower' },
+  { id: 'person-2', name: 'Fluffy', tone: '#a98dff', avatarId: 'lavender' },
 ];
 
 const authRecordsKey = 'ciele-auth-records';
@@ -221,6 +267,7 @@ function normalizePeople(savedPeople: Person[]) {
   return defaultPeople.map((defaultPerson) => {
     const savedPerson = savedPeople.find((person) => person.id === defaultPerson.id);
     const savedName = savedPerson?.name.trim();
+    const savedAvatar = avatarOptions.find((avatar) => avatar.id === savedPerson?.avatarId);
     const oldDefaultName =
       (defaultPerson.id === 'person-1' && savedName === 'Ja') ||
       (defaultPerson.id === 'person-2' && savedName === 'Ty');
@@ -228,6 +275,8 @@ function normalizePeople(savedPeople: Person[]) {
     return {
       ...defaultPerson,
       name: savedName && !oldDefaultName ? savedName : defaultPerson.name,
+      avatarId: savedAvatar?.id ?? defaultPerson.avatarId,
+      tone: savedAvatar?.tone ?? savedPerson?.tone ?? defaultPerson.tone,
     };
   });
 }
@@ -515,6 +564,31 @@ export default function Home() {
     );
   }
 
+  function changePersonAvatar(personId: string, avatarId: string) {
+    const selectedAvatar = avatarOptions.find((avatar) => avatar.id === avatarId);
+    const currentPerson = people.find((person) => person.id === personId);
+
+    if (!selectedAvatar || currentPerson?.avatarId === selectedAvatar.id) {
+      return;
+    }
+
+    const personName = currentPerson?.name ?? 'Foxie';
+
+    setPeople((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? {
+              ...person,
+              avatarId: selectedAvatar.id,
+              tone: selectedAvatar.tone,
+            }
+          : person,
+      ),
+    );
+
+    addActivity('vybral(a) nový avatar', personName);
+  }
+
   function addActivity(action: string, target: string) {
     setActivityLog((current) => [
       {
@@ -633,15 +707,32 @@ export default function Home() {
                 onClick={() => requestPersonSwitch(person.id)}
                 type="button"
               >
-                <PixelFox small flipped={person.id === 'person-2'} />
+                <AvatarFox person={person} size="medium" />
               </button>
-              <input
-                aria-label={`Meno osoby ${person.name}`}
-                className="person-name"
-                onChange={(event) => changePersonName(person.id, event.target.value)}
-                onBlur={(event) => renamePerson(person.id, event.target.value)}
-                value={person.name}
-              />
+              <div className="person-details">
+                <input
+                  aria-label={`Meno osoby ${person.name}`}
+                  className="person-name"
+                  onChange={(event) => changePersonName(person.id, event.target.value)}
+                  onBlur={(event) => renamePerson(person.id, event.target.value)}
+                  value={person.name}
+                />
+                <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
+                  {avatarOptions.map((avatar) => (
+                    <button
+                      aria-label={avatar.label}
+                      className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
+                      key={avatar.id}
+                      onClick={() => changePersonAvatar(person.id, avatar.id)}
+                      style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
+                      title={avatar.label}
+                      type="button"
+                    >
+                      <img alt="" src={avatar.src} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
           <button className="logout-button" onClick={logout} type="button">
@@ -814,7 +905,7 @@ function AuthGate({
               style={{ '--person-tone': person.tone } as React.CSSProperties}
               type="button"
             >
-              <PixelFox small flipped={person.id === 'person-2'} />
+              <AvatarFox person={person} size="medium" />
               <span>{person.name}</span>
             </button>
           ))}
@@ -871,7 +962,7 @@ function RecentActivityPanel({
               style={{ '--activity-tone': actor?.tone ?? '#35d0ba' } as React.CSSProperties}
             >
               <span className="activity-actor">
-                <PixelFox small flipped={actor?.id === 'person-2'} />
+                {actor ? <AvatarFox person={actor} size="small" /> : null}
                 {actor?.name ?? 'Foxie'}
               </span>
               <span>{item.action}</span>
@@ -1035,6 +1126,19 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' | 'medium' }) {
+  const avatar =
+    avatarOptions.find((option) => option.id === person.avatarId) ?? avatarOptions[0];
+
+  return (
+    <img
+      alt=""
+      className={`avatar-fox ${size}`}
+      src={avatar.src}
+    />
   );
 }
 
