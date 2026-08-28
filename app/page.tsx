@@ -586,7 +586,11 @@ export default function Home() {
     const selectedAvatar = avatarOptions.find((avatar) => avatar.id === avatarId);
     const currentPerson = people.find((person) => person.id === personId);
 
-    if (!selectedAvatar || currentPerson?.avatarId === selectedAvatar.id) {
+    if (
+      personId !== activePersonId ||
+      !selectedAvatar ||
+      currentPerson?.avatarId === selectedAvatar.id
+    ) {
       return;
     }
 
@@ -735,21 +739,25 @@ export default function Home() {
                   onBlur={(event) => renamePerson(person.id, event.target.value)}
                   value={person.name}
                 />
-                <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
-                  {avatarOptions.map((avatar) => (
-                    <button
-                      aria-label={avatar.label}
-                      className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
-                      key={avatar.id}
-                      onClick={() => changePersonAvatar(person.id, avatar.id)}
-                      style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
-                      title={avatar.label}
-                      type="button"
-                    >
-                      <img alt="" src={avatar.src} />
-                    </button>
-                  ))}
-                </div>
+                {person.id === activePersonId ? (
+                  <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
+                    {avatarOptions.map((avatar) => (
+                      <button
+                        aria-label={avatar.label}
+                        className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
+                        key={avatar.id}
+                        onClick={() => changePersonAvatar(person.id, avatar.id)}
+                        style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
+                        title={avatar.label}
+                        type="button"
+                      >
+                        <img alt="" src={avatar.src} />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="avatar-owner-note">ikonku mení len {person.name}</span>
+                )}
               </div>
             </div>
           ))}
