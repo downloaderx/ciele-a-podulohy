@@ -69,16 +69,34 @@ const avatarOptions = [
     tone: '#43c7d5',
   },
   {
-    id: 'cyan-flower-soft',
-    label: 'Svetlá cyan líštička s kvietkom',
-    src: '/avatar-cyan-flower-soft.png',
-    tone: '#62d8dd',
+    id: 'blue',
+    label: 'Modrá líštička',
+    src: '/avatar-blue.png',
+    tone: '#6c9fff',
   },
   {
-    id: 'cyan-flower-bright',
-    label: 'Jasná cyan líštička s kvietkom',
-    src: '/avatar-cyan-flower-bright.png',
-    tone: '#35d0ba',
+    id: 'silver',
+    label: 'Sivá líštička',
+    src: '/avatar-silver.png',
+    tone: '#9ca8bd',
+  },
+  {
+    id: 'orange',
+    label: 'Oranžová líštička',
+    src: '/avatar-orange.png',
+    tone: '#ff9d4a',
+  },
+  {
+    id: 'pink-bow',
+    label: 'Ružová líštička s mašľou',
+    src: '/avatar-pink-bow.png',
+    tone: '#ff7eb6',
+  },
+  {
+    id: 'midnight-moon',
+    label: 'Nočná líštička s mesiacom',
+    src: '/avatar-midnight-moon.png',
+    tone: '#6763dd',
   },
 ];
 
