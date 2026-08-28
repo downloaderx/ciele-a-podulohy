@@ -459,6 +459,7 @@ h1 {
 
 .summary-panel,
 .new-goal,
+.password-panel,
 .goal-panel,
 .activity-panel,
 .trash-panel {
@@ -770,6 +771,26 @@ h1 {
   padding: 14px;
 }
 
+.password-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.password-panel h2 {
+  font-size: 22px;
+  margin: -4px 0 2px;
+}
+
+.password-panel .label {
+  margin: 0;
+}
+
+.password-message {
+  color: #126fbe;
+  font-size: 12px;
+}
+
 .project-strip {
   align-self: stretch;
   background:
@@ -869,6 +890,7 @@ select:focus {
 }
 
 .new-goal button,
+.password-panel button,
 .add-task button {
   background: linear-gradient(135deg, #07111f, #126fbe);
   border: 2px solid #07111f;

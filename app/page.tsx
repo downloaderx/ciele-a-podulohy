@@ -332,6 +332,10 @@ export default function Home() {
   const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -415,6 +419,10 @@ export default function Home() {
         ...calculateProgress(goal),
       })),
     [activeGoals],
+  );
+  const activePerson = useMemo(
+    () => people.find((person) => person.id === activePersonId) ?? people[0],
+    [activePersonId, people],
   );
 
   function addGoal(event: FormEvent<HTMLFormElement>) {
@@ -664,9 +672,44 @@ export default function Home() {
     return { ok: true, message: '' };
   }
 
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = newPassword.trim();
+    const confirmed = newPasswordConfirm.trim();
+
+    setPasswordMessage('');
+
+    if (trimmed.length < 8) {
+      setPasswordMessage('Nové hesielko nech má aspoň 8 znakov.');
+      return;
+    }
+
+    if (trimmed !== confirmed) {
+      setPasswordMessage('Hesielka sa nezhodujú.');
+      return;
+    }
+
+    setSavingPassword(true);
+    const salt = createSalt();
+    const hash = await hashPassword(trimmed, salt);
+
+    setAuthRecords((current) => ({
+      ...current,
+      [activePersonId]: { hash, salt },
+    }));
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setSavingPassword(false);
+    setPasswordMessage('Hotovo, nové hesielko je uložené.');
+    addActivity('zmenil(a) hesielko', 'svoj vstup do tabule');
+  }
+
   function logout() {
     window.localStorage.removeItem(sessionPersonKey);
     setAuthenticated(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setPasswordMessage('');
   }
 
   function requestPersonSwitch(personId: string) {
@@ -798,6 +841,34 @@ export default function Home() {
             />
           </label>
           <button type="submit">Pridať plán</button>
+        </form>
+        <form className="password-panel" onSubmit={changePassword}>
+          <span className="label">Hesielko</span>
+          <h2>Zmeniť hesielko</h2>
+          <label>
+            Nové hesielko pre {activePerson?.name}
+            <input
+              autoComplete="new-password"
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="Aspoň 8 znakov"
+              type="password"
+              value={newPassword}
+            />
+          </label>
+          <label>
+            Ešte raz
+            <input
+              autoComplete="new-password"
+              onChange={(event) => setNewPasswordConfirm(event.target.value)}
+              placeholder="Zopakuj hesielko"
+              type="password"
+              value={newPasswordConfirm}
+            />
+          </label>
+          {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
+          <button disabled={savingPassword} type="submit">
+            Uložiť nové hesielko
+          </button>
         </form>
       </section>
 
