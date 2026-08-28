@@ -638,7 +638,7 @@ export default function Home() {
     if (trimmed.length < 8) {
       return {
         ok: false,
-        message: 'Hesielko nech má aspoň 8 znakov, nech nie je úplne ľahké uhádnuť.',
+        message: 'Heslo nech má aspoň 8 znakov, nech nie je úplne ľahké uhádnuť.',
       };
     }
 
@@ -648,7 +648,7 @@ export default function Home() {
       const attemptHash = await hashPassword(trimmed, savedRecord.salt);
 
       if (attemptHash !== savedRecord.hash) {
-        return { ok: false, message: 'Toto hesielko nesedí.' };
+        return { ok: false, message: 'Toto heslo nesedí.' };
       }
 
       setActivePersonId(personId);
@@ -667,7 +667,7 @@ export default function Home() {
     setActivePersonId(personId);
     setAuthenticated(true);
     window.localStorage.setItem(sessionPersonKey, personId);
-    addActivity('nastavil(a) hesielko', 'svoj vstup do tabule');
+    addActivity('nastavil(a) heslo', 'svoj vstup do tabule');
 
     return { ok: true, message: '' };
   }
@@ -680,12 +680,12 @@ export default function Home() {
     setPasswordMessage('');
 
     if (trimmed.length < 8) {
-      setPasswordMessage('Nové hesielko nech má aspoň 8 znakov.');
+      setPasswordMessage('Nové heslo nech má aspoň 8 znakov.');
       return;
     }
 
     if (trimmed !== confirmed) {
-      setPasswordMessage('Hesielka sa nezhodujú.');
+      setPasswordMessage('Heslá sa nezhodujú.');
       return;
     }
 
@@ -700,8 +700,8 @@ export default function Home() {
     setNewPassword('');
     setNewPasswordConfirm('');
     setSavingPassword(false);
-    setPasswordMessage('Hotovo, nové hesielko je uložené.');
-    addActivity('zmenil(a) hesielko', 'svoj vstup do tabule');
+    setPasswordMessage('Hotovo, nové heslo je uložené.');
+    addActivity('zmenil(a) heslo', 'svoj vstup do tabule');
   }
 
   function logout() {
@@ -843,10 +843,10 @@ export default function Home() {
           <button type="submit">Pridať plán</button>
         </form>
         <form className="password-panel" onSubmit={changePassword}>
-          <span className="label">Hesielko</span>
-          <h2>Zmeniť hesielko</h2>
+          <span className="label">Heslo</span>
+          <h2>Zmeniť heslo</h2>
           <label>
-            Nové hesielko pre {activePerson?.name}
+            Nové heslo pre {activePerson?.name}
             <input
               autoComplete="new-password"
               onChange={(event) => setNewPassword(event.target.value)}
@@ -860,14 +860,14 @@ export default function Home() {
             <input
               autoComplete="new-password"
               onChange={(event) => setNewPasswordConfirm(event.target.value)}
-              placeholder="Zopakuj hesielko"
+              placeholder="Zopakuj heslo"
               type="password"
               value={newPasswordConfirm}
             />
           </label>
           {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
           <button disabled={savingPassword} type="submit">
-            Uložiť nové hesielko
+            Uložiť nové heslo
           </button>
         </form>
       </section>
@@ -1010,11 +1010,11 @@ function AuthGate({
 
         <form className="auth-form" onSubmit={submit}>
           <label>
-            {hasPassword ? `Hesielko pre ${selectedPerson?.name}` : `Nové hesielko pre ${selectedPerson?.name}`}
+            {hasPassword ? `Heslo pre ${selectedPerson?.name}` : `Nové heslo pre ${selectedPerson?.name}`}
             <input
               autoComplete={hasPassword ? 'current-password' : 'new-password'}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder={hasPassword ? 'Napíš svoje hesielko' : 'Aspoň 8 znakov'}
+              placeholder={hasPassword ? 'Napíš svoje heslo' : 'Aspoň 8 znakov'}
               type="password"
               value={password}
             />
@@ -1022,7 +1022,7 @@ function AuthGate({
           <p>
             {hasPassword
               ? 'Toto zariadenie si ťa po vstupe zapamätá.'
-              : 'Hesielko si hneď zapíš do svojho note-u, appka ho potom ukáže už iba ako overenie.'}
+              : 'Heslo si hneď zapíš do svojho note-u, appka ho potom ukáže už iba ako overenie.'}
           </p>
           {message ? <strong className="auth-error">{message}</strong> : null}
           <button disabled={submitting} type="submit">
