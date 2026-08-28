@@ -336,6 +336,8 @@ export default function Home() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -704,9 +706,26 @@ export default function Home() {
     addActivity('zmenil(a) heslo', 'svoj vstup do tabule');
   }
 
+  function openPasswordModal() {
+    setSettingsOpen(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setPasswordMessage('');
+    setPasswordModalOpen(true);
+  }
+
+  function closePasswordModal() {
+    setPasswordModalOpen(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setPasswordMessage('');
+  }
+
   function logout() {
     window.localStorage.removeItem(sessionPersonKey);
     setAuthenticated(false);
+    setSettingsOpen(false);
+    setPasswordModalOpen(false);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
@@ -804,11 +823,82 @@ export default function Home() {
               </div>
             </div>
           ))}
-          <button className="logout-button" onClick={logout} type="button">
-            Odhlásiť
-          </button>
+          <div className="settings-menu">
+            <button
+              aria-expanded={settingsOpen}
+              aria-label="Nastavenia"
+              className="settings-button"
+              onClick={() => setSettingsOpen((open) => !open)}
+              title="Nastavenia"
+              type="button"
+            >
+              ⚙
+            </button>
+            {settingsOpen ? (
+              <div className="settings-popover">
+                <button onClick={openPasswordModal} type="button">
+                  Zmeniť heslo
+                </button>
+                <button onClick={logout} type="button">
+                  Odhlásiť
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
+
+      {passwordModalOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            aria-label="Zmena hesla"
+            aria-modal="true"
+            className="password-modal"
+            role="dialog"
+          >
+            <div className="modal-heading">
+              <div>
+                <span className="label">Heslo</span>
+                <h2>Zmeniť heslo</h2>
+              </div>
+              <button
+                aria-label="Zatvoriť zmenu hesla"
+                className="icon-button compact"
+                onClick={closePasswordModal}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <form className="password-form" onSubmit={changePassword}>
+              <label>
+                Nové heslo pre {activePerson?.name}
+                <input
+                  autoComplete="new-password"
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  placeholder="Aspoň 8 znakov"
+                  type="password"
+                  value={newPassword}
+                />
+              </label>
+              <label>
+                Ešte raz
+                <input
+                  autoComplete="new-password"
+                  onChange={(event) => setNewPasswordConfirm(event.target.value)}
+                  placeholder="Zopakuj heslo"
+                  type="password"
+                  value={newPasswordConfirm}
+                />
+              </label>
+              {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
+              <button disabled={savingPassword} type="submit">
+                Uložiť nové heslo
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
@@ -841,34 +931,6 @@ export default function Home() {
             />
           </label>
           <button type="submit">Pridať plán</button>
-        </form>
-        <form className="password-panel" onSubmit={changePassword}>
-          <span className="label">Heslo</span>
-          <h2>Zmeniť heslo</h2>
-          <label>
-            Nové heslo pre {activePerson?.name}
-            <input
-              autoComplete="new-password"
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Aspoň 8 znakov"
-              type="password"
-              value={newPassword}
-            />
-          </label>
-          <label>
-            Ešte raz
-            <input
-              autoComplete="new-password"
-              onChange={(event) => setNewPasswordConfirm(event.target.value)}
-              placeholder="Zopakuj heslo"
-              type="password"
-              value={newPasswordConfirm}
-            />
-          </label>
-          {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
-          <button disabled={savingPassword} type="submit">
-            Uložiť nové heslo
-          </button>
         </form>
       </section>
 
