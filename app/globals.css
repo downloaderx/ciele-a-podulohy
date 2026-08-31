@@ -258,6 +258,13 @@ h1 {
   gap: 5px;
 }
 
+.person-name-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
 .person-name {
   background: transparent;
   border-color: transparent;
@@ -266,14 +273,58 @@ h1 {
   min-height: 24px;
   min-width: 74px;
   padding: 0 2px 2px;
-  width: 150px;
+  width: 92px;
+}
+
+.signed-in-badge {
+  background: color-mix(in srgb, var(--person-tone) 18%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--person-tone) 54%, #b5d6e9);
+  border-radius: 999px;
+  color: #126fbe;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.avatar-dropdown {
+  position: relative;
+}
+
+.avatar-dropdown-button {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.avatar-dropdown-button:hover,
+.avatar-dropdown-button[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 3px 0 rgb(53 208 186 / 18%);
 }
 
 .avatar-picker {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgb(7 17 31 / 14%);
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  max-width: 158px;
+  gap: 5px;
+  left: 0;
+  max-width: 186px;
+  padding: 8px;
+  position: absolute;
+  top: calc(100% + 7px);
+  z-index: 8;
 }
 
 .avatar-owner-note {

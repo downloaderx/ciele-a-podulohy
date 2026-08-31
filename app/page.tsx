@@ -338,6 +338,7 @@ export default function Home() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -619,6 +620,7 @@ export default function Home() {
     );
 
     addActivity('vybral(a) nový avatar', personName);
+    setAvatarMenuOpen(false);
   }
 
   function addActivity(action: string, target: string) {
@@ -726,6 +728,7 @@ export default function Home() {
     setAuthenticated(false);
     setSettingsOpen(false);
     setPasswordModalOpen(false);
+    setAvatarMenuOpen(false);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
@@ -739,6 +742,7 @@ export default function Home() {
     window.localStorage.removeItem(sessionPersonKey);
     setActivePersonId(personId);
     setAuthenticated(false);
+    setAvatarMenuOpen(false);
   }
 
   const recentActivity = activityLog.slice(0, 12);
@@ -794,28 +798,45 @@ export default function Home() {
                 <AvatarFox person={person} size="medium" />
               </button>
               <div className="person-details">
-                <input
-                  aria-label={`Meno osoby ${person.name}`}
-                  className="person-name"
-                  onChange={(event) => changePersonName(person.id, event.target.value)}
-                  onBlur={(event) => renamePerson(person.id, event.target.value)}
-                  value={person.name}
-                />
+                <div className="person-name-row">
+                  <input
+                    aria-label={`Meno osoby ${person.name}`}
+                    className="person-name"
+                    onChange={(event) => changePersonName(person.id, event.target.value)}
+                    onBlur={(event) => renamePerson(person.id, event.target.value)}
+                    value={person.name}
+                  />
+                  {person.id === activePersonId ? (
+                    <span className="signed-in-badge">prihlásený</span>
+                  ) : null}
+                </div>
                 {person.id === activePersonId ? (
-                  <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
-                    {avatarOptions.map((avatar) => (
-                      <button
-                        aria-label={avatar.label}
-                        className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
-                        key={avatar.id}
-                        onClick={() => changePersonAvatar(person.id, avatar.id)}
-                        style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
-                        title={avatar.label}
-                        type="button"
-                      >
-                        <img alt="" src={avatar.src} />
-                      </button>
-                    ))}
+                  <div className="avatar-dropdown">
+                    <button
+                      aria-expanded={avatarMenuOpen}
+                      className="avatar-dropdown-button"
+                      onClick={() => setAvatarMenuOpen((open) => !open)}
+                      type="button"
+                    >
+                      Zmeniť ikonku
+                    </button>
+                    {avatarMenuOpen ? (
+                      <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
+                        {avatarOptions.map((avatar) => (
+                          <button
+                            aria-label={avatar.label}
+                            className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
+                            key={avatar.id}
+                            onClick={() => changePersonAvatar(person.id, avatar.id)}
+                            style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
+                            title={avatar.label}
+                            type="button"
+                          >
+                            <img alt="" src={avatar.src} />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <span className="avatar-owner-note">ikonku mení len {person.name}</span>
