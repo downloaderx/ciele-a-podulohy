@@ -1790,7 +1790,7 @@ function ImportancePanel({
   const summary =
     leadPeople.length === people.length
       ? 'Spoločná priorita'
-      : `Viac stojí na ${leadNames}`;
+      : `Hlavná priorita: ${leadNames}`;
 
   return (
     <section
