@@ -1738,6 +1738,7 @@ function GoalPanel(props: GoalPanelProps) {
       </div>
 
       <ImportancePanel
+        activePersonId={props.activePersonId}
         goalId={props.goal.id}
         importanceByPerson={importanceByPerson}
         onRateImportance={props.onRateImportance}
@@ -1765,11 +1766,13 @@ function GoalPanel(props: GoalPanelProps) {
 }
 
 function ImportancePanel({
+  activePersonId,
   goalId,
   importanceByPerson,
   onRateImportance,
   people,
 }: {
+  activePersonId: string;
   goalId: string;
   importanceByPerson: Record<string, number>;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
@@ -1789,8 +1792,8 @@ function ImportancePanel({
   const leadNames = leadPeople.map((person) => person.name).join(' + ');
   const summary =
     leadPeople.length === people.length
-      ? 'Spoločná priorita'
-      : `Hlavná priorita: ${leadNames}`;
+      ? 'Je rovnako dôležité pre oboch'
+      : `Je dôležitejšie pre: ${leadNames}`;
 
   return (
     <section
@@ -1802,7 +1805,7 @@ function ImportancePanel({
         <button
           aria-label="Ako čítať dôležitosť"
           className="info-button"
-          title="1 znamená skôr vedľajšia vec, 5 znamená veľmi dôležitá vec. Vyššie číslo ukazuje, komu má plán viac svietiť v starostlivosti a pripomínaní."
+          title="1 znamená skôr vedľajšia vec, 5 znamená veľmi dôležitá vec. Ak je plán pre niekoho väčšou prioritou, mal(a) by okolo neho viac iniciovať, pripomínať ho a plánovať ďalšie kroky."
           type="button"
         >
           i
@@ -1811,6 +1814,7 @@ function ImportancePanel({
       <div className="importance-rows">
         {people.map((person) => {
           const importance = importanceByPerson[person.id] ?? minImportance;
+          const canEdit = person.id === activePersonId;
 
           return (
             <div className="importance-row" key={person.id}>
@@ -1827,11 +1831,20 @@ function ImportancePanel({
 
                   return (
                     <button
-                      aria-label={`${person.name}: nastaviť dôležitosť ${value} z 5`}
+                      aria-label={
+                        canEdit
+                          ? `${person.name}: nastaviť dôležitosť ${value} z 5`
+                          : `${person.name}: dôležitosť ${value} z 5`
+                      }
                       className={value <= importance ? 'active' : ''}
+                      disabled={!canEdit}
                       key={value}
                       onClick={() => onRateImportance(goalId, person.id, value)}
-                      title={`${person.name}: ${value}/5`}
+                      title={
+                        canEdit
+                          ? `${person.name}: nastaviť ${value}/5`
+                          : `${person.name}: toto hodnotenie si mení iba ${person.name}`
+                      }
                       type="button"
                     />
                   );

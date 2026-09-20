@@ -1254,6 +1254,11 @@ select:focus {
   box-shadow: 0 2px 0 rgb(7 17 31 / 12%);
 }
 
+.importance-meter button:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
 .importance-row strong {
   color: #126fbe;
   font-size: 12px;
