@@ -1178,6 +1178,88 @@ select:focus {
   padding: 12px 18px 0 66px;
 }
 
+.importance-panel {
+  background: linear-gradient(135deg, #fff8e8, #eef9ff);
+  border: 2px solid #d5e8ee;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 14px 18px 0 66px;
+  padding: 10px;
+}
+
+.importance-heading {
+  align-items: center;
+  color: #09213a;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: space-between;
+}
+
+.info-button {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 999px;
+  color: #126fbe;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.importance-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.importance-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(104px, 0.7fr) minmax(112px, 1fr) auto;
+}
+
+.importance-person {
+  align-items: center;
+  color: var(--foreground);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 6px;
+  min-width: 0;
+}
+
+.importance-meter {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(5, minmax(18px, 1fr));
+}
+
+.importance-meter button {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 999px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+}
+
+.importance-meter button.active {
+  background: linear-gradient(135deg, #ff9d4a, #35d0ba);
+  border-color: #07111f;
+  box-shadow: 0 2px 0 rgb(7 17 31 / 12%);
+}
+
+.importance-row strong {
+  color: #126fbe;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .check-row {
   align-items: center;
   color: var(--foreground);
@@ -1344,6 +1426,14 @@ select:focus {
 
   .goal-meta {
     padding-left: 18px;
+  }
+
+  .importance-panel {
+    margin-left: 18px;
+  }
+
+  .importance-row {
+    grid-template-columns: 1fr;
   }
 
   .task-branch {

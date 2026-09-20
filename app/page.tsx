@@ -21,6 +21,7 @@ type Task = {
 
 type Goal = Task & {
   description: string;
+  importanceByPerson: Record<string, number>;
   deletedAt?: string;
 };
 
@@ -137,6 +138,8 @@ function getAvatarOptionsForPerson(personId: string) {
 
 const authRecordsKey = 'ciele-auth-records';
 const sessionPersonKey = 'ciele-session-person';
+const minImportance = 1;
+const maxImportance = 5;
 
 const starterGoals: Goal[] = [
   {
@@ -144,6 +147,10 @@ const starterGoals: Goal[] = [
     title: 'Naplánovať spoločný víkend',
     description: 'Malý spoločný cieľ s výletom, oddychom a dobrým jedlom.',
     ownerId: 'person-1',
+    importanceByPerson: {
+      'person-1': 5,
+      'person-2': 3,
+    },
     done: false,
     expanded: true,
     children: [
@@ -187,6 +194,10 @@ const starterGoals: Goal[] = [
     title: 'Zútulniť domácnosť',
     description: 'Veci, ktoré spravia spoločný priestor krajší a pokojnejší.',
     ownerId: 'person-2',
+    importanceByPerson: {
+      'person-1': 3,
+      'person-2': 5,
+    },
     done: false,
     expanded: true,
     children: [
@@ -239,6 +250,31 @@ function calculateProgress(task: Task) {
     total,
     percent: total === 0 ? 0 : Math.round((done / total) * 100),
   };
+}
+
+function clampImportance(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return undefined;
+  }
+
+  return Math.min(maxImportance, Math.max(minImportance, Math.round(value)));
+}
+
+function normalizeGoalImportance(goal: Goal, people: Person[]) {
+  return people.reduce<Record<string, number>>((ratings, person) => {
+    const savedValue = clampImportance(goal.importanceByPerson?.[person.id]);
+
+    ratings[person.id] = savedValue ?? (person.id === goal.ownerId ? 4 : 2);
+
+    return ratings;
+  }, {});
+}
+
+function normalizeGoals(goals: Goal[], people: Person[]) {
+  return goals.map((goal) => ({
+    ...goal,
+    importanceByPerson: normalizeGoalImportance(goal, people),
+  }));
 }
 
 function flattenChildren(task: Task): Task[] {
@@ -485,8 +521,12 @@ export default function Home() {
       )
         ? restoredState.activePersonId
         : normalizedPeople[0]?.id ?? defaultPeople[0].id;
+      const normalizedGoals = normalizeGoals(
+        isOldStarterData(restoredState.goals) ? starterGoals : restoredState.goals,
+        normalizedPeople,
+      );
 
-      setGoals(isOldStarterData(restoredState.goals) ? starterGoals : restoredState.goals);
+      setGoals(normalizedGoals);
       setPeople(normalizedPeople);
       setActivePersonId(restoredActivePersonId);
       setPasswordPersonId(restoredActivePersonId);
@@ -585,6 +625,11 @@ export default function Home() {
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
         ownerId: activePersonId,
         updatedById: activePersonId,
+        importanceByPerson: people.reduce<Record<string, number>>((ratings, person) => {
+          ratings[person.id] = person.id === activePersonId ? 4 : 2;
+
+          return ratings;
+        }, {}),
         done: false,
         expanded: true,
         children: [],
@@ -698,6 +743,32 @@ export default function Home() {
     if (goal) {
       addActivity('obnovil(a) plán z koša', goal.title);
     }
+  }
+
+  function rateGoalImportance(goalId: string, personId: string, importance: number) {
+    const normalizedImportance = clampImportance(importance);
+    const goal = goals.find((goal) => goal.id === goalId);
+    const personName = people.find((person) => person.id === personId)?.name ?? 'Foxie';
+
+    if (!goal || !normalizedImportance) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              importanceByPerson: {
+                ...normalizeGoalImportance(goal, people),
+                [personId]: normalizedImportance,
+              },
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('ohodnotil(a) dôležitosť', `${goal.title} · ${personName}: ${normalizedImportance}/5`);
   }
 
   function renamePerson(personId: string, name: string) {
@@ -932,15 +1003,16 @@ export default function Home() {
       )
         ? data.activePersonId
         : importedPeople[0]?.id ?? defaultPeople[0].id;
+      const importedGoals = normalizeGoals(data.goals, importedPeople);
 
-      setGoals(data.goals);
+      setGoals(importedGoals);
       setPeople(importedPeople);
       setActivityLog(data.activityLog);
       setAuthRecords(data.authRecords);
       setActivePersonId(importedActivePersonId);
       setPasswordPersonId(importedActivePersonId);
 
-      window.localStorage.setItem('ciele-goals', JSON.stringify(data.goals));
+      window.localStorage.setItem('ciele-goals', JSON.stringify(importedGoals));
       window.localStorage.setItem('ciele-active-person', importedActivePersonId);
       window.localStorage.setItem('ciele-people', JSON.stringify(importedPeople));
       window.localStorage.setItem('ciele-activity-log', JSON.stringify(data.activityLog));
@@ -1268,6 +1340,7 @@ export default function Home() {
             key={goal.id}
             onAddSubtask={addSubtask}
             onDelete={deleteTask}
+            onRateImportance={rateGoalImportance}
             onRename={renameTask}
             people={people}
             toggleDone={toggleDone}
@@ -1597,6 +1670,7 @@ type GoalPanelProps = {
   goal: Goal;
   onAddSubtask: (parentId: string, title: string) => void;
   onDelete: (taskId: string) => void;
+  onRateImportance: (goalId: string, personId: string, importance: number) => void;
   onRename: (taskId: string, title: string) => void;
   people: Person[];
   toggleDone: (taskId: string) => void;
@@ -1605,6 +1679,7 @@ type GoalPanelProps = {
 
 function GoalPanel(props: GoalPanelProps) {
   const progress = calculateProgress(props.goal);
+  const importanceByPerson = normalizeGoalImportance(props.goal, props.people);
 
   return (
     <article className="goal-panel">
@@ -1662,6 +1737,13 @@ function GoalPanel(props: GoalPanelProps) {
         <span style={{ width: `${progress.percent}%` }} />
       </div>
 
+      <ImportancePanel
+        goalId={props.goal.id}
+        importanceByPerson={importanceByPerson}
+        onRateImportance={props.onRateImportance}
+        people={props.people}
+      />
+
       {props.goal.expanded ? (
         <div className="children-list">
           {props.goal.children.map((child) => (
@@ -1679,6 +1761,88 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function ImportancePanel({
+  goalId,
+  importanceByPerson,
+  onRateImportance,
+  people,
+}: {
+  goalId: string;
+  importanceByPerson: Record<string, number>;
+  onRateImportance: (goalId: string, personId: string, importance: number) => void;
+  people: Person[];
+}) {
+  const sortedPeople = [...people].sort(
+    (first, second) =>
+      (importanceByPerson[second.id] ?? minImportance) -
+      (importanceByPerson[first.id] ?? minImportance),
+  );
+  const highestImportance = sortedPeople[0]
+    ? importanceByPerson[sortedPeople[0].id] ?? minImportance
+    : minImportance;
+  const leadPeople = sortedPeople.filter(
+    (person) => (importanceByPerson[person.id] ?? minImportance) === highestImportance,
+  );
+  const leadNames = leadPeople.map((person) => person.name).join(' + ');
+  const summary =
+    leadPeople.length === people.length
+      ? 'Spoločná priorita'
+      : `Viac stojí na ${leadNames}`;
+
+  return (
+    <section
+      className="importance-panel"
+      aria-label="Dôležitosť plánu pre jednotlivé líštičky"
+    >
+      <div className="importance-heading">
+        <span>{summary}</span>
+        <button
+          aria-label="Ako čítať dôležitosť"
+          className="info-button"
+          title="1 znamená skôr vedľajšia vec, 5 znamená veľmi dôležitá vec. Vyššie číslo ukazuje, komu má plán viac svietiť v starostlivosti a pripomínaní."
+          type="button"
+        >
+          i
+        </button>
+      </div>
+      <div className="importance-rows">
+        {people.map((person) => {
+          const importance = importanceByPerson[person.id] ?? minImportance;
+
+          return (
+            <div className="importance-row" key={person.id}>
+              <span className="importance-person">
+                <AvatarFox person={person} size="small" />
+                {person.name}
+              </span>
+              <div
+                className="importance-meter"
+                aria-label={`${person.name}: dôležitosť ${importance} z 5`}
+              >
+                {Array.from({ length: maxImportance }, (_, index) => {
+                  const value = index + 1;
+
+                  return (
+                    <button
+                      aria-label={`${person.name}: nastaviť dôležitosť ${value} z 5`}
+                      className={value <= importance ? 'active' : ''}
+                      key={value}
+                      onClick={() => onRateImportance(goalId, person.id, value)}
+                      title={`${person.name}: ${value}/5`}
+                      type="button"
+                    />
+                  );
+                })}
+              </div>
+              <strong>{importance}/5</strong>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
