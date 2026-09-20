@@ -42,6 +42,7 @@ type AppStateData = {
   activePersonId: string;
   activityLog: ActivityItem[];
   authRecords: Record<string, AuthRecord>;
+  goalRankings: Record<string, string[]>;
   goals: Goal[];
   people: Person[];
 };
@@ -138,6 +139,7 @@ function getAvatarOptionsForPerson(personId: string) {
 
 const authRecordsKey = 'ciele-auth-records';
 const sessionPersonKey = 'ciele-session-person';
+const goalRankingsKey = 'ciele-goal-rankings';
 const minImportance = 1;
 const maxImportance = 5;
 
@@ -275,6 +277,53 @@ function normalizeGoals(goals: Goal[], people: Person[]) {
     ...goal,
     importanceByPerson: normalizeGoalImportance(goal, people),
   }));
+}
+
+function normalizePersonRanking(ranking: string[] | undefined, goals: Goal[]) {
+  const activeGoalIds = new Set(goals.filter((goal) => !goal.deletedAt).map((goal) => goal.id));
+  const savedIds = Array.isArray(ranking)
+    ? ranking.filter((goalId) => activeGoalIds.has(goalId))
+    : [];
+  const missingIds = goals
+    .filter((goal) => !goal.deletedAt && !savedIds.includes(goal.id))
+    .map((goal) => goal.id);
+
+  return [...savedIds, ...missingIds];
+}
+
+function normalizeGoalRankings(
+  rankings: Record<string, string[]> | undefined,
+  goals: Goal[],
+  people: Person[],
+) {
+  return people.reduce<Record<string, string[]>>((normalized, person) => {
+    normalized[person.id] = normalizePersonRanking(rankings?.[person.id], goals);
+
+    return normalized;
+  }, {});
+}
+
+function sortGoalsByAverageRanking(
+  goals: Goal[],
+  people: Person[],
+  rankings: Record<string, string[]>,
+) {
+  const originalIndexById = new Map(goals.map((goal, index) => [goal.id, index]));
+  const rankingByPerson = people.map((person) => normalizePersonRanking(rankings[person.id], goals));
+
+  return [...goals].sort((first, second) => {
+    const firstAverage =
+      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(first.id), 0) /
+      Math.max(rankingByPerson.length, 1);
+    const secondAverage =
+      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(second.id), 0) /
+      Math.max(rankingByPerson.length, 1);
+
+    return (
+      firstAverage - secondAverage ||
+      (originalIndexById.get(first.id) ?? 0) - (originalIndexById.get(second.id) ?? 0)
+    );
+  });
 }
 
 function flattenChildren(task: Task): Task[] {
@@ -418,6 +467,10 @@ function readTransferData(parsed: unknown): TransferPayload['data'] | null {
     activePersonId: maybeData.activePersonId,
     activityLog: maybeData.activityLog,
     authRecords: maybeData.authRecords,
+    goalRankings:
+      maybeData.goalRankings && typeof maybeData.goalRankings === 'object'
+        ? maybeData.goalRankings as Record<string, string[]>
+        : {},
     goals: maybeData.goals,
     people: maybeData.people,
     sessionPersonId:
@@ -436,6 +489,7 @@ function readAppStateData(parsed: unknown): AppStateData | null {
     activePersonId: data.activePersonId,
     activityLog: data.activityLog,
     authRecords: data.authRecords,
+    goalRankings: data.goalRankings,
     goals: data.goals,
     people: data.people,
   };
@@ -447,6 +501,7 @@ export default function Home() {
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [authRecords, setAuthRecords] = useState<Record<string, AuthRecord>>({});
+  const [goalRankings, setGoalRankings] = useState<Record<string, string[]>>({});
   const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
@@ -467,6 +522,10 @@ export default function Home() {
     () => goals.filter((goal) => !goal.deletedAt),
     [goals],
   );
+  const rankedActiveGoals = useMemo(
+    () => sortGoalsByAverageRanking(activeGoals, people, goalRankings),
+    [activeGoals, goalRankings, people],
+  );
   const trashedGoals = useMemo(
     () => goals.filter((goal) => goal.deletedAt),
     [goals],
@@ -481,6 +540,7 @@ export default function Home() {
       const savedPeople = window.localStorage.getItem('ciele-people');
       const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
       const savedAuthRecords = window.localStorage.getItem(authRecordsKey);
+      const savedGoalRankings = window.localStorage.getItem(goalRankingsKey);
       const savedSessionPerson = window.localStorage.getItem(sessionPersonKey);
       const localState: AppStateData = {
         activePersonId:
@@ -490,6 +550,9 @@ export default function Home() {
         activityLog: savedActivityLog ? JSON.parse(savedActivityLog) as ActivityItem[] : [],
         authRecords: savedAuthRecords
           ? JSON.parse(savedAuthRecords) as Record<string, AuthRecord>
+          : {},
+        goalRankings: savedGoalRankings
+          ? JSON.parse(savedGoalRankings) as Record<string, string[]>
           : {},
         goals: savedGoals ? JSON.parse(savedGoals) as Goal[] : starterGoals,
         people: savedPeople ? JSON.parse(savedPeople) as Person[] : defaultPeople,
@@ -525,6 +588,11 @@ export default function Home() {
         isOldStarterData(restoredState.goals) ? starterGoals : restoredState.goals,
         normalizedPeople,
       );
+      const normalizedGoalRankings = normalizeGoalRankings(
+        restoredState.goalRankings,
+        normalizedGoals,
+        normalizedPeople,
+      );
 
       setGoals(normalizedGoals);
       setPeople(normalizedPeople);
@@ -532,6 +600,7 @@ export default function Home() {
       setPasswordPersonId(restoredActivePersonId);
       setActivityLog(restoredState.activityLog);
       setAuthRecords(restoredState.authRecords);
+      setGoalRankings(normalizedGoalRankings);
 
       if (savedSessionPerson && restoredState.authRecords[savedSessionPerson]) {
         setActivePersonId(savedSessionPerson);
@@ -558,6 +627,7 @@ export default function Home() {
     window.localStorage.setItem('ciele-people', JSON.stringify(people));
     window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
     window.localStorage.setItem(authRecordsKey, JSON.stringify(authRecords));
+    window.localStorage.setItem(goalRankingsKey, JSON.stringify(goalRankings));
 
     const timeoutId = window.setTimeout(() => {
       void fetch('/api/state', {
@@ -565,6 +635,7 @@ export default function Home() {
           activePersonId,
           activityLog,
           authRecords,
+          goalRankings,
           goals,
           people,
         } satisfies AppStateData),
@@ -578,7 +649,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activePersonId, activityLog, authRecords, goals, loaded, people]);
+  }, [activePersonId, activityLog, authRecords, goalRankings, goals, loaded, people]);
 
   const totals = useMemo(() => {
     const allTasks = activeGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
@@ -594,12 +665,12 @@ export default function Home() {
 
   const goalSnapshots = useMemo(
     () =>
-      activeGoals.map((goal) => ({
+      rankedActiveGoals.map((goal) => ({
         id: goal.id,
         title: goal.title,
         ...calculateProgress(goal),
       })),
-    [activeGoals],
+    [rankedActiveGoals],
   );
   const activePerson = useMemo(
     () => people.find((person) => person.id === activePersonId) ?? people[0],
@@ -618,9 +689,11 @@ export default function Home() {
       return;
     }
 
+    const goalId = createId();
+
     setGoals((current) => [
       {
-        id: createId(),
+        id: goalId,
         title,
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
         ownerId: activePersonId,
@@ -636,6 +709,18 @@ export default function Home() {
       },
       ...current,
     ]);
+    setGoalRankings((current) =>
+      people.reduce<Record<string, string[]>>((rankings, person) => {
+        const currentRanking = normalizePersonRanking(current[person.id], activeGoals);
+
+        rankings[person.id] =
+          person.id === activePersonId
+            ? [goalId, ...currentRanking]
+            : [...currentRanking, goalId];
+
+        return rankings;
+      }, { ...current }),
+    );
     addActivity('pridal(a) plán', title);
     setNewGoalTitle('');
     setNewGoalDescription('');
@@ -769,6 +854,35 @@ export default function Home() {
       ),
     );
     addActivity('ohodnotil(a) dôležitosť', `${goal.title} · ${personName}: ${normalizedImportance}/5`);
+  }
+
+  function moveGoalInRanking(goalId: string, direction: -1 | 1) {
+    const activeGoalIds = activeGoals.map((goal) => goal.id);
+    const currentRanking = normalizePersonRanking(goalRankings[activePersonId], activeGoals);
+    const currentIndex = currentRanking.indexOf(goalId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentRanking.length) {
+      return;
+    }
+
+    const nextRanking = [...currentRanking];
+    const [movedGoalId] = nextRanking.splice(currentIndex, 1);
+    nextRanking.splice(nextIndex, 0, movedGoalId);
+
+    setGoalRankings((current) => ({
+      ...current,
+      [activePersonId]: [
+        ...nextRanking,
+        ...(current[activePersonId] ?? []).filter((savedGoalId) => !activeGoalIds.includes(savedGoalId)),
+      ],
+    }));
+
+    const movedGoal = goals.find((goal) => goal.id === goalId);
+
+    if (movedGoal) {
+      addActivity('zoradil(a) priority', movedGoal.title);
+    }
   }
 
   function renamePerson(personId: string, name: string) {
@@ -950,6 +1064,7 @@ export default function Home() {
         activePersonId,
         activityLog,
         authRecords,
+        goalRankings,
         goals,
         people,
         sessionPersonId: window.localStorage.getItem(sessionPersonKey) ?? undefined,
@@ -1004,11 +1119,17 @@ export default function Home() {
         ? data.activePersonId
         : importedPeople[0]?.id ?? defaultPeople[0].id;
       const importedGoals = normalizeGoals(data.goals, importedPeople);
+      const importedGoalRankings = normalizeGoalRankings(
+        data.goalRankings,
+        importedGoals,
+        importedPeople,
+      );
 
       setGoals(importedGoals);
       setPeople(importedPeople);
       setActivityLog(data.activityLog);
       setAuthRecords(data.authRecords);
+      setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
       setPasswordPersonId(importedActivePersonId);
 
@@ -1017,6 +1138,7 @@ export default function Home() {
       window.localStorage.setItem('ciele-people', JSON.stringify(importedPeople));
       window.localStorage.setItem('ciele-activity-log', JSON.stringify(data.activityLog));
       window.localStorage.setItem(authRecordsKey, JSON.stringify(data.authRecords));
+      window.localStorage.setItem(goalRankingsKey, JSON.stringify(importedGoalRankings));
 
       if (data.sessionPersonId && data.authRecords[data.sessionPersonId]) {
         window.localStorage.setItem(sessionPersonKey, data.sessionPersonId);
@@ -1332,8 +1454,17 @@ export default function Home() {
         <TrashPanel goals={trashedGoals} onRestore={restoreGoal} />
       ) : null}
 
+      <PriorityPoll
+        activePersonId={activePersonId}
+        goals={activeGoals}
+        goalRankings={goalRankings}
+        onMoveGoal={moveGoalInRanking}
+        people={people}
+        rankedGoals={rankedActiveGoals}
+      />
+
       <section className="board" aria-label="Zoznam cieľov">
-        {activeGoals.map((goal) => (
+        {rankedActiveGoals.map((goal) => (
           <GoalPanel
             activePersonId={activePersonId}
             goal={goal}
@@ -1626,6 +1757,103 @@ function GrowthBranch({ percent }: { percent: number }) {
         </span>
       ))}
     </div>
+  );
+}
+
+function PriorityPoll({
+  activePersonId,
+  goals,
+  goalRankings,
+  onMoveGoal,
+  people,
+  rankedGoals,
+}: {
+  activePersonId: string;
+  goals: Goal[];
+  goalRankings: Record<string, string[]>;
+  onMoveGoal: (goalId: string, direction: -1 | 1) => void;
+  people: Person[];
+  rankedGoals: Goal[];
+}) {
+  const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
+  const activeRanking = normalizePersonRanking(goalRankings[activePersonId], goals);
+  const positionByPerson = people.reduce<Record<string, Map<string, number>>>((positions, person) => {
+    const ranking = normalizePersonRanking(goalRankings[person.id], goals);
+
+    positions[person.id] = new Map(ranking.map((goalId, index) => [goalId, index + 1]));
+
+    return positions;
+  }, {});
+
+  return (
+    <section className="priority-poll" aria-label="Anketa priorít">
+      <div className="priority-poll-heading">
+        <div>
+          <span className="label">Anketa priorít</span>
+          <h2>Čo je teraz najdôležitejšie</h2>
+        </div>
+        <button
+          aria-label="Ako funguje anketa priorít"
+          className="info-button"
+          title="Každá líštička zoradí plány podľa toho, čo v tomto období považuje za najdôležitejšie. Poradie na stránke sa potom vypočíta z priemeru oboch poradí."
+          type="button"
+        >
+          i
+        </button>
+      </div>
+      {rankedGoals.length > 0 ? (
+        <ol className="priority-list">
+          {rankedGoals.map((goal, index) => {
+            const activeIndex = activeRanking.indexOf(goal.id);
+            const averagePosition =
+              people.reduce(
+                (sum, person) => sum + (positionByPerson[person.id].get(goal.id) ?? rankedGoals.length),
+                0,
+              ) / Math.max(people.length, 1);
+
+            return (
+              <li key={goal.id}>
+                <span className="priority-rank">{index + 1}</span>
+                <div className="priority-copy">
+                  <strong>{goal.title}</strong>
+                  <span>Priemer poradia {averagePosition.toFixed(1)}</span>
+                </div>
+                <div className="priority-votes" aria-label={`Poradie pre ${goal.title}`}>
+                  {people.map((person) => (
+                    <span key={person.id}>
+                      <AvatarFox person={person} size="small" />
+                      {positionByPerson[person.id].get(goal.id) ?? '-'}.
+                    </span>
+                  ))}
+                </div>
+                <div className="priority-controls" aria-label={`Zmeniť poradie pre ${activePerson?.name}`}>
+                  <button
+                    aria-label={`Posunúť ${goal.title} vyššie v mojom poradí`}
+                    disabled={activeIndex <= 0}
+                    onClick={() => onMoveGoal(goal.id, -1)}
+                    title="Vyššie v mojom poradí"
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Posunúť ${goal.title} nižšie v mojom poradí`}
+                    disabled={activeIndex < 0 || activeIndex >= activeRanking.length - 1}
+                    onClick={() => onMoveGoal(goal.id, 1)}
+                    title="Nižšie v mojom poradí"
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>Keď pribudnú plány, tu si ich každá líštička zoradí podľa dôležitosti.</p>
+      )}
+    </section>
   );
 }
 

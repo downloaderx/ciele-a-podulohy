@@ -690,6 +690,7 @@ h1 {
 .new-goal,
 .goal-panel,
 .activity-panel,
+.priority-poll,
 .trash-panel {
   background: var(--panel);
   border: 2px solid var(--line);
@@ -710,6 +711,128 @@ h1 {
   margin: 0 auto 16px;
   max-width: 1180px;
   padding: 16px;
+}
+
+.priority-poll {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 16px;
+}
+
+.priority-poll-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.priority-poll-heading h2 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+}
+
+.priority-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.priority-list li {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(160px, 1fr) auto auto;
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+.priority-rank {
+  align-items: center;
+  background: #07111f;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.priority-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.priority-copy strong {
+  color: var(--foreground);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priority-copy span,
+.priority-poll p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.priority-votes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.priority-votes span {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #d5e8ee;
+  border-radius: 999px;
+  color: var(--foreground);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 4px;
+  min-height: 30px;
+  padding: 2px 8px 2px 4px;
+}
+
+.priority-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.priority-controls button {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  display: inline-flex;
+  font-size: 17px;
+  font-weight: 900;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.priority-controls button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .trash-heading {
@@ -1408,6 +1531,7 @@ select:focus {
   }
 
   .new-goal,
+  .priority-list li,
   .task-row,
   .activity-list li,
   .trash-item,
@@ -1417,6 +1541,10 @@ select:focus {
 
   .activity-list time {
     text-align: left;
+  }
+
+  .priority-votes {
+    justify-content: flex-start;
   }
 
   .goal-header {
