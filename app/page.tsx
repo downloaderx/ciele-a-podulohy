@@ -741,9 +741,17 @@ export default function Home() {
     () => goals.filter((goal) => !goal.deletedAt),
     [goals],
   );
+  const activityGoals = useMemo(
+    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
+    [activeGoals],
+  );
+  const boardGoals = useMemo(
+    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'activity'),
+    [activeGoals],
+  );
   const rankedActiveGoals = useMemo(
-    () => sortGoalsByAverageRanking(activeGoals, people, goalRankings),
-    [activeGoals, goalRankings, people],
+    () => sortGoalsByAverageRanking(boardGoals, people, goalRankings),
+    [boardGoals, goalRankings, people],
   );
   const trashedGoals = useMemo(
     () => goals.filter((goal) => goal.deletedAt),
@@ -873,7 +881,7 @@ export default function Home() {
   }, [activePersonId, activityLog, authRecords, goalRankings, goals, loaded, people]);
 
   const totals = useMemo(() => {
-    const allTasks = activeGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
+    const allTasks = boardGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
     const done = allTasks.filter((task) => task.done).length;
     const total = allTasks.length;
 
@@ -882,14 +890,10 @@ export default function Home() {
       total,
       percent: total === 0 ? 0 : Math.round((done / total) * 100),
     };
-  }, [activeGoals]);
+  }, [boardGoals]);
   const completedItems = useMemo(
-    () => collectCompletedItems(activeGoals).slice(0, 10),
-    [activeGoals],
-  );
-  const activityGoals = useMemo(
-    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
-    [activeGoals],
+    () => collectCompletedItems(boardGoals).slice(0, 10),
+    [boardGoals],
   );
   const recurringGoals = useMemo(
     () =>
@@ -959,18 +963,20 @@ export default function Home() {
       },
       ...current,
     ]);
-    setGoalRankings((current) =>
-      people.reduce<Record<string, string[]>>((rankings, person) => {
-        const currentRanking = normalizePersonRanking(current[person.id], activeGoals);
+    if (newGoalCategory !== 'activity') {
+      setGoalRankings((current) =>
+        people.reduce<Record<string, string[]>>((rankings, person) => {
+          const currentRanking = normalizePersonRanking(current[person.id], boardGoals);
 
-        rankings[person.id] =
-          person.id === activePersonId
-            ? [goalId, ...currentRanking]
-            : [...currentRanking, goalId];
+          rankings[person.id] =
+            person.id === activePersonId
+              ? [goalId, ...currentRanking]
+              : [...currentRanking, goalId];
 
-        return rankings;
-      }, { ...current }),
-    );
+          return rankings;
+        }, { ...current }),
+      );
+    }
     addActivity('pridal(a) plán', title);
     setNewGoalTitle('');
     setNewGoalDescription('');
@@ -1209,8 +1215,8 @@ export default function Home() {
   }
 
   function moveGoalInRanking(goalId: string, direction: -1 | 1) {
-    const activeGoalIds = activeGoals.map((goal) => goal.id);
-    const currentRanking = normalizePersonRanking(goalRankings[activePersonId], activeGoals);
+    const activeGoalIds = boardGoals.map((goal) => goal.id);
+    const currentRanking = normalizePersonRanking(goalRankings[activePersonId], boardGoals);
     const currentIndex = currentRanking.indexOf(goalId);
     const nextIndex = currentIndex + direction;
 
@@ -1856,7 +1862,7 @@ export default function Home() {
 
       <PriorityPoll
         activePersonId={activePersonId}
-        goals={activeGoals}
+        goals={boardGoals}
         goalRankings={goalRankings}
         onMoveGoal={moveGoalInRanking}
         people={people}
