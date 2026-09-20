@@ -55,51 +55,9 @@ type TransferPayload = {
 
 const avatarOptions = [
   {
-    id: 'lavender',
-    label: 'Fialová líštička',
-    src: '/avatar-lavender.png',
-    tone: '#a98dff',
-  },
-  {
-    id: 'mint-leaf',
-    label: 'Mätová líštička s lístkom',
-    src: '/avatar-mint-leaf.png',
-    tone: '#35d0ba',
-  },
-  {
-    id: 'golden',
-    label: 'Žltá líštička',
-    src: '/avatar-golden.png',
-    tone: '#f4b942',
-  },
-  {
-    id: 'mint',
-    label: 'Mätová líštička',
-    src: '/avatar-mint.png',
-    tone: '#58dcca',
-  },
-  {
-    id: 'cyan-flower',
-    label: 'Cyan líštička s kvietkom',
-    src: '/avatar-cyan-flower.png',
-    tone: '#43c7d5',
-  },
-  {
-    id: 'blue',
-    label: 'Modrá líštička',
-    src: '/avatar-blue.png',
-    tone: '#6c9fff',
-  },
-  {
-    id: 'silver',
-    label: 'Sivá líštička',
-    src: '/avatar-silver.png',
-    tone: '#9ca8bd',
-  },
-  {
-    id: 'orange',
-    label: 'Oranžová líštička',
-    src: '/avatar-orange.png',
+    id: 'rini-orange',
+    label: 'Oranžová líštička s náramkom',
+    src: '/avatar-rini-orange.png',
     tone: '#ff9d4a',
   },
   {
@@ -109,23 +67,73 @@ const avatarOptions = [
     tone: '#ff9d4a',
   },
   {
-    id: 'pink-bow',
-    label: 'Ružová líštička s mašľou',
-    src: '/avatar-pink-bow.png',
+    id: 'rini-pink',
+    label: 'Ružová líštička s náramkom',
+    src: '/avatar-rini-pink.png',
     tone: '#ff7eb6',
   },
   {
-    id: 'midnight-moon',
-    label: 'Nočná líštička s mesiacom',
-    src: '/avatar-midnight-moon.png',
-    tone: '#6763dd',
+    id: 'rini-silver',
+    label: 'Strieborná líštička s náramkom',
+    src: '/avatar-rini-silver.png',
+    tone: '#9ca8bd',
+  },
+  {
+    id: 'rini-green',
+    label: 'Zelená líštička s náramkom',
+    src: '/avatar-rini-green.png',
+    tone: '#8fe36b',
+  },
+  {
+    id: 'rini-blue-pearl',
+    label: 'Bledomodrá líštička s perličkami',
+    src: '/avatar-rini-blue-pearl.png',
+    tone: '#6c9fff',
+  },
+  {
+    id: 'rini-yellow',
+    label: 'Žltá líštička s náramkom',
+    src: '/avatar-rini-yellow.png',
+    tone: '#f4d84d',
+  },
+  {
+    id: 'rini-mint-pearl',
+    label: 'Tyrkysová líštička s perličkami',
+    src: '/avatar-rini-mint-pearl.png',
+    tone: '#35d0ba',
+  },
+  {
+    id: 'rini-mint',
+    label: 'Mätová líštička s náramkom',
+    src: '/avatar-rini-mint.png',
+    tone: '#58dcca',
+  },
+  {
+    id: 'rini-lavender',
+    label: 'Levanduľová líštička s náramkom',
+    src: '/avatar-rini-lavender.png',
+    tone: '#a98dff',
+  },
+  {
+    id: 'rini-navy',
+    label: 'Modrá líštička s perličkami',
+    src: '/avatar-rini-navy.png',
+    tone: '#4d67c4',
   },
 ];
 
 const defaultPeople: Person[] = [
-  { id: 'person-1', name: 'Rini', tone: '#43c7d5', avatarId: 'cyan-flower' },
-  { id: 'person-2', name: 'Fluffy', tone: '#a98dff', avatarId: 'lavender' },
+  { id: 'person-1', name: 'Rini', tone: '#ff9d4a', avatarId: 'rini-orange' },
+  { id: 'person-2', name: 'Fluffy', tone: '#ff9d4a', avatarId: 'fluffy' },
 ];
+
+function getAvatarOptionsForPerson(personId: string) {
+  if (personId === 'person-2') {
+    return avatarOptions.filter((avatar) => avatar.id === 'fluffy');
+  }
+
+  return avatarOptions.filter((avatar) => avatar.id.startsWith('rini-'));
+}
 
 const authRecordsKey = 'ciele-auth-records';
 const sessionPersonKey = 'ciele-session-person';
@@ -307,7 +315,9 @@ function normalizePeople(savedPeople: Person[]) {
   return defaultPeople.map((defaultPerson) => {
     const savedPerson = savedPeople.find((person) => person.id === defaultPerson.id);
     const savedName = savedPerson?.name.trim();
-    const savedAvatar = avatarOptions.find((avatar) => avatar.id === savedPerson?.avatarId);
+    const savedAvatar = getAvatarOptionsForPerson(defaultPerson.id).find(
+      (avatar) => avatar.id === savedPerson?.avatarId,
+    );
     const oldDefaultName =
       (defaultPerson.id === 'person-1' && savedName === 'Ja') ||
       (defaultPerson.id === 'person-2' && savedName === 'Ty');
@@ -726,7 +736,9 @@ export default function Home() {
   }
 
   function changePersonAvatar(personId: string, avatarId: string) {
-    const selectedAvatar = avatarOptions.find((avatar) => avatar.id === avatarId);
+    const selectedAvatar = getAvatarOptionsForPerson(personId).find(
+      (avatar) => avatar.id === avatarId,
+    );
     const currentPerson = people.find((person) => person.id === personId);
 
     if (
@@ -1077,7 +1089,7 @@ export default function Home() {
                       </button>
                       {avatarMenuOpen ? (
                         <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
-                          {avatarOptions.map((avatar) => (
+                          {getAvatarOptionsForPerson(person.id).map((avatar) => (
                             <button
                               aria-label={avatar.label}
                               className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
