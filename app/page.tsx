@@ -103,6 +103,12 @@ const avatarOptions = [
     tone: '#ff9d4a',
   },
   {
+    id: 'fluffy',
+    label: 'Fluffyho líštička',
+    src: '/avatar-fluffy.png',
+    tone: '#ff9d4a',
+  },
+  {
     id: 'pink-bow',
     label: 'Ružová líštička s mašľou',
     src: '/avatar-pink-bow.png',
