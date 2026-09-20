@@ -723,6 +723,7 @@ h1 {
 .activity-panel,
 .completed-panel,
 .priority-poll,
+.special-panel,
 .trash-panel {
   background: var(--panel);
   border: 2px solid var(--line);
@@ -743,6 +744,102 @@ h1 {
   margin: 0 auto 16px;
   max-width: 1180px;
   padding: 16px;
+}
+
+.special-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 16px;
+}
+
+.special-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.special-heading h2 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+}
+
+.special-heading button,
+.recurring-list button,
+.recurrence-summary button {
+  background: linear-gradient(135deg, #07111f, #126fbe);
+  border: 2px solid #07111f;
+  border-radius: 7px;
+  color: #ffffff;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.special-heading button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.activity-result {
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.activity-result span,
+.special-panel p,
+.recurring-list span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.activity-result strong {
+  color: #09213a;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.recurring-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recurring-list li {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 1fr) auto auto;
+  min-height: 50px;
+  padding: 8px 10px;
+}
+
+.recurring-list strong {
+  color: var(--foreground);
+  display: block;
+  font-size: 14px;
+}
+
+.recurring-list time {
+  color: #126fbe;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .completed-heading {
@@ -1562,6 +1659,26 @@ select:focus {
   padding: 6px 28px 6px 10px;
 }
 
+.recurrence-select input {
+  min-height: 34px;
+  padding: 6px 8px;
+  width: 72px;
+}
+
+.recurrence-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 18px 0 66px;
+}
+
+.recurrence-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .item-meta {
   color: var(--muted);
   font-size: 12px;
@@ -1690,6 +1807,7 @@ select:focus {
   .new-goal,
   .completed-list li,
   .priority-list li,
+  .recurring-list li,
   .task-row,
   .activity-list li,
   .trash-item,
@@ -1716,6 +1834,10 @@ select:focus {
   }
 
   .goal-meta {
+    padding-left: 18px;
+  }
+
+  .recurrence-summary {
     padding-left: 18px;
   }
 

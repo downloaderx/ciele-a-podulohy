@@ -23,10 +23,12 @@ type Goal = Task & {
   category?: GoalCategory;
   description: string;
   importanceByPerson: Record<string, number>;
+  lastCompletedAt?: string;
+  recurrenceDays?: number;
   deletedAt?: string;
 };
 
-type GoalCategory = 'plan' | 'chore' | 'errand' | 'care';
+type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity';
 
 type ActivityItem = {
   id: string;
@@ -216,8 +218,11 @@ const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'plan', label: 'Dlhodobé ciele vo vzťahu' },
   { id: 'chore', label: 'Chores' },
   { id: 'errand', label: 'Vybaviť' },
-  { id: 'care', label: 'Habits / activities' },
+  { id: 'habit', label: 'Habits' },
+  { id: 'activity', label: 'Activities' },
 ];
+const recurringCategoryIds: GoalCategory[] = ['chore', 'habit'];
+const defaultRecurrenceDays = 7;
 
 const starterGoals: Goal[] = [
   {
@@ -319,6 +324,22 @@ function createId() {
   return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function createRandomIndex(length: number) {
+  if (length <= 1) {
+    return 0;
+  }
+
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint32Array(1);
+
+    crypto.getRandomValues(bytes);
+
+    return bytes[0] % length;
+  }
+
+  return Date.now() % length;
+}
+
 function calculateProgress(task: Task) {
   const descendants = flattenChildren(task);
   const trackedItems = descendants.length > 0 ? descendants : [task];
@@ -353,11 +374,77 @@ function normalizeGoalImportance(goal: Goal, people: Person[]) {
 function normalizeGoals(goals: Goal[], people: Person[]) {
   return goals.map((goal) => ({
     ...goal,
-    category: goal.category && goalCategories.some((category) => category.id === goal.category)
-      ? goal.category
-      : 'plan',
+    category: normalizeGoalCategory(goal.category),
+    recurrenceDays: recurringCategoryIds.includes(normalizeGoalCategory(goal.category))
+      ? normalizeRecurrenceDays(goal.recurrenceDays)
+      : undefined,
     importanceByPerson: normalizeGoalImportance(goal, people),
   }));
+}
+
+function normalizeGoalCategory(category: Goal['category'] | 'care' | undefined): GoalCategory {
+  if (category === 'care') {
+    return 'habit';
+  }
+
+  return category && goalCategories.some((option) => option.id === category)
+    ? category
+    : 'plan';
+}
+
+function normalizeRecurrenceDays(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return defaultRecurrenceDays;
+  }
+
+  return Math.max(1, Math.min(365, Math.round(value)));
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+
+  nextDate.setDate(nextDate.getDate() + days);
+  nextDate.setHours(0, 0, 0, 0);
+
+  return nextDate;
+}
+
+function getNextDueDate(goal: Goal) {
+  const category = normalizeGoalCategory(goal.category);
+  const recurrenceDays = normalizeRecurrenceDays(goal.recurrenceDays);
+  const baseDate = goal.lastCompletedAt ? new Date(goal.lastCompletedAt) : new Date();
+
+  if (!recurringCategoryIds.includes(category)) {
+    return null;
+  }
+
+  return goal.lastCompletedAt ? addDays(baseDate, recurrenceDays) : addDays(new Date(), 0);
+}
+
+function getDaysUntil(date: Date) {
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  return Math.ceil((date.getTime() - today.getTime()) / 86400000);
+}
+
+function formatDueLabel(date: Date) {
+  const daysUntil = getDaysUntil(date);
+
+  if (daysUntil < 0) {
+    return `mešká ${Math.abs(daysUntil)} d`;
+  }
+
+  if (daysUntil === 0) {
+    return 'dnes';
+  }
+
+  if (daysUntil === 1) {
+    return 'zajtra';
+  }
+
+  return `o ${daysUntil} dní`;
 }
 
 function normalizePersonRanking(ranking: string[] | undefined, goals: Goal[]) {
@@ -622,6 +709,7 @@ export default function Home() {
   const [transferMessage, setTransferMessage] = useState('');
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [previewPersonId, setPreviewPersonId] = useState(defaultPeople[0].id);
+  const [randomActivityId, setRandomActivityId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -773,6 +861,26 @@ export default function Home() {
   const completedItems = useMemo(
     () => collectCompletedItems(activeGoals).slice(0, 10),
     [activeGoals],
+  );
+  const activityGoals = useMemo(
+    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
+    [activeGoals],
+  );
+  const recurringGoals = useMemo(
+    () =>
+      activeGoals
+        .filter((goal) => recurringCategoryIds.includes(normalizeGoalCategory(goal.category)))
+        .sort((first, second) => {
+          const firstDue = getNextDueDate(first)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const secondDue = getNextDueDate(second)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+
+          return firstDue - secondDue;
+        }),
+    [activeGoals],
+  );
+  const randomActivity = useMemo(
+    () => activityGoals.find((goal) => goal.id === randomActivityId) ?? null,
+    [activityGoals, randomActivityId],
   );
 
   const goalSnapshots = useMemo(
@@ -950,12 +1058,70 @@ export default function Home() {
           ? {
               ...goal,
               category,
+              recurrenceDays: recurringCategoryIds.includes(category)
+                ? normalizeRecurrenceDays(goal.recurrenceDays)
+                : undefined,
               updatedById: activePersonId,
             }
           : goal,
       ),
     );
     addActivity('zmenil(a) kategóriu', goal.title);
+  }
+
+  function changeGoalRecurrence(goalId: string, recurrenceDays: number) {
+    const goal = goals.find((goal) => goal.id === goalId);
+    const normalizedDays = normalizeRecurrenceDays(recurrenceDays);
+
+    if (!goal || goal.recurrenceDays === normalizedDays) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              recurrenceDays: normalizedDays,
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('upravil(a) opakovanie', goal.title);
+  }
+
+  function completeRecurringGoalToday(goalId: string) {
+    const goal = goals.find((goal) => goal.id === goalId);
+
+    if (!goal) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              lastCompletedAt: new Date().toISOString(),
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('spravil(a) opakovanú vec', goal.title);
+  }
+
+  function pickRandomActivity() {
+    if (activityGoals.length === 0) {
+      setRandomActivityId(null);
+      return;
+    }
+
+    const nextActivity = activityGoals[createRandomIndex(activityGoals.length)];
+
+    setRandomActivityId(nextActivity.id);
+    addActivity('vyžreboval(a) aktivitu', nextActivity.title);
   }
 
   function deleteTask(taskId: string) {
@@ -1647,6 +1813,17 @@ export default function Home() {
 
       <CompletedWorkPanel completedItems={completedItems} people={people} />
 
+      <ActivityWheelPanel
+        activities={activityGoals}
+        onPickRandom={pickRandomActivity}
+        selectedActivity={randomActivity}
+      />
+
+      <RecurringCalendarPanel
+        goals={recurringGoals}
+        onCompleteToday={completeRecurringGoalToday}
+      />
+
       {trashedGoals.length > 0 ? (
         <TrashPanel goals={trashedGoals} onRestore={restoreGoal} />
       ) : null}
@@ -1668,6 +1845,8 @@ export default function Home() {
             key={goal.id}
             onAddSubtask={addSubtask}
             onChangeCategory={changeGoalCategory}
+            onChangeRecurrence={changeGoalRecurrence}
+            onCompleteRecurring={completeRecurringGoalToday}
             onDelete={deleteTask}
             onRateImportance={rateGoalImportance}
             onRenameDescription={updateGoalDescription}
@@ -1999,6 +2178,88 @@ function CompletedWorkPanel({
   );
 }
 
+function ActivityWheelPanel({
+  activities,
+  onPickRandom,
+  selectedActivity,
+}: {
+  activities: Goal[];
+  onPickRandom: () => void;
+  selectedActivity: Goal | null;
+}) {
+  return (
+    <section className="special-panel activity-wheel" aria-label="Náhodný výber aktivity">
+      <div className="special-heading">
+        <div>
+          <span className="label">Activities</span>
+          <h2>Koleso čo ísť robiť</h2>
+        </div>
+        <button disabled={activities.length === 0} onClick={onPickRandom} type="button">
+          Zatočiť
+        </button>
+      </div>
+      {selectedActivity ? (
+        <div className="activity-result">
+          <span>Vybrané</span>
+          <strong>{selectedActivity.title}</strong>
+          <p>{selectedActivity.description}</p>
+        </div>
+      ) : (
+        <p>
+          Pridaj položky v kategórii Activities a tu sa z nich bude dať náhodne vybrať, čo ísť robiť.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function RecurringCalendarPanel({
+  goals,
+  onCompleteToday,
+}: {
+  goals: Goal[];
+  onCompleteToday: (goalId: string) => void;
+}) {
+  return (
+    <section className="special-panel recurring-calendar" aria-label="Kalendár chores a habits">
+      <div className="special-heading">
+        <div>
+          <span className="label">Chores calendar</span>
+          <h2>Čo je kedy na rade</h2>
+        </div>
+      </div>
+      {goals.length > 0 ? (
+        <ol className="recurring-list">
+          {goals.map((goal) => {
+            const dueDate = getNextDueDate(goal);
+            const dueLabel = dueDate ? formatDueLabel(dueDate) : 'bez termínu';
+            const category = goalCategories.find(
+              (category) => category.id === normalizeGoalCategory(goal.category),
+            );
+
+            return (
+              <li key={goal.id}>
+                <div>
+                  <strong>{goal.title}</strong>
+                  <span>
+                    {category?.label ?? 'Opakované'} · každých {normalizeRecurrenceDays(goal.recurrenceDays)} dní
+                  </span>
+                </div>
+                <time>{dueLabel}</time>
+                <button onClick={() => onCompleteToday(goal.id)} type="button">
+                  Dnes hotovo
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>Chores alebo habits dostanú opakovanie a objavia sa tu ako malý kalendár.</p>
+      )}
+    </section>
+  );
+}
+
 function PriorityPoll({
   activePersonId,
   goals,
@@ -2024,9 +2285,10 @@ function PriorityPoll({
     return positions;
   }, {});
   const groupedGoals = goalCategories
+    .filter((category) => category.id !== 'activity')
     .map((category) => ({
       ...category,
-      goals: rankedGoals.filter((goal) => (goal.category ?? 'plan') === category.id),
+      goals: rankedGoals.filter((goal) => normalizeGoalCategory(goal.category) === category.id),
     }))
     .filter((category) => category.goals.length > 0);
 
@@ -2153,6 +2415,8 @@ type GoalPanelProps = {
   goal: Goal;
   onAddSubtask: (parentId: string, title: string) => void;
   onChangeCategory: (goalId: string, category: GoalCategory) => void;
+  onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
+  onCompleteRecurring: (goalId: string) => void;
   onDelete: (taskId: string) => void;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
   onRename: (taskId: string, title: string) => void;
@@ -2165,6 +2429,8 @@ type GoalPanelProps = {
 function GoalPanel(props: GoalPanelProps) {
   const progress = calculateProgress(props.goal);
   const importanceByPerson = normalizeGoalImportance(props.goal, props.people);
+  const category = normalizeGoalCategory(props.goal.category);
+  const isRecurring = recurringCategoryIds.includes(category);
 
   return (
     <article className="goal-panel">
@@ -2237,7 +2503,30 @@ function GoalPanel(props: GoalPanelProps) {
             ))}
           </select>
         </label>
+        {isRecurring ? (
+          <label className="category-select recurrence-select">
+            Opakovať
+            <input
+              min={1}
+              onChange={(event) => props.onChangeRecurrence(props.goal.id, Number(event.target.value))}
+              type="number"
+              value={normalizeRecurrenceDays(props.goal.recurrenceDays)}
+            />
+            dní
+          </label>
+        ) : null}
       </div>
+
+      {isRecurring ? (
+        <div className="recurrence-summary">
+          <span>
+            Nabudúce: {getNextDueDate(props.goal) ? formatDueLabel(getNextDueDate(props.goal) as Date) : 'bez termínu'}
+          </span>
+          <button onClick={() => props.onCompleteRecurring(props.goal.id)} type="button">
+            Dnes hotovo
+          </button>
+        </div>
+      ) : null}
 
       <div className="meter slim" aria-hidden="true">
         <span style={{ width: `${progress.percent}%` }} />
