@@ -293,6 +293,12 @@ h1 {
   position: relative;
 }
 
+.person-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .avatar-dropdown-button {
   background: #ffffff;
   border: 2px solid #b5d6e9;
@@ -305,8 +311,21 @@ h1 {
   white-space: nowrap;
 }
 
+.person-password-button {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
 .avatar-dropdown-button:hover,
-.avatar-dropdown-button[aria-expanded="true"] {
+.avatar-dropdown-button[aria-expanded="true"],
+.person-password-button:hover {
   border-color: var(--accent);
   box-shadow: 0 3px 0 rgb(53 208 186 / 18%);
 }

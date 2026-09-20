@@ -385,6 +385,7 @@ export default function Home() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordPersonId, setPasswordPersonId] = useState(defaultPeople[0].id);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
@@ -479,6 +480,10 @@ export default function Home() {
   const activePerson = useMemo(
     () => people.find((person) => person.id === activePersonId) ?? people[0],
     [activePersonId, people],
+  );
+  const passwordPerson = useMemo(
+    () => people.find((person) => person.id === passwordPersonId) ?? activePerson,
+    [activePerson, passwordPersonId, people],
   );
 
   function addGoal(event: FormEvent<HTMLFormElement>) {
@@ -709,6 +714,7 @@ export default function Home() {
       }
 
       setActivePersonId(personId);
+      setPasswordPersonId(personId);
       setAuthenticated(true);
       window.localStorage.setItem(sessionPersonKey, personId);
       return { ok: true, message: '' };
@@ -722,6 +728,7 @@ export default function Home() {
       [personId]: { hash, salt },
     }));
     setActivePersonId(personId);
+    setPasswordPersonId(personId);
     setAuthenticated(true);
     window.localStorage.setItem(sessionPersonKey, personId);
     addActivity('nastavil(a) heslo', 'svoj vstup do tabule');
@@ -733,6 +740,7 @@ export default function Home() {
     event.preventDefault();
     const trimmed = newPassword.trim();
     const confirmed = newPasswordConfirm.trim();
+    const targetPersonId = passwordPerson?.id ?? activePersonId;
 
     setPasswordMessage('');
 
@@ -752,17 +760,18 @@ export default function Home() {
 
     setAuthRecords((current) => ({
       ...current,
-      [activePersonId]: { hash, salt },
+      [targetPersonId]: { hash, salt },
     }));
     setNewPassword('');
     setNewPasswordConfirm('');
     setSavingPassword(false);
-    setPasswordMessage('Hotovo, nové heslo je uložené.');
-    addActivity('zmenil(a) heslo', 'svoj vstup do tabule');
+    setPasswordMessage(`Hotovo, nové heslo pre ${passwordPerson?.name ?? 'Foxie'} je uložené.`);
+    addActivity('zmenil(a) heslo', `vstup pre ${passwordPerson?.name ?? 'Foxie'}`);
   }
 
-  function openPasswordModal() {
+  function openPasswordModal(personId = activePersonId) {
     setSettingsOpen(false);
+    setPasswordPersonId(personId);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
@@ -843,6 +852,7 @@ export default function Home() {
       setActivityLog(data.activityLog);
       setAuthRecords(data.authRecords);
       setActivePersonId(importedActivePersonId);
+      setPasswordPersonId(importedActivePersonId);
 
       window.localStorage.setItem('ciele-goals', JSON.stringify(data.goals));
       window.localStorage.setItem('ciele-active-person', importedActivePersonId);
@@ -882,6 +892,7 @@ export default function Home() {
 
     window.localStorage.removeItem(sessionPersonKey);
     setActivePersonId(personId);
+    setPasswordPersonId(personId);
     setAuthenticated(false);
     setAvatarMenuOpen(false);
   }
@@ -952,32 +963,41 @@ export default function Home() {
                   ) : null}
                 </div>
                 {person.id === activePersonId ? (
-                  <div className="avatar-dropdown">
+                  <div className="person-actions">
+                    <div className="avatar-dropdown">
+                      <button
+                        aria-expanded={avatarMenuOpen}
+                        className="avatar-dropdown-button"
+                        onClick={() => setAvatarMenuOpen((open) => !open)}
+                        type="button"
+                      >
+                        Zmeniť ikonku
+                      </button>
+                      {avatarMenuOpen ? (
+                        <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
+                          {avatarOptions.map((avatar) => (
+                            <button
+                              aria-label={avatar.label}
+                              className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
+                              key={avatar.id}
+                              onClick={() => changePersonAvatar(person.id, avatar.id)}
+                              style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
+                              title={avatar.label}
+                              type="button"
+                            >
+                              <img alt="" src={avatar.src} />
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     <button
-                      aria-expanded={avatarMenuOpen}
-                      className="avatar-dropdown-button"
-                      onClick={() => setAvatarMenuOpen((open) => !open)}
+                      className="person-password-button"
+                      onClick={() => openPasswordModal(person.id)}
                       type="button"
                     >
-                      Zmeniť ikonku
+                      Heslo
                     </button>
-                    {avatarMenuOpen ? (
-                      <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
-                        {avatarOptions.map((avatar) => (
-                          <button
-                            aria-label={avatar.label}
-                            className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
-                            key={avatar.id}
-                            onClick={() => changePersonAvatar(person.id, avatar.id)}
-                            style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
-                            title={avatar.label}
-                            type="button"
-                          >
-                            <img alt="" src={avatar.src} />
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
                 ) : (
                   <span className="avatar-owner-note">ikonku mení len {person.name}</span>
@@ -998,8 +1018,8 @@ export default function Home() {
             </button>
             {settingsOpen ? (
               <div className="settings-popover">
-                <button onClick={openPasswordModal} type="button">
-                  Zmeniť heslo
+                <button onClick={() => openPasswordModal(activePersonId)} type="button">
+                  Zmeniť moje heslo
                 </button>
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
@@ -1024,7 +1044,7 @@ export default function Home() {
             <div className="modal-heading">
               <div>
                 <span className="label">Heslo</span>
-                <h2>Zmeniť heslo</h2>
+                <h2>Heslo pre {passwordPerson?.name ?? 'Foxie'}</h2>
               </div>
               <button
                 aria-label="Zatvoriť zmenu hesla"
@@ -1037,7 +1057,7 @@ export default function Home() {
             </div>
             <form className="password-form" onSubmit={changePassword}>
               <label>
-                Nové heslo pre {activePerson?.name}
+                Nové heslo
                 <input
                   autoComplete="new-password"
                   onChange={(event) => setNewPassword(event.target.value)}
