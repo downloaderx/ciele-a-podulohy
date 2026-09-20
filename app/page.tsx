@@ -496,6 +496,17 @@ function normalizeGoalRankings(
   }, {});
 }
 
+function getAverageImportance(goal: Goal, people: Person[]) {
+  const ratings = goal.importanceByPerson ?? {};
+  let total = 0;
+
+  for (const person of people) {
+    total += clampImportance(ratings[person.id] ?? minImportance) ?? minImportance;
+  }
+
+  return total / Math.max(people.length, 1);
+}
+
 function sortGoalsByAverageRanking(
   goals: Goal[],
   people: Person[],
@@ -505,6 +516,8 @@ function sortGoalsByAverageRanking(
   const rankingByPerson = people.map((person) => normalizePersonRanking(rankings[person.id], goals));
 
   return [...goals].sort((first, second) => {
+    const firstImportance = getAverageImportance(first, people);
+    const secondImportance = getAverageImportance(second, people);
     const firstAverage =
       rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(first.id), 0) /
       Math.max(rankingByPerson.length, 1);
@@ -513,6 +526,7 @@ function sortGoalsByAverageRanking(
       Math.max(rankingByPerson.length, 1);
 
     return (
+      secondImportance - firstImportance ||
       firstAverage - secondAverage ||
       (originalIndexById.get(first.id) ?? 0) - (originalIndexById.get(second.id) ?? 0)
     );
@@ -2377,13 +2391,6 @@ function PriorityPoll({
 }) {
   const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
   const activeRanking = normalizePersonRanking(goalRankings[activePersonId], goals);
-  const positionByPerson = people.reduce<Record<string, Map<string, number>>>((positions, person) => {
-    const ranking = normalizePersonRanking(goalRankings[person.id], goals);
-
-    positions[person.id] = new Map(ranking.map((goalId, index) => [goalId, index + 1]));
-
-    return positions;
-  }, {});
   const groupedGoals = goalCategories
     .filter((category) => category.id !== 'activity')
     .map((category) => ({
@@ -2406,7 +2413,7 @@ function PriorityPoll({
           <button
             aria-label="Ako funguje anketa priorít"
             className="info-button"
-            title="Každá líštička zoradí plány podľa toho, čo v tomto období považuje za najdôležitejšie. Poradie na stránke sa potom vypočíta z priemeru oboch poradí."
+            title="Poradie vychádza najprv z priemernej dôležitosti 1-5 od oboch líštičiek. Ak majú veci rovnakú dôležitosť, rozhodne ich poradie v ankete."
             type="button"
           >
             i
@@ -2424,18 +2431,14 @@ function PriorityPoll({
               <ol className="priority-list">
                 {category.goals.map((goal, index) => {
                   const activeIndex = activeRanking.indexOf(goal.id);
-                  const averagePosition =
-                    people.reduce(
-                      (sum, person) => sum + (positionByPerson[person.id].get(goal.id) ?? rankedGoals.length),
-                      0,
-                    ) / Math.max(people.length, 1);
+                  const averageImportance = getAverageImportance(goal, people);
 
                   return (
                     <li key={goal.id}>
                       <span className="priority-rank">{index + 1}</span>
                       <div className="priority-copy">
                         <strong>{goal.title}</strong>
-                        <span>Priemer poradia {averagePosition.toFixed(1)}</span>
+                        <span>Priemer dôležitosti {averageImportance.toFixed(1)}/5</span>
                       </div>
                       <div className="priority-votes" aria-label={`Poradie pre ${goal.title}`}>
                         {people.map((person) => (
@@ -2444,7 +2447,7 @@ function PriorityPoll({
                             style={{ '--person-tone': person.tone } as React.CSSProperties}
                           >
                             <AvatarFox person={person} size="small" />
-                            {positionByPerson[person.id].get(goal.id) ?? '-'}.
+                            {clampImportance(goal.importanceByPerson?.[person.id]) ?? minImportance}/5
                           </span>
                         ))}
                       </div>
