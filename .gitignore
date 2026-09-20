@@ -32,8 +32,11 @@ yarn-error.log*
 
 # deployment and generated files
 .vercel
+supabase/.temp/
 next-env.d.ts
 /dist/
 /.wrangler/
 /outputs/
 /work/
+
+.vercel

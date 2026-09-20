@@ -350,7 +350,9 @@ export default function Home() {
     [goals],
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    // Restore browser-local data after hydration.
     const savedGoals = window.localStorage.getItem('ciele-goals');
     const savedPerson = window.localStorage.getItem('ciele-active-person');
     const savedPeople = window.localStorage.getItem('ciele-people');
@@ -389,6 +391,7 @@ export default function Home() {
 
     setLoaded(true);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!loaded) {
@@ -1319,39 +1322,6 @@ function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' 
       className={`avatar-fox ${size}`}
       src={avatar.src}
     />
-  );
-}
-
-function PixelFox({ flipped = false, small = false }: { flipped?: boolean; small?: boolean }) {
-  const pixels = [
-    'K......K',
-    'KO....OK',
-    'KFO..OFK',
-    'KFFOOFFK',
-    '.KFOOFK.',
-    '.FWHHWF.',
-    '..KBBK..',
-    '.KKWWKK.',
-  ];
-
-  return (
-    <span
-      className={[
-        'pixel-fox',
-        flipped ? 'flipped' : '',
-        small ? 'small' : '',
-      ].join(' ')}
-      aria-hidden="true"
-    >
-      {pixels.flatMap((row, rowIndex) =>
-        row.split('').map((pixel, columnIndex) => (
-          <span
-            className={pixel === '.' ? 'empty' : `pixel ${pixel.toLowerCase()}`}
-            key={`${rowIndex}-${columnIndex}`}
-          />
-        )),
-      )}
-    </span>
   );
 }
 
