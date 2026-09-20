@@ -735,6 +735,9 @@ export default function Home() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [previewPersonId, setPreviewPersonId] = useState(defaultPeople[0].id);
   const [randomActivityId, setRandomActivityId] = useState<string | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const [priorityRefreshKey, setPriorityRefreshKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -1523,6 +1526,7 @@ export default function Home() {
     setPasswordModalOpen(false);
     setTransferModalOpen(false);
     setAvatarMenuOpen(false);
+    setTrashOpen(false);
     setPreviewPersonId(activePersonId);
     setNewPassword('');
     setNewPasswordConfirm('');
@@ -1657,6 +1661,48 @@ export default function Home() {
               ))}
             </select>
           </label>
+          <div className="trash-menu">
+            <button
+              aria-expanded={trashOpen}
+              aria-label="Kôš plánov"
+              className="settings-button"
+              onClick={() => {
+                setSettingsOpen(false);
+                setTrashOpen((open) => !open);
+              }}
+              title="Kôš"
+              type="button"
+            >
+              🗑
+            </button>
+            {trashOpen ? (
+              <div className="trash-popover">
+                <div className="trash-popover-heading">
+                  <strong>Kôš</strong>
+                  <span>{trashedGoals.length}</span>
+                </div>
+                {trashedGoals.length > 0 ? (
+                  <div className="trash-popover-list">
+                    {trashedGoals.map((goal) => (
+                      <button
+                        key={goal.id}
+                        onClick={() => {
+                          restoreGoal(goal.id);
+                          setTrashOpen(false);
+                        }}
+                        type="button"
+                      >
+                        <span>{goal.title}</span>
+                        <small>Obnoviť</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Kôš je prázdny.</p>
+                )}
+              </div>
+            ) : null}
+          </div>
           <div className="settings-menu">
             <button
               aria-expanded={settingsOpen}
@@ -1845,7 +1891,9 @@ export default function Home() {
       <CompletedWorkPanel completedItems={completedItems} people={people} />
 
       <ActivityWheelPanel
+        activitiesOpen={activitiesOpen}
         activities={activityGoals}
+        onToggleActivities={() => setActivitiesOpen((open) => !open)}
         onPickRandom={pickRandomActivity}
         selectedActivity={randomActivity}
       />
@@ -1856,16 +1904,14 @@ export default function Home() {
         onCompleteToday={completeRecurringGoalToday}
       />
 
-      {trashedGoals.length > 0 ? (
-        <TrashPanel goals={trashedGoals} onRestore={restoreGoal} />
-      ) : null}
-
       <PriorityPoll
         activePersonId={activePersonId}
         goals={boardGoals}
         goalRankings={goalRankings}
+        onRefreshOrder={() => setPriorityRefreshKey((key) => key + 1)}
         onMoveGoal={moveGoalInRanking}
         people={people}
+        refreshKey={priorityRefreshKey}
         rankedGoals={rankedActiveGoals}
       />
 
@@ -1890,48 +1936,6 @@ export default function Home() {
         ))}
       </section>
     </main>
-  );
-}
-
-function TrashPanel({
-  goals,
-  onRestore,
-}: {
-  goals: Goal[];
-  onRestore: (goalId: string) => void;
-}) {
-  return (
-    <section className="trash-panel" aria-label="Kôš plánov">
-      <div className="trash-heading">
-        <div>
-          <span className="label">Kôš plánov</span>
-          <h2>Odložené bokom</h2>
-        </div>
-        <strong>{goals.length}</strong>
-      </div>
-      <div className="trash-list">
-        {goals.map((goal) => (
-          <div className="trash-item" key={goal.id}>
-            <div>
-              <span>{goal.title}</span>
-              <small>
-                Presunuté {goal.deletedAt
-                  ? new Date(goal.deletedAt).toLocaleString('sk-SK', {
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      month: '2-digit',
-                    })
-                  : 'nedávno'}
-              </small>
-            </div>
-            <button onClick={() => onRestore(goal.id)} type="button">
-              Obnoviť
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -2211,11 +2215,15 @@ function CompletedWorkPanel({
 }
 
 function ActivityWheelPanel({
+  activitiesOpen,
   activities,
+  onToggleActivities,
   onPickRandom,
   selectedActivity,
 }: {
+  activitiesOpen: boolean;
   activities: Goal[];
+  onToggleActivities: () => void;
   onPickRandom: () => void;
   selectedActivity: Goal | null;
 }) {
@@ -2235,6 +2243,18 @@ function ActivityWheelPanel({
           Zatočiť
         </button>
       </div>
+      {activities.length > 0 ? (
+        <button className="activity-list-toggle" onClick={onToggleActivities} type="button">
+          {activitiesOpen ? 'Skryť aktivity' : 'Ukázať aktivity'}
+        </button>
+      ) : null}
+      {activitiesOpen ? (
+        <div className="activity-options">
+          {activities.map((activity) => (
+            <span key={activity.id}>{activity.title}</span>
+          ))}
+        </div>
+      ) : null}
       {selectedActivity ? (
         <div className="activity-result">
           <span>Vybrané</span>
@@ -2340,15 +2360,19 @@ function PriorityPoll({
   activePersonId,
   goals,
   goalRankings,
+  onRefreshOrder,
   onMoveGoal,
   people,
+  refreshKey,
   rankedGoals,
 }: {
   activePersonId: string;
   goals: Goal[];
   goalRankings: Record<string, string[]>;
+  onRefreshOrder: () => void;
   onMoveGoal: (goalId: string, direction: -1 | 1) => void;
   people: Person[];
+  refreshKey: number;
   rankedGoals: Goal[];
 }) {
   const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
@@ -2375,15 +2399,23 @@ function PriorityPoll({
           <span className="label">Anketa priorít</span>
           <h2>Čo je teraz najdôležitejšie</h2>
         </div>
-        <button
-          aria-label="Ako funguje anketa priorít"
-          className="info-button"
-          title="Každá líštička zoradí plány podľa toho, čo v tomto období považuje za najdôležitejšie. Poradie na stránke sa potom vypočíta z priemeru oboch poradí."
-          type="button"
-        >
-          i
-        </button>
+        <div className="priority-heading-actions">
+          <button className="refresh-order-button" onClick={onRefreshOrder} type="button">
+            Obnoviť poradie
+          </button>
+          <button
+            aria-label="Ako funguje anketa priorít"
+            className="info-button"
+            title="Každá líštička zoradí plány podľa toho, čo v tomto období považuje za najdôležitejšie. Poradie na stránke sa potom vypočíta z priemeru oboch poradí."
+            type="button"
+          >
+            i
+          </button>
+        </div>
       </div>
+      {refreshKey > 0 ? (
+        <p className="priority-refresh-note">Poradie je prepočítané podľa aktuálnych hlasov.</p>
+      ) : null}
       {groupedGoals.length > 0 ? (
         <div className="priority-groups">
           {groupedGoals.map((category) => (

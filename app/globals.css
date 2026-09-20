@@ -419,7 +419,8 @@ h1 {
   padding: 6px 28px 6px 10px;
 }
 
-.settings-menu {
+.settings-menu,
+.trash-menu {
   position: relative;
 }
 
@@ -474,6 +475,73 @@ h1 {
 
 .settings-popover button:hover {
   border-color: var(--accent);
+}
+
+.trash-popover {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgb(7 17 31 / 16%);
+  display: grid;
+  gap: 8px;
+  min-width: 240px;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 4;
+}
+
+.trash-popover-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.trash-popover-heading strong {
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.trash-popover-heading span {
+  align-items: center;
+  background: #07111f;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  min-width: 24px;
+}
+
+.trash-popover-list {
+  display: grid;
+  gap: 6px;
+}
+
+.trash-popover-list button {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #d5e8ee;
+  border-radius: 7px;
+  color: var(--foreground);
+  display: flex;
+  font-weight: 900;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.trash-popover-list small,
+.trash-popover p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
 }
 
 .modal-backdrop {
@@ -834,6 +902,33 @@ h1 {
   padding: 12px;
 }
 
+.activity-list-toggle {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-weight: 900;
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.activity-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.activity-options span {
+  background: color-mix(in srgb, #35d0ba 14%, #ffffff);
+  border: 2px solid color-mix(in srgb, #35d0ba 50%, #d5e8ee);
+  border-radius: 999px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 6px 10px;
+}
+
 .activity-result span,
 .special-panel p,
 .recurring-list span {
@@ -1037,6 +1132,30 @@ h1 {
   display: flex;
   gap: 12px;
   justify-content: space-between;
+}
+
+.priority-heading-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.refresh-order-button {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.priority-refresh-note {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--accent) 35%, #b5d6e9);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .priority-poll-heading h2 {
