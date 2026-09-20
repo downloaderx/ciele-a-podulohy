@@ -37,6 +37,19 @@ type AuthRecord = {
   salt: string;
 };
 
+type TransferPayload = {
+  version: 1;
+  exportedAt: string;
+  data: {
+    activePersonId: string;
+    activityLog: ActivityItem[];
+    authRecords: Record<string, AuthRecord>;
+    goals: Goal[];
+    people: Person[];
+    sessionPersonId?: string;
+  };
+};
+
 const avatarOptions = [
   {
     id: 'lavender',
@@ -323,6 +336,40 @@ async function hashPassword(password: string, salt: string) {
   return bytesToHex(new Uint8Array(digest));
 }
 
+function readTransferData(parsed: unknown): TransferPayload['data'] | null {
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+
+  const maybeWrapped = parsed as Partial<TransferPayload>;
+  const data =
+    maybeWrapped.data && typeof maybeWrapped.data === 'object'
+      ? maybeWrapped.data
+      : parsed;
+  const maybeData = data as Partial<TransferPayload['data']>;
+
+  if (
+    !Array.isArray(maybeData.goals) ||
+    !Array.isArray(maybeData.people) ||
+    !Array.isArray(maybeData.activityLog) ||
+    !maybeData.authRecords ||
+    typeof maybeData.authRecords !== 'object' ||
+    typeof maybeData.activePersonId !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    activePersonId: maybeData.activePersonId,
+    activityLog: maybeData.activityLog,
+    authRecords: maybeData.authRecords,
+    goals: maybeData.goals,
+    people: maybeData.people,
+    sessionPersonId:
+      typeof maybeData.sessionPersonId === 'string' ? maybeData.sessionPersonId : undefined,
+  };
+}
+
 export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
@@ -338,6 +385,9 @@ export default function Home() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [transferMessage, setTransferMessage] = useState('');
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -726,15 +776,103 @@ export default function Home() {
     setPasswordMessage('');
   }
 
+  function createTransferPayload(): TransferPayload {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        activePersonId,
+        activityLog,
+        authRecords,
+        goals,
+        people,
+        sessionPersonId: window.localStorage.getItem(sessionPersonKey) ?? undefined,
+      },
+    };
+  }
+
+  function openTransferModal() {
+    setSettingsOpen(false);
+    setTransferMessage('');
+    setImportText('');
+    setTransferModalOpen(true);
+  }
+
+  function closeTransferModal() {
+    setTransferModalOpen(false);
+    setTransferMessage('');
+    setImportText('');
+  }
+
+  function exportData() {
+    const payload = createTransferPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `little-acorns-foxies-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setTransferMessage('Záloha je stiahnutá ako JSON súbor.');
+  }
+
+  function importData(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTransferMessage('');
+
+    try {
+      const data = readTransferData(JSON.parse(importText));
+
+      if (!data) {
+        setTransferMessage('Tento JSON nevyzerá ako záloha z tejto appky.');
+        return;
+      }
+
+      const importedPeople = normalizePeople(data.people);
+      const importedActivePersonId = importedPeople.some(
+        (person) => person.id === data.activePersonId,
+      )
+        ? data.activePersonId
+        : importedPeople[0]?.id ?? defaultPeople[0].id;
+
+      setGoals(data.goals);
+      setPeople(importedPeople);
+      setActivityLog(data.activityLog);
+      setAuthRecords(data.authRecords);
+      setActivePersonId(importedActivePersonId);
+
+      window.localStorage.setItem('ciele-goals', JSON.stringify(data.goals));
+      window.localStorage.setItem('ciele-active-person', importedActivePersonId);
+      window.localStorage.setItem('ciele-people', JSON.stringify(importedPeople));
+      window.localStorage.setItem('ciele-activity-log', JSON.stringify(data.activityLog));
+      window.localStorage.setItem(authRecordsKey, JSON.stringify(data.authRecords));
+
+      if (data.sessionPersonId && data.authRecords[data.sessionPersonId]) {
+        window.localStorage.setItem(sessionPersonKey, data.sessionPersonId);
+        setAuthenticated(true);
+      }
+
+      setImportText('');
+      setTransferMessage('Dáta sú importované. Táto verzia appky ich už vidí.');
+    } catch {
+      setTransferMessage('JSON sa nepodarilo prečítať. Skontroluj, či je celý skopírovaný.');
+    }
+  }
+
   function logout() {
     window.localStorage.removeItem(sessionPersonKey);
     setAuthenticated(false);
     setSettingsOpen(false);
     setPasswordModalOpen(false);
+    setTransferModalOpen(false);
     setAvatarMenuOpen(false);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
+    setTransferMessage('');
   }
 
   function requestPersonSwitch(personId: string) {
@@ -863,6 +1001,9 @@ export default function Home() {
                 <button onClick={openPasswordModal} type="button">
                   Zmeniť heslo
                 </button>
+                <button onClick={openTransferModal} type="button">
+                  Prenos dát
+                </button>
                 <button onClick={logout} type="button">
                   Odhlásiť
                 </button>
@@ -918,6 +1059,54 @@ export default function Home() {
               {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
               <button disabled={savingPassword} type="submit">
                 Uložiť nové heslo
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {transferModalOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            aria-label="Prenos dát"
+            aria-modal="true"
+            className="password-modal data-modal"
+            role="dialog"
+          >
+            <div className="modal-heading">
+              <div>
+                <span className="label">Prenos dát</span>
+                <h2>Export a import</h2>
+              </div>
+              <button
+                aria-label="Zatvoriť prenos dát"
+                className="icon-button compact"
+                onClick={closeTransferModal}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="transfer-actions">
+              <button onClick={exportData} type="button">
+                Stiahnuť zálohu
+              </button>
+            </div>
+            <form className="transfer-form" onSubmit={importData}>
+              <label>
+                Vložiť JSON zálohu
+                <textarea
+                  onChange={(event) => setImportText(event.target.value)}
+                  placeholder='{"version":1,"data":{...}}'
+                  value={importText}
+                />
+              </label>
+              <p>
+                Import prepíše lokálne dáta v tomto prehliadači. Heslá zostanú iba ako uložené hash záznamy zo zálohy.
+              </p>
+              {transferMessage ? <strong className="transfer-message">{transferMessage}</strong> : null}
+              <button disabled={!importText.trim()} type="submit">
+                Importovať dáta
               </button>
             </form>
           </section>

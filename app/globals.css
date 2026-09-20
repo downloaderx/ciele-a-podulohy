@@ -461,6 +461,11 @@ h1 {
   width: min(100%, 430px);
 }
 
+.data-modal {
+  max-width: 560px;
+  width: min(100%, 560px);
+}
+
 .modal-heading {
   align-items: start;
   display: flex;
@@ -478,7 +483,47 @@ h1 {
   gap: 10px;
 }
 
-.password-form button {
+.transfer-form {
+  display: grid;
+  gap: 10px;
+}
+
+.transfer-form textarea {
+  background: #ffffff;
+  border: 2px solid #b5d6e9;
+  border-radius: 8px;
+  color: var(--foreground);
+  min-height: 150px;
+  padding: 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.transfer-form p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.transfer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.transfer-message {
+  background: rgb(53 208 186 / 13%);
+  border: 2px solid rgb(53 208 186 / 38%);
+  border-radius: 8px;
+  color: #095c52;
+  font-size: 13px;
+  padding: 9px 10px;
+}
+
+.password-form button,
+.transfer-actions button,
+.transfer-form button {
   background: linear-gradient(135deg, #07111f, #126fbe);
   border: 2px solid #07111f;
   border-radius: 7px;
