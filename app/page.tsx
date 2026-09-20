@@ -37,15 +37,18 @@ type AuthRecord = {
   salt: string;
 };
 
+type AppStateData = {
+  activePersonId: string;
+  activityLog: ActivityItem[];
+  authRecords: Record<string, AuthRecord>;
+  goals: Goal[];
+  people: Person[];
+};
+
 type TransferPayload = {
   version: 1;
   exportedAt: string;
-  data: {
-    activePersonId: string;
-    activityLog: ActivityItem[];
-    authRecords: Record<string, AuthRecord>;
-    goals: Goal[];
-    people: Person[];
+  data: AppStateData & {
     sessionPersonId?: string;
   };
 };
@@ -370,6 +373,22 @@ function readTransferData(parsed: unknown): TransferPayload['data'] | null {
   };
 }
 
+function readAppStateData(parsed: unknown): AppStateData | null {
+  const data = readTransferData(parsed);
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    activePersonId: data.activePersonId,
+    activityLog: data.activityLog,
+    authRecords: data.authRecords,
+    goals: data.goals,
+    people: data.people,
+  };
+}
+
 export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
@@ -401,49 +420,78 @@ export default function Home() {
     [goals],
   );
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    // Restore browser-local data after hydration.
-    const savedGoals = window.localStorage.getItem('ciele-goals');
-    const savedPerson = window.localStorage.getItem('ciele-active-person');
-    const savedPeople = window.localStorage.getItem('ciele-people');
-    const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
-    const savedAuthRecords = window.localStorage.getItem(authRecordsKey);
-    const savedSessionPerson = window.localStorage.getItem(sessionPersonKey);
-    let parsedAuthRecords: Record<string, AuthRecord> = {};
+    let cancelled = false;
 
-    if (savedGoals) {
-      const parsedGoals = JSON.parse(savedGoals) as Goal[];
-      setGoals(isOldStarterData(parsedGoals) ? starterGoals : parsedGoals);
+    async function restoreState() {
+      const savedGoals = window.localStorage.getItem('ciele-goals');
+      const savedPerson = window.localStorage.getItem('ciele-active-person');
+      const savedPeople = window.localStorage.getItem('ciele-people');
+      const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
+      const savedAuthRecords = window.localStorage.getItem(authRecordsKey);
+      const savedSessionPerson = window.localStorage.getItem(sessionPersonKey);
+      const localState: AppStateData = {
+        activePersonId:
+          savedPerson && defaultPeople.some((person) => person.id === savedPerson)
+            ? savedPerson
+            : defaultPeople[0].id,
+        activityLog: savedActivityLog ? JSON.parse(savedActivityLog) as ActivityItem[] : [],
+        authRecords: savedAuthRecords
+          ? JSON.parse(savedAuthRecords) as Record<string, AuthRecord>
+          : {},
+        goals: savedGoals ? JSON.parse(savedGoals) as Goal[] : starterGoals,
+        people: savedPeople ? JSON.parse(savedPeople) as Person[] : defaultPeople,
+      };
+      let restoredState = localState;
+
+      try {
+        const response = await fetch('/api/state', { cache: 'no-store' });
+
+        if (response.ok) {
+          const payload = await response.json() as { data?: unknown };
+          const serverState = readAppStateData(payload.data);
+
+          if (serverState) {
+            restoredState = serverState;
+          }
+        }
+      } catch {
+        restoredState = localState;
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      const normalizedPeople = normalizePeople(restoredState.people);
+      const restoredActivePersonId = normalizedPeople.some(
+        (person) => person.id === restoredState.activePersonId,
+      )
+        ? restoredState.activePersonId
+        : normalizedPeople[0]?.id ?? defaultPeople[0].id;
+
+      setGoals(isOldStarterData(restoredState.goals) ? starterGoals : restoredState.goals);
+      setPeople(normalizedPeople);
+      setActivePersonId(restoredActivePersonId);
+      setPasswordPersonId(restoredActivePersonId);
+      setActivityLog(restoredState.activityLog);
+      setAuthRecords(restoredState.authRecords);
+
+      if (savedSessionPerson && restoredState.authRecords[savedSessionPerson]) {
+        setActivePersonId(savedSessionPerson);
+        setPasswordPersonId(savedSessionPerson);
+        setAuthenticated(true);
+      }
+
+      setLoaded(true);
     }
 
-    if (savedPeople) {
-      const parsedPeople = JSON.parse(savedPeople) as Person[];
-      setPeople(normalizePeople(parsedPeople));
-    }
+    void restoreState();
 
-    if (savedPerson && defaultPeople.some((person) => person.id === savedPerson)) {
-      setActivePersonId(savedPerson);
-    }
-
-    if (savedActivityLog) {
-      setActivityLog(JSON.parse(savedActivityLog));
-    }
-
-    if (savedAuthRecords) {
-      parsedAuthRecords = JSON.parse(savedAuthRecords) as Record<string, AuthRecord>;
-      setAuthRecords(parsedAuthRecords);
-    }
-
-    if (savedSessionPerson && parsedAuthRecords[savedSessionPerson]) {
-      setActivePersonId(savedSessionPerson);
-      setAuthenticated(true);
-    }
-
-    setLoaded(true);
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   useEffect(() => {
     if (!loaded) {
       return;
@@ -454,6 +502,26 @@ export default function Home() {
     window.localStorage.setItem('ciele-people', JSON.stringify(people));
     window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
     window.localStorage.setItem(authRecordsKey, JSON.stringify(authRecords));
+
+    const timeoutId = window.setTimeout(() => {
+      void fetch('/api/state', {
+        body: JSON.stringify({
+          activePersonId,
+          activityLog,
+          authRecords,
+          goals,
+          people,
+        } satisfies AppStateData),
+        headers: { 'content-type': 'application/json' },
+        method: 'PUT',
+      }).catch(() => {
+        // Local storage remains the offline fallback when Supabase is unavailable.
+      });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [activePersonId, activityLog, authRecords, goals, loaded, people]);
 
   const totals = useMemo(() => {

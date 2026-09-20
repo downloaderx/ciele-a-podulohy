@@ -1,5 +1,11 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.app_state (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 create table public.boards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -110,6 +116,7 @@ from tracked
 group by item_id;
 
 alter table public.boards enable row level security;
+alter table public.app_state enable row level security;
 alter table public.board_members enable row level security;
 alter table public.items enable row level security;
 alter table public.item_activity enable row level security;
