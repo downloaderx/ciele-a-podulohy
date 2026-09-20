@@ -400,6 +400,25 @@ h1 {
   transform: translateY(-2px);
 }
 
+.person-card.previewed {
+  border-color: color-mix(in srgb, var(--person-tone) 54%, #b5d6e9);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--person-tone) 18%, transparent);
+}
+
+.signed-in-badge.preview {
+  background: color-mix(in srgb, var(--person-tone) 18%, #ffffff);
+  color: var(--foreground);
+}
+
+.preview-select {
+  min-width: 140px;
+}
+
+.preview-select select {
+  min-height: 34px;
+  padding: 6px 28px 6px 10px;
+}
+
 .settings-menu {
   position: relative;
 }
@@ -587,6 +606,18 @@ h1 {
   padding: 18px;
   position: relative;
   width: min(100%, 620px);
+}
+
+.preview-notice {
+  background: color-mix(in srgb, var(--accent) 13%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--accent) 42%, #b5d6e9);
+  border-radius: 8px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 10px 12px;
 }
 
 .auth-brand {
@@ -827,6 +858,23 @@ h1 {
   padding: 0;
 }
 
+.priority-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.priority-group {
+  display: grid;
+  gap: 8px;
+}
+
+.priority-group h3 {
+  color: #09213a;
+  font-size: 15px;
+  font-weight: 900;
+  margin: 0;
+}
+
 .priority-list li {
   align-items: center;
   background: linear-gradient(135deg, #ffffff, #eef9ff);
@@ -883,8 +931,8 @@ h1 {
 
 .priority-votes span {
   align-items: center;
-  background: #ffffff;
-  border: 2px solid #d5e8ee;
+  background: color-mix(in srgb, var(--person-tone) 14%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--person-tone) 50%, #d5e8ee);
   border-radius: 999px;
   color: var(--foreground);
   display: inline-flex;
@@ -1468,9 +1516,9 @@ select:focus {
 }
 
 .importance-meter button.active {
-  background: linear-gradient(135deg, #ff9d4a, #35d0ba);
-  border-color: #07111f;
-  box-shadow: 0 2px 0 rgb(7 17 31 / 12%);
+  background: color-mix(in srgb, var(--person-tone) 78%, #ffffff);
+  border-color: color-mix(in srgb, var(--person-tone) 80%, #07111f);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--person-tone) 24%, transparent);
 }
 
 .importance-meter button:disabled {

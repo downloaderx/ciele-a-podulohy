@@ -213,10 +213,10 @@ const goalRankingsKey = 'ciele-goal-rankings';
 const minImportance = 1;
 const maxImportance = 5;
 const goalCategories: Array<{ id: GoalCategory; label: string }> = [
-  { id: 'plan', label: 'Plán' },
-  { id: 'chore', label: 'Domáce / chores' },
+  { id: 'plan', label: 'Dlhodobé ciele vo vzťahu' },
+  { id: 'chore', label: 'Chores' },
   { id: 'errand', label: 'Vybaviť' },
-  { id: 'care', label: 'Starostlivosť' },
+  { id: 'care', label: 'Habits / activities' },
 ];
 
 const starterGoals: Goal[] = [
@@ -621,6 +621,7 @@ export default function Home() {
   const [importText, setImportText] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [previewPersonId, setPreviewPersonId] = useState(defaultPeople[0].id);
   const [loaded, setLoaded] = useState(false);
 
   const activeGoals = useMemo(
@@ -702,6 +703,7 @@ export default function Home() {
       setGoals(normalizedGoals);
       setPeople(normalizedPeople);
       setActivePersonId(restoredActivePersonId);
+      setPreviewPersonId(restoredActivePersonId);
       setPasswordPersonId(restoredActivePersonId);
       setActivityLog(restoredState.activityLog);
       setAuthRecords(restoredState.authRecords);
@@ -709,6 +711,7 @@ export default function Home() {
 
       if (savedSessionPerson && restoredState.authRecords[savedSessionPerson]) {
         setActivePersonId(savedSessionPerson);
+        setPreviewPersonId(savedSessionPerson);
         setPasswordPersonId(savedSessionPerson);
         setAuthenticated(true);
       }
@@ -784,6 +787,10 @@ export default function Home() {
   const activePerson = useMemo(
     () => people.find((person) => person.id === activePersonId) ?? people[0],
     [activePersonId, people],
+  );
+  const previewPerson = useMemo(
+    () => people.find((person) => person.id === previewPersonId) ?? activePerson,
+    [activePerson, previewPersonId, people],
   );
   const passwordPerson = useMemo(
     () => people.find((person) => person.id === passwordPersonId) ?? activePerson,
@@ -1290,6 +1297,7 @@ export default function Home() {
       setAuthRecords(data.authRecords);
       setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
+      setPreviewPersonId(importedActivePersonId);
       setPasswordPersonId(importedActivePersonId);
 
       window.localStorage.setItem('ciele-goals', JSON.stringify(importedGoals));
@@ -1318,22 +1326,11 @@ export default function Home() {
     setPasswordModalOpen(false);
     setTransferModalOpen(false);
     setAvatarMenuOpen(false);
+    setPreviewPersonId(activePersonId);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
     setTransferMessage('');
-  }
-
-  function requestPersonSwitch(personId: string) {
-    if (personId === activePersonId) {
-      return;
-    }
-
-    window.localStorage.removeItem(sessionPersonKey);
-    setActivePersonId(personId);
-    setPasswordPersonId(personId);
-    setAuthenticated(false);
-    setAvatarMenuOpen(false);
   }
 
   const recentActivity = activityLog.slice(0, 12);
@@ -1372,17 +1369,22 @@ export default function Home() {
           {people.map((person) => (
             <div
               key={person.id}
-              className={person.id === activePersonId ? 'person-card active' : 'person-card'}
+              className={[
+                'person-card',
+                person.id === activePersonId ? 'active' : '',
+                person.id === previewPersonId && person.id !== activePersonId ? 'previewed' : '',
+              ].filter(Boolean).join(' ')}
               style={{ '--person-tone': person.tone } as React.CSSProperties}
             >
               <button
                 aria-label={
                   person.id === activePersonId
                     ? `Prihlásená osoba ${person.name}`
-                    : `Prihlásiť sa ako ${person.name}`
+                    : `Ikonka osoby ${person.name}`
                 }
                 className="person-fox"
-                onClick={() => requestPersonSwitch(person.id)}
+                onClick={() => setPreviewPersonId(person.id)}
+                title={person.id === activePersonId ? 'Toto je prihlásená líštička' : 'Zobraziť náhľad tejto líštičky'}
                 type="button"
               >
                 <AvatarFox person={person} size="medium" />
@@ -1398,6 +1400,8 @@ export default function Home() {
                   />
                   {person.id === activePersonId ? (
                     <span className="signed-in-badge">prihlásený</span>
+                  ) : person.id === previewPersonId ? (
+                    <span className="signed-in-badge preview">náhľad</span>
                   ) : null}
                 </div>
                 {person.id === activePersonId ? (
@@ -1438,11 +1442,24 @@ export default function Home() {
                     </button>
                   </div>
                 ) : (
-                  <span className="avatar-owner-note">ikonku mení len {person.name}</span>
+                  <span className="avatar-owner-note">klik neodhlasuje, len ukáže náhľad</span>
                 )}
               </div>
             </div>
           ))}
+          <label className="preview-select">
+            Náhľad ako
+            <select
+              onChange={(event) => setPreviewPersonId(event.target.value)}
+              value={previewPersonId}
+            >
+              {people.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="settings-menu">
             <button
               aria-expanded={settingsOpen}
@@ -1470,6 +1487,12 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {previewPersonId !== activePersonId ? (
+        <section className="preview-notice" aria-label="Náhľad inej líštičky">
+          Pozeráš náhľad ako <strong>{previewPerson?.name ?? 'Foxie'}</strong>. Úpravy a hlasovanie sa stále ukladajú ako <strong>{activePerson?.name ?? 'Foxie'}</strong>.
+        </section>
+      ) : null}
 
       {passwordModalOpen ? (
         <div className="modal-backdrop" role="presentation">
@@ -2000,6 +2023,12 @@ function PriorityPoll({
 
     return positions;
   }, {});
+  const groupedGoals = goalCategories
+    .map((category) => ({
+      ...category,
+      goals: rankedGoals.filter((goal) => (goal.category ?? 'plan') === category.id),
+    }))
+    .filter((category) => category.goals.length > 0);
 
   return (
     <section className="priority-poll" aria-label="Anketa priorít">
@@ -2017,55 +2046,65 @@ function PriorityPoll({
           i
         </button>
       </div>
-      {rankedGoals.length > 0 ? (
-        <ol className="priority-list">
-          {rankedGoals.map((goal, index) => {
-            const activeIndex = activeRanking.indexOf(goal.id);
-            const averagePosition =
-              people.reduce(
-                (sum, person) => sum + (positionByPerson[person.id].get(goal.id) ?? rankedGoals.length),
-                0,
-              ) / Math.max(people.length, 1);
+      {groupedGoals.length > 0 ? (
+        <div className="priority-groups">
+          {groupedGoals.map((category) => (
+            <section className="priority-group" key={category.id}>
+              <h3>{category.label}</h3>
+              <ol className="priority-list">
+                {category.goals.map((goal, index) => {
+                  const activeIndex = activeRanking.indexOf(goal.id);
+                  const averagePosition =
+                    people.reduce(
+                      (sum, person) => sum + (positionByPerson[person.id].get(goal.id) ?? rankedGoals.length),
+                      0,
+                    ) / Math.max(people.length, 1);
 
-            return (
-              <li key={goal.id}>
-                <span className="priority-rank">{index + 1}</span>
-                <div className="priority-copy">
-                  <strong>{goal.title}</strong>
-                  <span>Priemer poradia {averagePosition.toFixed(1)}</span>
-                </div>
-                <div className="priority-votes" aria-label={`Poradie pre ${goal.title}`}>
-                  {people.map((person) => (
-                    <span key={person.id}>
-                      <AvatarFox person={person} size="small" />
-                      {positionByPerson[person.id].get(goal.id) ?? '-'}.
-                    </span>
-                  ))}
-                </div>
-                <div className="priority-controls" aria-label={`Zmeniť poradie pre ${activePerson?.name}`}>
-                  <button
-                    aria-label={`Posunúť ${goal.title} vyššie v mojom poradí`}
-                    disabled={activeIndex <= 0}
-                    onClick={() => onMoveGoal(goal.id, -1)}
-                    title="Vyššie v mojom poradí"
-                    type="button"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    aria-label={`Posunúť ${goal.title} nižšie v mojom poradí`}
-                    disabled={activeIndex < 0 || activeIndex >= activeRanking.length - 1}
-                    onClick={() => onMoveGoal(goal.id, 1)}
-                    title="Nižšie v mojom poradí"
-                    type="button"
-                  >
-                    ↓
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+                  return (
+                    <li key={goal.id}>
+                      <span className="priority-rank">{index + 1}</span>
+                      <div className="priority-copy">
+                        <strong>{goal.title}</strong>
+                        <span>Priemer poradia {averagePosition.toFixed(1)}</span>
+                      </div>
+                      <div className="priority-votes" aria-label={`Poradie pre ${goal.title}`}>
+                        {people.map((person) => (
+                          <span
+                            key={person.id}
+                            style={{ '--person-tone': person.tone } as React.CSSProperties}
+                          >
+                            <AvatarFox person={person} size="small" />
+                            {positionByPerson[person.id].get(goal.id) ?? '-'}.
+                          </span>
+                        ))}
+                      </div>
+                      <div className="priority-controls" aria-label={`Zmeniť poradie pre ${activePerson?.name}`}>
+                        <button
+                          aria-label={`Posunúť ${goal.title} vyššie v mojom poradí`}
+                          disabled={activeIndex <= 0}
+                          onClick={() => onMoveGoal(goal.id, -1)}
+                          title="Vyššie v mojom poradí"
+                          type="button"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          aria-label={`Posunúť ${goal.title} nižšie v mojom poradí`}
+                          disabled={activeIndex < 0 || activeIndex >= activeRanking.length - 1}
+                          onClick={() => onMoveGoal(goal.id, 1)}
+                          title="Nižšie v mojom poradí"
+                          type="button"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
+        </div>
       ) : (
         <p>Keď pribudnú plány, tu si ich každá líštička zoradí podľa dôležitosti.</p>
       )}
@@ -2284,7 +2323,11 @@ function ImportancePanel({
           const canEdit = person.id === activePersonId;
 
           return (
-            <div className="importance-row" key={person.id}>
+            <div
+              className="importance-row"
+              key={person.id}
+              style={{ '--person-tone': person.tone } as React.CSSProperties}
+            >
               <span className="importance-person">
                 <AvatarFox person={person} size="small" />
                 {person.name}
