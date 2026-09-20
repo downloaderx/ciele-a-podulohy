@@ -447,6 +447,31 @@ function formatDueLabel(date: Date) {
   return `o ${daysUntil} dní`;
 }
 
+function getWeekDays() {
+  const today = new Date();
+  const dayIndex = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+
+  monday.setDate(today.getDate() - dayIndex);
+  monday.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+}
+
+function isSameDay(first: Date, second: Date) {
+  return first.toDateString() === second.toDateString();
+}
+
+function isCompletedThisWeek(goal: Goal, weekDays: Date[]) {
+  if (!goal.lastCompletedAt) {
+    return false;
+  }
+
+  const completedAt = new Date(goal.lastCompletedAt);
+
+  return weekDays.some((day) => isSameDay(day, completedAt));
+}
+
 function normalizePersonRanking(ranking: string[] | undefined, goals: Goal[]) {
   const activeGoalIds = new Set(goals.filter((goal) => !goal.deletedAt).map((goal) => goal.id));
   const savedIds = Array.isArray(ranking)
@@ -1821,6 +1846,7 @@ export default function Home() {
 
       <RecurringCalendarPanel
         goals={recurringGoals}
+        onChangeRecurrence={changeGoalRecurrence}
         onCompleteToday={completeRecurringGoalToday}
       />
 
@@ -2190,9 +2216,14 @@ function ActivityWheelPanel({
   return (
     <section className="special-panel activity-wheel" aria-label="Náhodný výber aktivity">
       <div className="special-heading">
-        <div>
-          <span className="label">Activities</span>
-          <h2>Koleso čo ísť robiť</h2>
+        <div className="wheel-title">
+          <span className="wheel-icon" aria-hidden="true">
+            <span />
+          </span>
+          <div>
+            <span className="label">Activities</span>
+            <h2>Koleso čo ísť robiť</h2>
+          </div>
         </div>
         <button disabled={activities.length === 0} onClick={onPickRandom} type="button">
           Zatočiť
@@ -2215,11 +2246,15 @@ function ActivityWheelPanel({
 
 function RecurringCalendarPanel({
   goals,
+  onChangeRecurrence,
   onCompleteToday,
 }: {
   goals: Goal[];
+  onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
   onCompleteToday: (goalId: string) => void;
 }) {
+  const weekDays = getWeekDays();
+
   return (
     <section className="special-panel recurring-calendar" aria-label="Kalendár chores a habits">
       <div className="special-heading">
@@ -2233,19 +2268,54 @@ function RecurringCalendarPanel({
           {goals.map((goal) => {
             const dueDate = getNextDueDate(goal);
             const dueLabel = dueDate ? formatDueLabel(dueDate) : 'bez termínu';
+            const doneThisWeek = isCompletedThisWeek(goal, weekDays);
             const category = goalCategories.find(
               (category) => category.id === normalizeGoalCategory(goal.category),
             );
 
             return (
               <li key={goal.id}>
-                <div>
+                <div className="recurring-copy">
                   <strong>{goal.title}</strong>
                   <span>
                     {category?.label ?? 'Opakované'} · každých {normalizeRecurrenceDays(goal.recurrenceDays)} dní
                   </span>
                 </div>
-                <time>{dueLabel}</time>
+                <div className="week-graph" aria-label={`Týždenný stav pre ${goal.title}`}>
+                  {weekDays.map((day) => {
+                    const isDueDay = dueDate ? isSameDay(day, dueDate) : false;
+                    const isDoneDay = goal.lastCompletedAt
+                      ? isSameDay(day, new Date(goal.lastCompletedAt))
+                      : false;
+
+                    return (
+                      <span
+                        className={[
+                          isDueDay ? 'due' : '',
+                          isDoneDay ? 'done' : '',
+                          isSameDay(day, new Date()) ? 'today' : '',
+                        ].filter(Boolean).join(' ')}
+                        key={day.toISOString()}
+                        title={day.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric', weekday: 'short' })}
+                      >
+                        {day.toLocaleDateString('sk-SK', { weekday: 'short' }).slice(0, 2)}
+                      </span>
+                    );
+                  })}
+                </div>
+                <label className="mini-recurrence">
+                  každých
+                  <input
+                    min={1}
+                    onChange={(event) => onChangeRecurrence(goal.id, Number(event.target.value))}
+                    type="number"
+                    value={normalizeRecurrenceDays(goal.recurrenceDays)}
+                  />
+                  dní
+                </label>
+                <time className={doneThisWeek ? 'done' : ''}>
+                  {doneThisWeek ? 'hotové tento týždeň' : dueLabel}
+                </time>
                 <button onClick={() => onCompleteToday(goal.id)} type="button">
                   Dnes hotovo
                 </button>
