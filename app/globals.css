@@ -662,6 +662,22 @@ h1 {
   text-shadow: 1px 1px 0 rgb(7 17 31 / 45%);
 }
 
+.auth-form .auth-link-button {
+  background: transparent;
+  border-color: transparent;
+  color: #126fbe;
+  min-height: 30px;
+  padding: 0;
+  text-align: center;
+  text-shadow: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-form .auth-link-button:hover {
+  color: #07111f;
+}
+
 .summary-grid {
   display: grid;
   gap: 14px;

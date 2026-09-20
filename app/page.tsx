@@ -736,6 +736,33 @@ export default function Home() {
     return { ok: true, message: '' };
   }
 
+  async function resetPersonPassword(personId: string, password: string) {
+    const trimmed = password.trim();
+
+    if (trimmed.length < 8) {
+      return {
+        ok: false,
+        message: 'Nové heslo nech má aspoň 8 znakov.',
+      };
+    }
+
+    const salt = createSalt();
+    const hash = await hashPassword(trimmed, salt);
+    const personName = people.find((person) => person.id === personId)?.name ?? 'Foxie';
+
+    setAuthRecords((current) => ({
+      ...current,
+      [personId]: { hash, salt },
+    }));
+    setActivePersonId(personId);
+    setPasswordPersonId(personId);
+    setAuthenticated(true);
+    window.localStorage.setItem(sessionPersonKey, personId);
+    addActivity('obnovil(a) heslo', `vstup pre ${personName}`);
+
+    return { ok: true, message: '' };
+  }
+
   async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = newPassword.trim();
@@ -909,6 +936,7 @@ export default function Home() {
         initialPersonId={activePersonId}
         authRecords={authRecords}
         onAuthenticate={authenticatePerson}
+        onResetPassword={resetPersonPassword}
         people={people}
       />
     );
@@ -1240,16 +1268,20 @@ function AuthGate({
   authRecords,
   initialPersonId,
   onAuthenticate,
+  onResetPassword,
   people,
 }: {
   authRecords: Record<string, AuthRecord>;
   initialPersonId: string;
   onAuthenticate: (personId: string, password: string) => Promise<{ ok: boolean; message: string }>;
+  onResetPassword: (personId: string, password: string) => Promise<{ ok: boolean; message: string }>;
   people: Person[];
 }) {
   const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId);
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [message, setMessage] = useState('');
+  const [resetMode, setResetMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const selectedPerson = people.find((person) => person.id === selectedPersonId) ?? people[0];
   const hasPassword = Boolean(authRecords[selectedPersonId]);
@@ -1259,7 +1291,15 @@ function AuthGate({
     setSubmitting(true);
     setMessage('');
 
-    const result = await onAuthenticate(selectedPersonId, password);
+    if (resetMode && password.trim() !== passwordConfirm.trim()) {
+      setMessage('Heslá sa nezhodujú.');
+      setSubmitting(false);
+      return;
+    }
+
+    const result = resetMode
+      ? await onResetPassword(selectedPersonId, password)
+      : await onAuthenticate(selectedPersonId, password);
 
     if (!result.ok) {
       setMessage(result.message);
@@ -1268,6 +1308,7 @@ function AuthGate({
     }
 
     setPassword('');
+    setPasswordConfirm('');
     setSubmitting(false);
   }
 
@@ -1293,6 +1334,8 @@ function AuthGate({
                 setSelectedPersonId(person.id);
                 setMessage('');
                 setPassword('');
+                setPasswordConfirm('');
+                setResetMode(false);
               }}
               style={{ '--person-tone': person.tone } as React.CSSProperties}
               type="button"
@@ -1305,24 +1348,54 @@ function AuthGate({
 
         <form className="auth-form" onSubmit={submit}>
           <label>
-            {hasPassword ? `Heslo pre ${selectedPerson?.name}` : `Nové heslo pre ${selectedPerson?.name}`}
+            {resetMode || !hasPassword
+              ? `Nové heslo pre ${selectedPerson?.name}`
+              : `Heslo pre ${selectedPerson?.name}`}
             <input
-              autoComplete={hasPassword ? 'current-password' : 'new-password'}
+              autoComplete={resetMode || !hasPassword ? 'new-password' : 'current-password'}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder={hasPassword ? 'Napíš svoje heslo' : 'Aspoň 8 znakov'}
+              placeholder={resetMode || !hasPassword ? 'Aspoň 8 znakov' : 'Napíš svoje heslo'}
               type="password"
               value={password}
             />
           </label>
+          {resetMode ? (
+            <label>
+              Ešte raz
+              <input
+                autoComplete="new-password"
+                onChange={(event) => setPasswordConfirm(event.target.value)}
+                placeholder="Zopakuj nové heslo"
+                type="password"
+                value={passwordConfirm}
+              />
+            </label>
+          ) : null}
           <p>
-            {hasPassword
-              ? 'Toto zariadenie si ťa po vstupe zapamätá.'
-              : 'Heslo si hneď zapíš do svojho note-u, appka ho potom ukáže už iba ako overenie.'}
+            {resetMode
+              ? 'Reset nastaví nové heslo pre vybranú líštičku na tomto zariadení.'
+              : hasPassword
+                ? 'Toto zariadenie si ťa po vstupe zapamätá.'
+                : 'Heslo si hneď zapíš do svojho note-u, appka ho potom ukáže už iba ako overenie.'}
           </p>
           {message ? <strong className="auth-error">{message}</strong> : null}
           <button disabled={submitting} type="submit">
-            {hasPassword ? 'Vojsť do tabule' : 'Uložiť a vojsť'}
+            {resetMode ? 'Nastaviť nové heslo' : hasPassword ? 'Vojsť do tabule' : 'Uložiť a vojsť'}
           </button>
+          {hasPassword ? (
+            <button
+              className="auth-link-button"
+              onClick={() => {
+                setResetMode((mode) => !mode);
+                setMessage('');
+                setPassword('');
+                setPasswordConfirm('');
+              }}
+              type="button"
+            >
+              {resetMode ? 'Späť na prihlásenie' : 'Zabudol som heslo'}
+            </button>
+          ) : null}
         </form>
       </section>
     </main>
