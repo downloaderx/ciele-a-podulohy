@@ -690,6 +690,7 @@ h1 {
 .new-goal,
 .goal-panel,
 .activity-panel,
+.completed-panel,
 .priority-poll,
 .trash-panel {
   background: var(--panel);
@@ -703,6 +704,89 @@ h1 {
   margin: 0 auto 16px;
   max-width: 1180px;
   padding: 16px;
+}
+
+.completed-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto 16px;
+  max-width: 1180px;
+  padding: 16px;
+}
+
+.completed-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.completed-heading h2 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+}
+
+.completed-heading strong {
+  align-items: center;
+  background: #07111f;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 13px;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.completed-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.completed-list li {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef9ff);
+  border: 2px solid #c2deed;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(160px, 1fr) auto;
+  min-height: 46px;
+  padding: 8px 10px;
+}
+
+.completed-owner {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #d5e8ee;
+  border-radius: 999px;
+  color: var(--foreground);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 4px;
+  min-height: 30px;
+  padding: 2px 8px 2px 4px;
+}
+
+.completed-list strong {
+  color: var(--foreground);
+  font-size: 14px;
+  min-width: 0;
+}
+
+.completed-list small,
+.completed-panel p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
 }
 
 .trash-panel {
@@ -1118,7 +1202,7 @@ h1 {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(130px, 0.7fr) auto;
   padding: 14px;
 }
 
@@ -1259,6 +1343,18 @@ select:focus {
 .goal-title-block p {
   color: var(--muted);
   margin: 5px 0 0;
+}
+
+.description-input {
+  background: #f8fcff;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: 4px;
+  min-height: 32px;
+  padding: 4px 6px;
+  width: 100%;
 }
 
 .title-input {
@@ -1405,6 +1501,19 @@ select:focus {
   padding: 6px 28px 6px 10px;
 }
 
+.category-select {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.category-select select {
+  min-height: 34px;
+  padding: 6px 28px 6px 10px;
+}
+
 .item-meta {
   color: var(--muted);
   font-size: 12px;
@@ -1531,6 +1640,7 @@ select:focus {
   }
 
   .new-goal,
+  .completed-list li,
   .priority-list li,
   .task-row,
   .activity-list li,

@@ -20,10 +20,13 @@ type Task = {
 };
 
 type Goal = Task & {
+  category?: GoalCategory;
   description: string;
   importanceByPerson: Record<string, number>;
   deletedAt?: string;
 };
+
+type GoalCategory = 'plan' | 'chore' | 'errand' | 'care';
 
 type ActivityItem = {
   id: string;
@@ -36,6 +39,13 @@ type ActivityItem = {
 type AuthRecord = {
   hash: string;
   salt: string;
+};
+
+type CompletedItem = {
+  id: string;
+  ownerId: string;
+  title: string;
+  type: 'goal' | 'task';
 };
 
 type AppStateData = {
@@ -67,6 +77,66 @@ const avatarOptions = [
     label: 'Fluffyho líštička',
     src: '/avatar-fluffy.png',
     tone: '#ff9d4a',
+  },
+  {
+    id: 'fluffy-red-orange',
+    label: 'Fluffy oranžový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-orange.png',
+    tone: '#ff9d4a',
+  },
+  {
+    id: 'fluffy-red-mint',
+    label: 'Fluffy mätový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-mint.png',
+    tone: '#58dcca',
+  },
+  {
+    id: 'fluffy-red-light-blue',
+    label: 'Fluffy svetlomodrý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-light-blue.png',
+    tone: '#6c9fff',
+  },
+  {
+    id: 'fluffy-red-lavender',
+    label: 'Fluffy levanduľový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-lavender.png',
+    tone: '#a98dff',
+  },
+  {
+    id: 'fluffy-red-pink',
+    label: 'Fluffy ružový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-pink.png',
+    tone: '#ff7eb6',
+  },
+  {
+    id: 'fluffy-red-yellow',
+    label: 'Fluffy žltý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-yellow.png',
+    tone: '#f4d84d',
+  },
+  {
+    id: 'fluffy-red-gray',
+    label: 'Fluffy sivý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-gray.png',
+    tone: '#9ca8bd',
+  },
+  {
+    id: 'fluffy-red-navy',
+    label: 'Fluffy tmavomodrý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-navy.png',
+    tone: '#4d67c4',
+  },
+  {
+    id: 'fluffy-red-green',
+    label: 'Fluffy zelený s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-green.png',
+    tone: '#8fe36b',
+  },
+  {
+    id: 'fluffy-red-turquoise',
+    label: 'Fluffy tyrkysový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-turquoise.png',
+    tone: '#35d0ba',
   },
   {
     id: 'rini-pink',
@@ -131,7 +201,7 @@ const defaultPeople: Person[] = [
 
 function getAvatarOptionsForPerson(personId: string) {
   if (personId === 'person-2') {
-    return avatarOptions.filter((avatar) => avatar.id === 'fluffy');
+    return avatarOptions.filter((avatar) => avatar.id === 'fluffy' || avatar.id.startsWith('fluffy-'));
   }
 
   return avatarOptions.filter((avatar) => avatar.id.startsWith('rini-'));
@@ -142,11 +212,18 @@ const sessionPersonKey = 'ciele-session-person';
 const goalRankingsKey = 'ciele-goal-rankings';
 const minImportance = 1;
 const maxImportance = 5;
+const goalCategories: Array<{ id: GoalCategory; label: string }> = [
+  { id: 'plan', label: 'Plán' },
+  { id: 'chore', label: 'Domáce / chores' },
+  { id: 'errand', label: 'Vybaviť' },
+  { id: 'care', label: 'Starostlivosť' },
+];
 
 const starterGoals: Goal[] = [
   {
     id: 'goal-launch',
     title: 'Naplánovať spoločný víkend',
+    category: 'plan',
     description: 'Malý spoločný cieľ s výletom, oddychom a dobrým jedlom.',
     ownerId: 'person-1',
     importanceByPerson: {
@@ -194,6 +271,7 @@ const starterGoals: Goal[] = [
   {
     id: 'goal-marketing',
     title: 'Zútulniť domácnosť',
+    category: 'chore',
     description: 'Veci, ktoré spravia spoločný priestor krajší a pokojnejší.',
     ownerId: 'person-2',
     importanceByPerson: {
@@ -275,6 +353,9 @@ function normalizeGoalImportance(goal: Goal, people: Person[]) {
 function normalizeGoals(goals: Goal[], people: Person[]) {
   return goals.map((goal) => ({
     ...goal,
+    category: goal.category && goalCategories.some((category) => category.id === goal.category)
+      ? goal.category
+      : 'plan',
     importanceByPerson: normalizeGoalImportance(goal, people),
   }));
 }
@@ -328,6 +409,29 @@ function sortGoalsByAverageRanking(
 
 function flattenChildren(task: Task): Task[] {
   return task.children.flatMap((child) => [child, ...flattenChildren(child)]);
+}
+
+function collectCompletedItems(goals: Goal[]) {
+  return goals.flatMap<CompletedItem>((goal) => {
+    const completedGoal = goal.done
+      ? [{
+          id: goal.id,
+          ownerId: goal.ownerId,
+          title: goal.title,
+          type: 'goal' as const,
+        }]
+      : [];
+    const completedTasks = flattenChildren(goal)
+      .filter((task) => task.done)
+      .map((task) => ({
+        id: task.id,
+        ownerId: task.ownerId,
+        title: task.title,
+        type: 'task' as const,
+      }));
+
+    return [...completedGoal, ...completedTasks];
+  });
 }
 
 function updateTaskTree(
@@ -505,6 +609,7 @@ export default function Home() {
   const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
+  const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
@@ -662,6 +767,10 @@ export default function Home() {
       percent: total === 0 ? 0 : Math.round((done / total) * 100),
     };
   }, [activeGoals]);
+  const completedItems = useMemo(
+    () => collectCompletedItems(activeGoals).slice(0, 10),
+    [activeGoals],
+  );
 
   const goalSnapshots = useMemo(
     () =>
@@ -695,6 +804,7 @@ export default function Home() {
       {
         id: goalId,
         title,
+        category: newGoalCategory,
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
         ownerId: activePersonId,
         updatedById: activePersonId,
@@ -724,6 +834,7 @@ export default function Home() {
     addActivity('pridal(a) plán', title);
     setNewGoalTitle('');
     setNewGoalDescription('');
+    setNewGoalCategory('plan');
   }
 
   function addSubtask(parentId: string, title: string) {
@@ -795,6 +906,49 @@ export default function Home() {
       })),
     );
     addActivity('premenil(a)', `${task.title} → ${trimmed}`);
+  }
+
+  function updateGoalDescription(goalId: string, description: string) {
+    const trimmed = description.trim();
+    const goal = goals.find((goal) => goal.id === goalId);
+
+    if (!goal || goal.description === trimmed) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              description: trimmed || 'Bez poznámky.',
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('upravil(a) poznámku', goal.title);
+  }
+
+  function changeGoalCategory(goalId: string, category: GoalCategory) {
+    const goal = goals.find((goal) => goal.id === goalId);
+
+    if (!goal || goal.category === category) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              category,
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('zmenil(a) kategóriu', goal.title);
   }
 
   function deleteTask(taskId: string) {
@@ -1011,7 +1165,8 @@ export default function Home() {
     event.preventDefault();
     const trimmed = newPassword.trim();
     const confirmed = newPasswordConfirm.trim();
-    const targetPersonId = passwordPerson?.id ?? activePersonId;
+    const targetPersonId = activePersonId;
+    const targetPerson = people.find((person) => person.id === activePersonId) ?? activePerson;
 
     setPasswordMessage('');
 
@@ -1036,13 +1191,17 @@ export default function Home() {
     setNewPassword('');
     setNewPasswordConfirm('');
     setSavingPassword(false);
-    setPasswordMessage(`Hotovo, nové heslo pre ${passwordPerson?.name ?? 'Foxie'} je uložené.`);
-    addActivity('zmenil(a) heslo', `vstup pre ${passwordPerson?.name ?? 'Foxie'}`);
+    setPasswordMessage(`Hotovo, nové heslo pre ${targetPerson?.name ?? 'Foxie'} je uložené.`);
+    addActivity('zmenil(a) heslo', 'svoj vstup');
   }
 
   function openPasswordModal(personId = activePersonId) {
+    if (personId !== activePersonId) {
+      return;
+    }
+
     setSettingsOpen(false);
-    setPasswordPersonId(personId);
+    setPasswordPersonId(activePersonId);
     setNewPassword('');
     setNewPasswordConfirm('');
     setPasswordMessage('');
@@ -1442,6 +1601,19 @@ export default function Home() {
               value={newGoalDescription}
             />
           </label>
+          <label>
+            Kategória
+            <select
+              onChange={(event) => setNewGoalCategory(event.target.value as GoalCategory)}
+              value={newGoalCategory}
+            >
+              {goalCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit">Pridať plán</button>
         </form>
       </section>
@@ -1449,6 +1621,8 @@ export default function Home() {
       {recentActivity.length > 0 ? (
         <RecentActivityPanel activityLog={recentActivity} people={people} />
       ) : null}
+
+      <CompletedWorkPanel completedItems={completedItems} people={people} />
 
       {trashedGoals.length > 0 ? (
         <TrashPanel goals={trashedGoals} onRestore={restoreGoal} />
@@ -1470,8 +1644,10 @@ export default function Home() {
             goal={goal}
             key={goal.id}
             onAddSubtask={addSubtask}
+            onChangeCategory={changeGoalCategory}
             onDelete={deleteTask}
             onRateImportance={rateGoalImportance}
+            onRenameDescription={updateGoalDescription}
             onRename={renameTask}
             people={people}
             toggleDone={toggleDone}
@@ -1760,6 +1936,46 @@ function GrowthBranch({ percent }: { percent: number }) {
   );
 }
 
+function CompletedWorkPanel({
+  completedItems,
+  people,
+}: {
+  completedItems: CompletedItem[];
+  people: Person[];
+}) {
+  return (
+    <section className="completed-panel" aria-label="Hotové veci">
+      <div className="completed-heading">
+        <div>
+          <span className="label">Hotové veci</span>
+          <h2>Čo ste už porobili</h2>
+        </div>
+        <strong>{completedItems.length}</strong>
+      </div>
+      {completedItems.length > 0 ? (
+        <ol className="completed-list">
+          {completedItems.map((item) => {
+            const owner = people.find((person) => person.id === item.ownerId);
+
+            return (
+              <li key={item.id}>
+                <span className="completed-owner">
+                  {owner ? <AvatarFox person={owner} size="small" /> : null}
+                  {owner?.name ?? 'Foxie'}
+                </span>
+                <strong>{item.title}</strong>
+                <small>{item.type === 'goal' ? 'celý plán' : 'krok'}</small>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>Zatiaľ tu čaká prvá odškrtnutá vec.</p>
+      )}
+    </section>
+  );
+}
+
 function PriorityPoll({
   activePersonId,
   goals,
@@ -1897,9 +2113,11 @@ type GoalPanelProps = {
   activePersonId: string;
   goal: Goal;
   onAddSubtask: (parentId: string, title: string) => void;
+  onChangeCategory: (goalId: string, category: GoalCategory) => void;
   onDelete: (taskId: string) => void;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
   onRename: (taskId: string, title: string) => void;
+  onRenameDescription: (goalId: string, description: string) => void;
   people: Person[];
   toggleDone: (taskId: string) => void;
   toggleExpanded: (taskId: string) => void;
@@ -1926,8 +2144,16 @@ function GoalPanel(props: GoalPanelProps) {
             className="title-input"
             defaultValue={props.goal.title}
             onBlur={(event) => props.onRename(props.goal.id, event.target.value)}
+            title="Klikni a uprav názov"
           />
-          <p>{props.goal.description}</p>
+          <input
+            aria-label="Poznámka k cieľu"
+            className="description-input"
+            defaultValue={props.goal.description}
+            onBlur={(event) => props.onRenameDescription(props.goal.id, event.target.value)}
+            placeholder="Poznámka k plánu"
+            title="Klikni a uprav poznámku"
+          />
         </div>
         <div className="progress-badge">
           <strong>{progress.percent}%</strong>
@@ -1959,6 +2185,19 @@ function GoalPanel(props: GoalPanelProps) {
           people={props.people}
           updatedById={props.goal.updatedById}
         />
+        <label className="category-select">
+          Kategória
+          <select
+            onChange={(event) => props.onChangeCategory(props.goal.id, event.target.value as GoalCategory)}
+            value={props.goal.category ?? 'plan'}
+          >
+            {goalCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="meter slim" aria-hidden="true">
@@ -2134,6 +2373,7 @@ function TaskRow(props: TaskRowProps) {
           className="task-title"
           defaultValue={props.task.title}
           onBlur={(event) => props.onRename(props.task.id, event.target.value)}
+          title="Klikni a uprav podúlohu"
         />
         <ItemMeta
           createdById={props.task.ownerId}
