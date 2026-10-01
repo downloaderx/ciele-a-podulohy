@@ -276,6 +276,17 @@ h1 {
   width: 92px;
 }
 
+.person-name-static {
+  align-items: center;
+  border: 2px solid transparent;
+  cursor: default;
+  display: inline-flex;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
 .signed-in-badge {
   background: color-mix(in srgb, var(--person-tone) 18%, #ffffff);
   border: 1px solid color-mix(in srgb, var(--person-tone) 54%, #b5d6e9);
@@ -311,21 +322,8 @@ h1 {
   white-space: nowrap;
 }
 
-.person-password-button {
-  background: #ffffff;
-  border: 2px solid #b5d6e9;
-  border-radius: 7px;
-  color: var(--foreground);
-  font-size: 12px;
-  font-weight: 900;
-  min-height: 28px;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
 .avatar-dropdown-button:hover,
-.avatar-dropdown-button[aria-expanded="true"],
-.person-password-button:hover {
+.avatar-dropdown-button[aria-expanded="true"] {
   border-color: var(--accent);
   box-shadow: 0 3px 0 rgb(53 208 186 / 18%);
 }
@@ -554,7 +552,7 @@ h1 {
   z-index: 20;
 }
 
-.password-modal {
+.dialog-card {
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: 8px;
@@ -582,11 +580,6 @@ h1 {
 .modal-heading h2 {
   font-size: 28px;
   margin: 0;
-}
-
-.password-form {
-  display: grid;
-  gap: 10px;
 }
 
 .transfer-form {
@@ -627,7 +620,6 @@ h1 {
   padding: 9px 10px;
 }
 
-.password-form button,
 .transfer-actions button,
 .transfer-form button {
   background: linear-gradient(135deg, #07111f, #126fbe);
@@ -712,15 +704,21 @@ h1 {
   border-radius: 8px;
   color: var(--foreground);
   display: flex;
+  flex-direction: column;
   gap: 9px;
   justify-content: center;
-  min-height: 54px;
-  padding: 10px;
+  min-height: 128px;
+  padding: 16px 10px;
 }
 
 .auth-person span {
   font-size: 18px;
   font-weight: 900;
+}
+
+.auth-person .avatar-fox.medium {
+  height: 68px;
+  width: 68px;
 }
 
 .auth-person.active {
@@ -1565,13 +1563,8 @@ h1 {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(130px, 0.7fr) auto;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(130px, 0.7fr) minmax(170px, 0.85fr) auto;
   padding: 14px;
-}
-
-.password-message {
-  color: #126fbe;
-  font-size: 12px;
 }
 
 .project-strip {
@@ -1766,7 +1759,7 @@ select:focus {
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  margin: 14px 18px 0 66px;
+  margin: 14px 18px 0;
   padding: 10px;
 }
 

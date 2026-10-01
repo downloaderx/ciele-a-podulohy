@@ -14,6 +14,7 @@ type Task = {
   title: string;
   ownerId: string;
   updatedById?: string;
+  dueAt?: string;
   done: boolean;
   expanded: boolean;
   children: Task[];
@@ -38,11 +39,6 @@ type ActivityItem = {
   createdAt: string;
 };
 
-type AuthRecord = {
-  hash: string;
-  salt: string;
-};
-
 type CompletedItem = {
   id: string;
   ownerId: string;
@@ -53,7 +49,6 @@ type CompletedItem = {
 type AppStateData = {
   activePersonId: string;
   activityLog: ActivityItem[];
-  authRecords: Record<string, AuthRecord>;
   goalRankings: Record<string, string[]>;
   goals: Goal[];
   people: Person[];
@@ -62,9 +57,7 @@ type AppStateData = {
 type TransferPayload = {
   version: 1;
   exportedAt: string;
-  data: AppStateData & {
-    sessionPersonId?: string;
-  };
+  data: AppStateData;
 };
 
 const avatarOptions = [
@@ -209,7 +202,6 @@ function getAvatarOptionsForPerson(personId: string) {
   return avatarOptions.filter((avatar) => avatar.id.startsWith('rini-'));
 }
 
-const authRecordsKey = 'ciele-auth-records';
 const sessionPersonKey = 'ciele-session-person';
 const goalRankingsKey = 'ciele-goal-rankings';
 const minImportance = 1;
@@ -447,6 +439,32 @@ function formatDueLabel(date: Date) {
   return `o ${daysUntil} dní`;
 }
 
+function normalizeDateTimeInput(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed || undefined;
+}
+
+function formatDeadlineLabel(value: string | undefined) {
+  if (!value) {
+    return 'bez termínu';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'neplatný termín';
+  }
+
+  return date.toLocaleString('sk-SK', {
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 function getWeekDays() {
   const today = new Date();
   const dayIndex = (today.getDay() + 6) % 7;
@@ -646,30 +664,6 @@ function normalizePeople(savedPeople: Person[]) {
   });
 }
 
-function bytesToHex(bytes: Uint8Array) {
-  return Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function createSalt() {
-  const bytes = new Uint8Array(16);
-
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-    return bytesToHex(bytes);
-  }
-
-  return createId();
-}
-
-async function hashPassword(password: string, salt: string) {
-  const payload = new TextEncoder().encode(`${salt}:${password}`);
-  const digest = await crypto.subtle.digest('SHA-256', payload);
-
-  return bytesToHex(new Uint8Array(digest));
-}
-
 function readTransferData(parsed: unknown): TransferPayload['data'] | null {
   if (!parsed || typeof parsed !== 'object') {
     return null;
@@ -686,8 +680,6 @@ function readTransferData(parsed: unknown): TransferPayload['data'] | null {
     !Array.isArray(maybeData.goals) ||
     !Array.isArray(maybeData.people) ||
     !Array.isArray(maybeData.activityLog) ||
-    !maybeData.authRecords ||
-    typeof maybeData.authRecords !== 'object' ||
     typeof maybeData.activePersonId !== 'string'
   ) {
     return null;
@@ -696,15 +688,12 @@ function readTransferData(parsed: unknown): TransferPayload['data'] | null {
   return {
     activePersonId: maybeData.activePersonId,
     activityLog: maybeData.activityLog,
-    authRecords: maybeData.authRecords,
     goalRankings:
       maybeData.goalRankings && typeof maybeData.goalRankings === 'object'
         ? maybeData.goalRankings as Record<string, string[]>
         : {},
     goals: maybeData.goals,
     people: maybeData.people,
-    sessionPersonId:
-      typeof maybeData.sessionPersonId === 'string' ? maybeData.sessionPersonId : undefined,
   };
 }
 
@@ -718,7 +707,6 @@ function readAppStateData(parsed: unknown): AppStateData | null {
   return {
     activePersonId: data.activePersonId,
     activityLog: data.activityLog,
-    authRecords: data.authRecords,
     goalRankings: data.goalRankings,
     goals: data.goals,
     people: data.people,
@@ -730,19 +718,13 @@ export default function Home() {
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
-  const [authRecords, setAuthRecords] = useState<Record<string, AuthRecord>>({});
   const [goalRankings, setGoalRankings] = useState<Record<string, string[]>>({});
   const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState('');
-  const [savingPassword, setSavingPassword] = useState(false);
+  const [newGoalDueAt, setNewGoalDueAt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-  const [passwordPersonId, setPasswordPersonId] = useState(defaultPeople[0].id);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
@@ -783,18 +765,13 @@ export default function Home() {
       const savedPerson = window.localStorage.getItem('ciele-active-person');
       const savedPeople = window.localStorage.getItem('ciele-people');
       const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
-      const savedAuthRecords = window.localStorage.getItem(authRecordsKey);
       const savedGoalRankings = window.localStorage.getItem(goalRankingsKey);
-      const savedSessionPerson = window.localStorage.getItem(sessionPersonKey);
       const localState: AppStateData = {
         activePersonId:
           savedPerson && defaultPeople.some((person) => person.id === savedPerson)
             ? savedPerson
             : defaultPeople[0].id,
         activityLog: savedActivityLog ? JSON.parse(savedActivityLog) as ActivityItem[] : [],
-        authRecords: savedAuthRecords
-          ? JSON.parse(savedAuthRecords) as Record<string, AuthRecord>
-          : {},
         goalRankings: savedGoalRankings
           ? JSON.parse(savedGoalRankings) as Record<string, string[]>
           : {},
@@ -842,17 +819,9 @@ export default function Home() {
       setPeople(normalizedPeople);
       setActivePersonId(restoredActivePersonId);
       setPreviewPersonId(restoredActivePersonId);
-      setPasswordPersonId(restoredActivePersonId);
       setActivityLog(restoredState.activityLog);
-      setAuthRecords(restoredState.authRecords);
       setGoalRankings(normalizedGoalRankings);
-
-      if (savedSessionPerson && restoredState.authRecords[savedSessionPerson]) {
-        setActivePersonId(savedSessionPerson);
-        setPreviewPersonId(savedSessionPerson);
-        setPasswordPersonId(savedSessionPerson);
-        setAuthenticated(true);
-      }
+      setAuthenticated(false);
 
       setLoaded(true);
     }
@@ -872,7 +841,7 @@ export default function Home() {
     window.localStorage.setItem('ciele-active-person', activePersonId);
     window.localStorage.setItem('ciele-people', JSON.stringify(people));
     window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
-    window.localStorage.setItem(authRecordsKey, JSON.stringify(authRecords));
+    window.localStorage.removeItem('ciele-auth-records');
     window.localStorage.setItem(goalRankingsKey, JSON.stringify(goalRankings));
 
     const timeoutId = window.setTimeout(() => {
@@ -880,7 +849,6 @@ export default function Home() {
         body: JSON.stringify({
           activePersonId,
           activityLog,
-          authRecords,
           goalRankings,
           goals,
           people,
@@ -895,7 +863,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activePersonId, activityLog, authRecords, goalRankings, goals, loaded, people]);
+  }, [activePersonId, activityLog, goalRankings, goals, loaded, people]);
 
   const totals = useMemo(() => {
     const allTasks = boardGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
@@ -946,10 +914,6 @@ export default function Home() {
     () => people.find((person) => person.id === previewPersonId) ?? activePerson,
     [activePerson, previewPersonId, people],
   );
-  const passwordPerson = useMemo(
-    () => people.find((person) => person.id === passwordPersonId) ?? activePerson,
-    [activePerson, passwordPersonId, people],
-  );
 
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -967,6 +931,7 @@ export default function Home() {
         title,
         category: newGoalCategory,
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
+        dueAt: normalizeDateTimeInput(newGoalDueAt),
         ownerId: activePersonId,
         updatedById: activePersonId,
         importanceByPerson: people.reduce<Record<string, number>>((ratings, person) => {
@@ -998,10 +963,12 @@ export default function Home() {
     setNewGoalTitle('');
     setNewGoalDescription('');
     setNewGoalCategory('plan');
+    setNewGoalDueAt('');
   }
 
-  function addSubtask(parentId: string, title: string) {
+  function addSubtask(parentId: string, title: string, dueAt?: string) {
     const trimmed = title.trim();
+    const normalizedDueAt = normalizeDateTimeInput(dueAt);
 
     if (!trimmed) {
       return;
@@ -1016,6 +983,7 @@ export default function Home() {
           {
             id: createId(),
             title: trimmed,
+            dueAt: normalizedDueAt,
             ownerId: activePersonId,
             updatedById: activePersonId,
             done: false,
@@ -1091,6 +1059,24 @@ export default function Home() {
       ),
     );
     addActivity('upravil(a) poznámku', goal.title);
+  }
+
+  function changeTaskDueAt(taskId: string, dueAt: string) {
+    const task = findTaskById(goals, taskId);
+    const normalizedDueAt = normalizeDateTimeInput(dueAt);
+
+    if (!task || task.dueAt === normalizedDueAt) {
+      return;
+    }
+
+    setGoals((current) =>
+      updateTaskTree(current, taskId, (task) => ({
+        ...task,
+        dueAt: normalizedDueAt,
+        updatedById: activePersonId,
+      })),
+    );
+    addActivity(normalizedDueAt ? 'nastavil(a) termín' : 'zrušil(a) termín', task.title);
   }
 
   function changeGoalCategory(goalId: string, category: GoalCategory) {
@@ -1340,100 +1326,11 @@ export default function Home() {
     ].slice(0, 80));
   }
 
-  async function authenticatePerson(personId: string, password: string) {
-    const trimmed = password.trim();
-
-    if (trimmed.length < 8) {
-      return {
-        ok: false,
-        message: 'Heslo nech má aspoň 8 znakov, nech nie je úplne ľahké uhádnuť.',
-      };
-    }
-
-    const savedRecord = authRecords[personId];
-
-    if (savedRecord) {
-      const attemptHash = await hashPassword(trimmed, savedRecord.salt);
-
-      if (attemptHash !== savedRecord.hash) {
-        return { ok: false, message: 'Toto heslo nesedí.' };
-      }
-
-      setActivePersonId(personId);
-      setPasswordPersonId(personId);
-      setAuthenticated(true);
-      window.localStorage.setItem(sessionPersonKey, personId);
-      return { ok: true, message: '' };
-    }
-
-    const salt = createSalt();
-    const hash = await hashPassword(trimmed, salt);
-
-    setAuthRecords((current) => ({
-      ...current,
-      [personId]: { hash, salt },
-    }));
+  function authenticatePerson(personId: string) {
     setActivePersonId(personId);
-    setPasswordPersonId(personId);
+    setPreviewPersonId(personId);
     setAuthenticated(true);
     window.localStorage.setItem(sessionPersonKey, personId);
-    addActivity('nastavil(a) heslo', 'svoj vstup do tabule');
-
-    return { ok: true, message: '' };
-  }
-
-  async function changePassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = newPassword.trim();
-    const confirmed = newPasswordConfirm.trim();
-    const targetPersonId = activePersonId;
-    const targetPerson = people.find((person) => person.id === activePersonId) ?? activePerson;
-
-    setPasswordMessage('');
-
-    if (trimmed.length < 8) {
-      setPasswordMessage('Nové heslo nech má aspoň 8 znakov.');
-      return;
-    }
-
-    if (trimmed !== confirmed) {
-      setPasswordMessage('Heslá sa nezhodujú.');
-      return;
-    }
-
-    setSavingPassword(true);
-    const salt = createSalt();
-    const hash = await hashPassword(trimmed, salt);
-
-    setAuthRecords((current) => ({
-      ...current,
-      [targetPersonId]: { hash, salt },
-    }));
-    setNewPassword('');
-    setNewPasswordConfirm('');
-    setSavingPassword(false);
-    setPasswordMessage(`Hotovo, nové heslo pre ${targetPerson?.name ?? 'Foxie'} je uložené.`);
-    addActivity('zmenil(a) heslo', 'svoj vstup');
-  }
-
-  function openPasswordModal(personId = activePersonId) {
-    if (personId !== activePersonId) {
-      return;
-    }
-
-    setSettingsOpen(false);
-    setPasswordPersonId(activePersonId);
-    setNewPassword('');
-    setNewPasswordConfirm('');
-    setPasswordMessage('');
-    setPasswordModalOpen(true);
-  }
-
-  function closePasswordModal() {
-    setPasswordModalOpen(false);
-    setNewPassword('');
-    setNewPasswordConfirm('');
-    setPasswordMessage('');
   }
 
   function createTransferPayload(): TransferPayload {
@@ -1443,11 +1340,9 @@ export default function Home() {
       data: {
         activePersonId,
         activityLog,
-        authRecords,
         goalRankings,
         goals,
         people,
-        sessionPersonId: window.localStorage.getItem(sessionPersonKey) ?? undefined,
       },
     };
   }
@@ -1508,44 +1403,22 @@ export default function Home() {
       setGoals(importedGoals);
       setPeople(importedPeople);
       setActivityLog(data.activityLog);
-      setAuthRecords(data.authRecords);
       setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
       setPreviewPersonId(importedActivePersonId);
-      setPasswordPersonId(importedActivePersonId);
 
       window.localStorage.setItem('ciele-goals', JSON.stringify(importedGoals));
       window.localStorage.setItem('ciele-active-person', importedActivePersonId);
       window.localStorage.setItem('ciele-people', JSON.stringify(importedPeople));
       window.localStorage.setItem('ciele-activity-log', JSON.stringify(data.activityLog));
-      window.localStorage.setItem(authRecordsKey, JSON.stringify(data.authRecords));
+      window.localStorage.removeItem('ciele-auth-records');
       window.localStorage.setItem(goalRankingsKey, JSON.stringify(importedGoalRankings));
-
-      if (data.sessionPersonId && data.authRecords[data.sessionPersonId]) {
-        window.localStorage.setItem(sessionPersonKey, data.sessionPersonId);
-        setAuthenticated(true);
-      }
 
       setImportText('');
       setTransferMessage('Dáta sú importované. Táto verzia appky ich už vidí.');
     } catch {
       setTransferMessage('JSON sa nepodarilo prečítať. Skontroluj, či je celý skopírovaný.');
     }
-  }
-
-  function logout() {
-    window.localStorage.removeItem(sessionPersonKey);
-    setAuthenticated(false);
-    setSettingsOpen(false);
-    setPasswordModalOpen(false);
-    setTransferModalOpen(false);
-    setAvatarMenuOpen(false);
-    setTrashOpen(false);
-    setPreviewPersonId(activePersonId);
-    setNewPassword('');
-    setNewPasswordConfirm('');
-    setPasswordMessage('');
-    setTransferMessage('');
   }
 
   const recentActivity = activityLog.slice(0, 12);
@@ -1557,7 +1430,6 @@ export default function Home() {
   if (!authenticated) {
     return (
       <AuthGate
-        authRecords={authRecords}
         onAuthenticate={authenticatePerson}
         people={people}
       />
@@ -1606,13 +1478,22 @@ export default function Home() {
               </button>
               <div className="person-details">
                 <div className="person-name-row">
-                  <input
-                    aria-label={`Meno osoby ${person.name}`}
-                    className="person-name"
-                    onChange={(event) => changePersonName(person.id, event.target.value)}
-                    onBlur={(event) => renamePerson(person.id, event.target.value)}
-                    value={person.name}
-                  />
+                  {person.id === activePersonId ? (
+                    <input
+                      aria-label={`Meno osoby ${person.name}`}
+                      className="person-name"
+                      onChange={(event) => changePersonName(person.id, event.target.value)}
+                      onBlur={(event) => renamePerson(person.id, event.target.value)}
+                      value={person.name}
+                    />
+                  ) : (
+                    <span
+                      aria-label={`Meno osoby ${person.name}`}
+                      className="person-name person-name-static"
+                    >
+                      {person.name}
+                    </span>
+                  )}
                   {person.id === activePersonId ? (
                     <span className="signed-in-badge">prihlásený</span>
                   ) : person.id === previewPersonId ? (
@@ -1648,16 +1529,9 @@ export default function Home() {
                         </div>
                       ) : null}
                     </div>
-                    <button
-                      className="person-password-button"
-                      onClick={() => openPasswordModal(person.id)}
-                      type="button"
-                    >
-                      Heslo
-                    </button>
                   </div>
                 ) : (
-                  <span className="avatar-owner-note">klik neodhlasuje, len ukáže náhľad</span>
+                  <span className="avatar-owner-note">meno je iba text, náhľad prepne ikonka</span>
                 )}
               </div>
             </div>
@@ -1730,14 +1604,8 @@ export default function Home() {
             </button>
             {settingsOpen ? (
               <div className="settings-popover">
-                <button onClick={() => openPasswordModal(activePersonId)} type="button">
-                  Zmeniť moje heslo
-                </button>
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
-                </button>
-                <button onClick={logout} type="button">
-                  Odhlásiť
                 </button>
               </div>
             ) : null}
@@ -1751,64 +1619,12 @@ export default function Home() {
         </section>
       ) : null}
 
-      {passwordModalOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section
-            aria-label="Zmena hesla"
-            aria-modal="true"
-            className="password-modal"
-            role="dialog"
-          >
-            <div className="modal-heading">
-              <div>
-                <span className="label">Heslo</span>
-                <h2>Heslo pre {passwordPerson?.name ?? 'Foxie'}</h2>
-              </div>
-              <button
-                aria-label="Zatvoriť zmenu hesla"
-                className="icon-button compact"
-                onClick={closePasswordModal}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <form className="password-form" onSubmit={changePassword}>
-              <label>
-                Nové heslo
-                <input
-                  autoComplete="new-password"
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  placeholder="Aspoň 8 znakov"
-                  type="password"
-                  value={newPassword}
-                />
-              </label>
-              <label>
-                Ešte raz
-                <input
-                  autoComplete="new-password"
-                  onChange={(event) => setNewPasswordConfirm(event.target.value)}
-                  placeholder="Zopakuj heslo"
-                  type="password"
-                  value={newPasswordConfirm}
-                />
-              </label>
-              {passwordMessage ? <strong className="password-message">{passwordMessage}</strong> : null}
-              <button disabled={savingPassword} type="submit">
-                Uložiť nové heslo
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
-
       {transferModalOpen ? (
         <div className="modal-backdrop" role="presentation">
           <section
             aria-label="Prenos dát"
             aria-modal="true"
-            className="password-modal data-modal"
+            className="dialog-card data-modal"
             role="dialog"
           >
             <div className="modal-heading">
@@ -1840,7 +1656,7 @@ export default function Home() {
                 />
               </label>
               <p>
-                Import prepíše lokálne dáta v tomto prehliadači. Heslá zostanú iba ako uložené hash záznamy zo zálohy.
+                Import prepíše lokálne dáta v tomto prehliadači.
               </p>
               {transferMessage ? <strong className="transfer-message">{transferMessage}</strong> : null}
               <button disabled={!importText.trim()} type="submit">
@@ -1894,6 +1710,14 @@ export default function Home() {
               ))}
             </select>
           </label>
+          <label>
+            Dokedy
+            <input
+              onChange={(event) => setNewGoalDueAt(event.target.value)}
+              type="datetime-local"
+              value={newGoalDueAt}
+            />
+          </label>
           <button type="submit">Pridať plán</button>
         </form>
       </section>
@@ -1940,6 +1764,7 @@ export default function Home() {
             onChangeRecurrence={changeGoalRecurrence}
             onCompleteRecurring={completeRecurringGoalToday}
             onDelete={deleteTask}
+            onChangeDueAt={changeTaskDueAt}
             onRateImportance={rateGoalImportance}
             onRenameDescription={updateGoalDescription}
             onRename={renameTask}
@@ -1954,98 +1779,12 @@ export default function Home() {
 }
 
 function AuthGate({
-  authRecords,
   onAuthenticate,
   people,
 }: {
-  authRecords: Record<string, AuthRecord>;
-  onAuthenticate: (personId: string, password: string) => Promise<{ ok: boolean; message: string }>;
+  onAuthenticate: (personId: string) => void;
   people: Person[];
 }) {
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [foxName, setFoxName] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const selectedPerson = selectedPersonId
-    ? people.find((person) => person.id === selectedPersonId) ?? null
-    : null;
-  const hasPassword = selectedPersonId ? Boolean(authRecords[selectedPersonId]) : false;
-
-  function normalizeAnswer(value: string) {
-    return value
-      .trim()
-      .toLocaleLowerCase('sk-SK')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-  }
-
-  function matchPerson(value: string) {
-    const answer = normalizeAnswer(value);
-
-    if (!answer) {
-      return undefined;
-    }
-
-    return people.find((person) => {
-      const personName = normalizeAnswer(person.name);
-
-      return answer === personName || answer === person.id || personName.includes(answer);
-    });
-  }
-
-  function choosePerson(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const matchedPerson = matchPerson(foxName);
-
-    if (!matchedPerson) {
-      setMessage('Napíš prosím Rini alebo Fluffy.');
-      return;
-    }
-
-    setSelectedPersonId(matchedPerson.id);
-    setPassword('');
-    setPasswordConfirm('');
-    setMessage('');
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setMessage('');
-
-    if (!selectedPersonId) {
-      setSubmitting(false);
-      return;
-    }
-
-    if (!hasPassword && password.trim() !== passwordConfirm.trim()) {
-      setMessage('Heslá sa nezhodujú.');
-      setSubmitting(false);
-      return;
-    }
-
-    const result = await onAuthenticate(selectedPersonId, password);
-
-    if (!result.ok) {
-      setMessage(result.message);
-      setSubmitting(false);
-      return;
-    }
-
-    setPassword('');
-    setPasswordConfirm('');
-    setSubmitting(false);
-  }
-
-  function goBackToQuestion() {
-    setSelectedPersonId(null);
-    setPassword('');
-    setPasswordConfirm('');
-    setMessage('');
-  }
-
   return (
     <main className="auth-shell">
       <section className="auth-card" aria-label="Prihlásenie do tabule">
@@ -2059,64 +1798,20 @@ function AuthGate({
           </div>
         </div>
 
-        {!selectedPerson ? (
-          <form className="auth-form" onSubmit={choosePerson}>
-            <label>
-              Ktorá líštička si?
-              <input
-                autoComplete="username"
-                autoFocus
-                onChange={(event) => {
-                  setFoxName(event.target.value);
-                  setMessage('');
-                }}
-                placeholder="Rini alebo Fluffy"
-                value={foxName}
-              />
-            </label>
-            <p>Najprv povedz, ktorá líštička prišla k tabuli.</p>
-            {message ? <strong className="auth-error">{message}</strong> : null}
-            <button type="submit">Pokračovať</button>
-          </form>
-        ) : (
-          <form className="auth-form" onSubmit={submit}>
-            <label>
-              {hasPassword ? 'Tvoje heslo' : 'Nastav si heslo'}
-              <input
-                autoComplete={hasPassword ? 'current-password' : 'new-password'}
-                autoFocus
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={hasPassword ? 'Napíš svoje heslo' : 'Aspoň 8 znakov'}
-                type="password"
-                value={password}
-              />
-            </label>
-            {!hasPassword ? (
-              <label>
-                Ešte raz
-                <input
-                  autoComplete="new-password"
-                  onChange={(event) => setPasswordConfirm(event.target.value)}
-                  placeholder="Zopakuj heslo"
-                  type="password"
-                  value={passwordConfirm}
-                />
-              </label>
-            ) : null}
-            <p>
-              {hasPassword
-                ? 'Ak heslo sedí, otvorí sa tvoja tabuľa.'
-                : 'Vyzerá to, že si heslo ešte nenastavovala. Ulož si ho a vojdeš dovnútra.'}
-            </p>
-            {message ? <strong className="auth-error">{message}</strong> : null}
-            <button disabled={submitting} type="submit">
-              {hasPassword ? 'Vojsť do tabule' : 'Uložiť heslo a vojsť'}
+        <div className="auth-people" aria-label="Vybrať používateľa">
+          {people.map((person) => (
+            <button
+              className="auth-person"
+              key={person.id}
+              onClick={() => onAuthenticate(person.id)}
+              style={{ '--person-tone': person.tone } as React.CSSProperties}
+              type="button"
+            >
+              <AvatarFox person={person} size="medium" />
+              <span>{person.name}</span>
             </button>
-            <button className="auth-link-button" onClick={goBackToQuestion} type="button">
-              Nie som {selectedPerson.name}
-            </button>
-          </form>
-        )}
+          ))}
+        </div>
       </section>
     </main>
   );
@@ -2524,8 +2219,9 @@ function ProjectProgressStrip({
 type GoalPanelProps = {
   activePersonId: string;
   goal: Goal;
-  onAddSubtask: (parentId: string, title: string) => void;
+  onAddSubtask: (parentId: string, title: string, dueAt?: string) => void;
   onChangeCategory: (goalId: string, category: GoalCategory) => void;
+  onChangeDueAt: (taskId: string, dueAt: string) => void;
   onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
   onCompleteRecurring: (goalId: string) => void;
   onDelete: (taskId: string) => void;
@@ -2614,6 +2310,19 @@ function GoalPanel(props: GoalPanelProps) {
             ))}
           </select>
         </label>
+        <label className="category-select deadline-select">
+          Dokedy
+          <input
+            onChange={(event) => props.onChangeDueAt(props.goal.id, event.target.value)}
+            type="datetime-local"
+            value={props.goal.dueAt ?? ''}
+          />
+        </label>
+        {props.goal.dueAt ? (
+          <span className="deadline-chip">
+            Termín: {formatDeadlineLabel(props.goal.dueAt)}
+          </span>
+        ) : null}
         {isRecurring ? (
           <label className="category-select recurrence-select">
             Opakovať
@@ -2663,7 +2372,7 @@ function GoalPanel(props: GoalPanelProps) {
           ))}
           <AddTaskForm
             label="Pridať podúlohu k cieľu"
-            onSubmit={(title) => props.onAddSubtask(props.goal.id, title)}
+            onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)}
           />
         </div>
       ) : null}
@@ -2823,6 +2532,20 @@ function TaskRow(props: TaskRowProps) {
           people={props.people}
           updatedById={props.task.updatedById}
         />
+        <label className="task-deadline">
+          Dokedy
+          <input
+            aria-label={`Dokedy má byť hotové: ${props.task.title}`}
+            onChange={(event) => props.onChangeDueAt(props.task.id, event.target.value)}
+            type="datetime-local"
+            value={props.task.dueAt ?? ''}
+          />
+        </label>
+        {props.task.dueAt ? (
+          <span className="deadline-chip compact">
+            {formatDeadlineLabel(props.task.dueAt)}
+          </span>
+        ) : null}
         <span className="mini-progress">
           {progress.percent}% · {progress.done}/{progress.total}
         </span>
@@ -2842,8 +2565,8 @@ function TaskRow(props: TaskRowProps) {
       {adding ? (
         <AddTaskForm
           label="Názov ďalšej podúlohy"
-          onSubmit={(title) => {
-            props.onAddSubtask(props.task.id, title);
+          onSubmit={(title, dueAt) => {
+            props.onAddSubtask(props.task.id, title, dueAt);
             setAdding(false);
           }}
         />
@@ -2897,17 +2620,19 @@ function AddTaskForm({
   onSubmit,
 }: {
   label: string;
-  onSubmit: (title: string) => void;
+  onSubmit: (title: string, dueAt?: string) => void;
 }) {
   const [title, setTitle] = useState('');
+  const [dueAt, setDueAt] = useState('');
 
   return (
     <form
       className="add-task"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(title);
+        onSubmit(title, dueAt);
         setTitle('');
+        setDueAt('');
       }}
     >
       <label>
@@ -2916,6 +2641,14 @@ function AddTaskForm({
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Napíšte názov"
           value={title}
+        />
+      </label>
+      <label>
+        Dokedy
+        <input
+          onChange={(event) => setDueAt(event.target.value)}
+          type="datetime-local"
+          value={dueAt}
         />
       </label>
       <button type="submit">Pridať</button>
