@@ -32,6 +32,7 @@ body {
     radial-gradient(circle at 84% 12%, rgb(75 141 255 / 22%), transparent 30%),
     linear-gradient(135deg, #f7fcff 0%, #dff0ff 48%, #dff7f2 100%);
   color: var(--foreground);
+  font-size: 14px;
   font-family: "Trebuchet MS", "Comic Sans MS", Arial, Helvetica, sans-serif;
   min-height: 100vh;
   position: relative;
@@ -67,7 +68,7 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  padding: 28px;
+  padding: 22px;
   position: relative;
   z-index: 1;
 }
@@ -88,9 +89,9 @@ button:disabled {
 .topbar {
   align-items: center;
   display: flex;
-  gap: 20px;
+  gap: 16px;
   justify-content: space-between;
-  margin: 0 auto 18px;
+  margin: 0 auto 14px;
   max-width: 1180px;
   position: relative;
   z-index: 5;
@@ -187,7 +188,7 @@ button:disabled {
 }
 
 h1 {
-  font-size: clamp(30px, 4vw, 48px);
+  font-size: clamp(28px, 3.4vw, 42px);
   font-weight: 900;
   line-height: 1;
   margin: 0;
@@ -198,7 +199,7 @@ h1 {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 11px;
+  gap: 6px 9px;
 }
 
 .brand-title span {
@@ -751,9 +752,9 @@ h1 {
 
 .summary-grid {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   grid-template-columns: minmax(260px, 0.8fr) minmax(300px, 1.2fr);
-  margin: 0 auto 16px;
+  margin: 0 auto 14px;
   max-width: 1180px;
 }
 
@@ -768,7 +769,7 @@ h1 {
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 14px 0 rgb(7 17 31 / 7%), 0 22px 42px rgb(27 83 120 / 12%);
+  box-shadow: 0 10px 0 rgb(7 17 31 / 7%), 0 18px 34px rgb(27 83 120 / 11%);
   position: relative;
 }
 
@@ -1536,9 +1537,9 @@ h1 {
 .new-goal {
   align-items: end;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  padding: 14px;
+  padding: 12px;
 }
 
 .new-goal button {
@@ -1622,9 +1623,9 @@ h1 {
 label {
   color: var(--muted);
   display: grid;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  gap: 6px;
+  gap: 5px;
 }
 
 input,
@@ -1633,9 +1634,10 @@ select {
   border: 2px solid #b5d6e9;
   border-radius: 7px;
   color: var(--foreground);
-  min-height: 40px;
+  font-size: 13px;
+  min-height: 36px;
   outline: none;
-  padding: 9px 10px;
+  padding: 7px 9px;
 }
 
 input:focus,
@@ -1650,15 +1652,16 @@ select:focus {
   border: 2px solid #07111f;
   border-radius: 7px;
   color: #ffffff;
+  font-size: 14px;
   font-weight: 800;
-  min-height: 40px;
+  min-height: 38px;
   padding: 0 14px;
   text-shadow: 1px 1px 0 rgb(7 17 31 / 45%);
 }
 
 .board {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   margin: 0 auto;
   max-width: 1180px;
 }
@@ -1670,9 +1673,9 @@ select:focus {
 .goal-header {
   align-items: start;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
-  padding: 18px 18px 0;
+  padding: 14px 16px 0;
 }
 
 .goal-title-block p {
@@ -1684,11 +1687,11 @@ select:focus {
   background: #f8fcff;
   border-color: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   margin-top: 4px;
-  min-height: 32px;
-  padding: 4px 6px;
+  min-height: 28px;
+  padding: 3px 5px;
   width: 100%;
 }
 
@@ -1696,9 +1699,9 @@ select:focus {
   background: transparent;
   border-color: transparent;
   color: #09213a;
-  font-size: 25px;
+  font-size: 22px;
   font-weight: 900;
-  min-height: 34px;
+  min-height: 30px;
   padding: 0;
   width: 100%;
 }
@@ -1707,12 +1710,12 @@ select:focus {
   align-items: end;
   display: grid;
   justify-items: end;
-  min-width: 76px;
+  min-width: 66px;
 }
 
 .progress-badge strong {
   color: #126fbe;
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -1728,8 +1731,8 @@ select:focus {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 12px 18px 0 66px;
+  gap: 8px;
+  padding: 10px 16px 0 58px;
 }
 
 .importance-panel {
@@ -1737,16 +1740,16 @@ select:focus {
   border: 2px solid #d5e8ee;
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  margin: 14px 18px 0;
-  padding: 10px;
+  gap: 8px;
+  margin: 12px 16px 0;
+  padding: 9px;
 }
 
 .importance-heading {
   align-items: center;
   color: #09213a;
   display: flex;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   justify-content: space-between;
 }
@@ -1758,23 +1761,23 @@ select:focus {
   border-radius: 999px;
   color: #126fbe;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
-  height: 26px;
+  height: 24px;
   justify-content: center;
-  width: 26px;
+  width: 24px;
 }
 
 .importance-rows {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .importance-row {
   align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(104px, 0.7fr) minmax(112px, 1fr) auto;
+  gap: 8px;
+  grid-template-columns: minmax(94px, 0.6fr) minmax(110px, 1fr) auto;
 }
 
 .importance-person {
@@ -1789,7 +1792,7 @@ select:focus {
 
 .importance-meter {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   grid-template-columns: repeat(5, minmax(18px, 1fr));
 }
 
@@ -1797,8 +1800,8 @@ select:focus {
   background: #ffffff;
   border: 2px solid #b5d6e9;
   border-radius: 999px;
-  height: 16px;
-  min-height: 16px;
+  height: 15px;
+  min-height: 15px;
   padding: 0;
 }
 
@@ -1832,27 +1835,27 @@ select:focus {
 }
 
 .owner-select {
-  min-height: 34px;
-  padding: 6px 28px 6px 10px;
+  min-height: 32px;
+  padding: 5px 28px 5px 9px;
 }
 
 .category-select {
   align-items: center;
   display: flex;
   flex-direction: row;
-  gap: 7px;
+  gap: 6px;
   white-space: nowrap;
 }
 
 .category-select select {
-  min-height: 34px;
-  padding: 6px 28px 6px 10px;
+  min-height: 32px;
+  padding: 5px 28px 5px 9px;
 }
 
 .recurrence-select input {
-  min-height: 34px;
-  padding: 6px 8px;
-  width: 72px;
+  min-height: 32px;
+  padding: 5px 8px;
+  width: 66px;
 }
 
 .recurrence-summary {
@@ -1871,9 +1874,9 @@ select:focus {
 
 .item-meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  min-width: 132px;
+  min-width: 118px;
   white-space: nowrap;
 }
 
@@ -1887,19 +1890,19 @@ select:focus {
   border: 2px solid #b5d6e9;
   border-radius: 8px;
   display: inline-flex;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-  height: 38px;
+  height: 34px;
   justify-content: center;
   line-height: 1;
-  width: 38px;
+  width: 34px;
 }
 
 .icon-button.compact {
   border-radius: 7px;
-  font-size: 17px;
-  height: 30px;
-  width: 30px;
+  font-size: 16px;
+  height: 28px;
+  width: 28px;
 }
 
 .icon-button.danger {
@@ -1908,14 +1911,14 @@ select:focus {
 
 .children-list {
   display: grid;
-  gap: 8px;
-  padding: 16px 18px 18px;
+  gap: 7px;
+  padding: 14px 16px 16px;
 }
 
 .task-branch {
-  --indent: calc((var(--depth) - 1) * 22px);
+  --indent: calc((var(--depth) - 1) * 18px);
   display: grid;
-  gap: 8px;
+  gap: 7px;
   margin-left: var(--indent);
 }
 
@@ -1925,17 +1928,17 @@ select:focus {
   border: 2px solid #c2deed;
   border-radius: 8px;
   display: grid;
-  gap: 8px;
+  gap: 7px;
   grid-template-columns: auto auto minmax(140px, 1fr) auto auto auto auto;
-  min-height: 48px;
-  padding: 8px 46px 8px 8px;
+  min-height: 44px;
+  padding: 7px 42px 7px 7px;
   position: relative;
 }
 
 .task-row > .icon-button.compact.danger {
   position: absolute;
-  right: 8px;
-  top: 8px;
+  right: 7px;
+  top: 7px;
 }
 
 .task-row.done .task-title {
@@ -1946,8 +1949,8 @@ select:focus {
 .task-title {
   background: transparent;
   border-color: transparent;
-  min-height: 32px;
-  padding: 4px;
+  min-height: 30px;
+  padding: 3px;
   width: 100%;
 }
 
@@ -1956,9 +1959,10 @@ select:focus {
   border: 2px solid #b5d6e9;
   border-radius: 7px;
   color: var(--foreground);
+  font-size: 13px;
   font-weight: 800;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 9px;
   white-space: nowrap;
 }
 
@@ -1970,14 +1974,18 @@ select:focus {
 .add-task {
   align-items: end;
   display: grid;
-  gap: 8px;
+  gap: 7px;
   grid-template-columns: minmax(180px, 1fr) auto;
   margin-left: var(--indent, 0);
 }
 
 @media (max-width: 820px) {
+  body {
+    font-size: 13px;
+  }
+
   .app-shell {
-    padding: 18px;
+    padding: 12px;
   }
 
   .topbar,
@@ -2012,6 +2020,10 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .new-goal {
+    padding: 10px;
+  }
+
   .activity-list time {
     text-align: left;
   }
@@ -2026,32 +2038,86 @@ select:focus {
 
   .goal-header {
     grid-template-columns: auto minmax(0, 1fr);
+    padding: 12px 12px 0;
+  }
+
+  .title-input {
+    font-size: 19px;
+  }
+
+  .description-input {
+    font-size: 11px;
   }
 
   .progress-badge {
     grid-column: 1 / -1;
     justify-items: start;
-    padding-left: 50px;
+    padding-left: 44px;
   }
 
   .goal-meta {
-    padding-left: 18px;
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 10px 12px 0;
   }
 
   .recurrence-summary {
-    padding-left: 18px;
+    padding-left: 12px;
   }
 
   .importance-panel {
-    margin-left: 18px;
+    margin: 10px 12px 0;
   }
 
   .importance-row {
+    gap: 6px;
+    grid-template-columns: minmax(82px, auto) minmax(0, 1fr) auto;
+  }
+
+  .importance-meter {
+    grid-template-columns: repeat(5, minmax(20px, 1fr));
+  }
+
+  .category-select {
+    align-items: stretch;
+    display: grid;
     grid-template-columns: 1fr;
+    white-space: normal;
+  }
+
+  .category-select select,
+  .task-deadline input,
+  .add-task input {
+    width: 100%;
   }
 
   .task-branch {
-    margin-left: min(var(--indent), 28px);
+    margin-left: min(var(--indent), 16px);
+  }
+
+  .task-row {
+    align-items: start;
+    gap: 6px;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    padding: 7px 40px 8px 7px;
+  }
+
+  .task-title {
+    grid-column: 3;
+    min-width: 0;
+  }
+
+  .task-row .item-meta,
+  .task-row .task-deadline,
+  .task-row .deadline-chip,
+  .task-row .mini-progress,
+  .task-row .text-button {
+    grid-column: 1 / -1;
+  }
+
+  .task-row .text-button {
+    justify-self: start;
   }
 
   .add-task {
