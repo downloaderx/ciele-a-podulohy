@@ -1563,8 +1563,13 @@ h1 {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(130px, 0.7fr) minmax(170px, 0.85fr) auto;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   padding: 14px;
+}
+
+.new-goal button {
+  grid-column: 1 / -1;
+  justify-self: stretch;
 }
 
 .project-strip {
