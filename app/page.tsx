@@ -729,7 +729,6 @@ export default function Home() {
   const [importText, setImportText] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [previewPersonId, setPreviewPersonId] = useState(defaultPeople[0].id);
   const [randomActivityId, setRandomActivityId] = useState<string | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
@@ -818,7 +817,6 @@ export default function Home() {
       setGoals(normalizedGoals);
       setPeople(normalizedPeople);
       setActivePersonId(restoredActivePersonId);
-      setPreviewPersonId(restoredActivePersonId);
       setActivityLog(restoredState.activityLog);
       setGoalRankings(normalizedGoalRankings);
       setAuthenticated(false);
@@ -906,15 +904,6 @@ export default function Home() {
       })),
     [rankedActiveGoals],
   );
-  const activePerson = useMemo(
-    () => people.find((person) => person.id === activePersonId) ?? people[0],
-    [activePersonId, people],
-  );
-  const previewPerson = useMemo(
-    () => people.find((person) => person.id === previewPersonId) ?? activePerson,
-    [activePerson, previewPersonId, people],
-  );
-
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = newGoalTitle.trim();
@@ -1328,7 +1317,6 @@ export default function Home() {
 
   function authenticatePerson(personId: string) {
     setActivePersonId(personId);
-    setPreviewPersonId(personId);
     setAuthenticated(true);
     window.localStorage.setItem(sessionPersonKey, personId);
   }
@@ -1405,7 +1393,6 @@ export default function Home() {
       setActivityLog(data.activityLog);
       setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
-      setPreviewPersonId(importedActivePersonId);
 
       window.localStorage.setItem('ciele-goals', JSON.stringify(importedGoals));
       window.localStorage.setItem('ciele-active-person', importedActivePersonId);
@@ -1459,7 +1446,6 @@ export default function Home() {
               className={[
                 'person-card',
                 person.id === activePersonId ? 'active' : '',
-                person.id === previewPersonId && person.id !== activePersonId ? 'previewed' : '',
               ].filter(Boolean).join(' ')}
               style={{ '--person-tone': person.tone } as React.CSSProperties}
             >
@@ -1470,8 +1456,8 @@ export default function Home() {
                     : `Ikonka osoby ${person.name}`
                 }
                 className="person-fox"
-                onClick={() => setPreviewPersonId(person.id)}
-                title={person.id === activePersonId ? 'Toto je prihlásená líštička' : 'Zobraziť náhľad tejto líštičky'}
+                disabled={person.id !== activePersonId}
+                title={person.id === activePersonId ? 'Toto je prihlásená líštička' : 'Ikonka druhej líštičky'}
                 type="button"
               >
                 <AvatarFox person={person} size="medium" />
@@ -1496,8 +1482,6 @@ export default function Home() {
                   )}
                   {person.id === activePersonId ? (
                     <span className="signed-in-badge">prihlásený</span>
-                  ) : person.id === previewPersonId ? (
-                    <span className="signed-in-badge preview">náhľad</span>
                   ) : null}
                 </div>
                 {person.id === activePersonId ? (
@@ -1531,24 +1515,11 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <span className="avatar-owner-note">meno je iba text, náhľad prepne ikonka</span>
+                  <span className="avatar-owner-note">meno je iba text</span>
                 )}
               </div>
             </div>
           ))}
-          <label className="preview-select">
-            Náhľad ako
-            <select
-              onChange={(event) => setPreviewPersonId(event.target.value)}
-              value={previewPersonId}
-            >
-              {people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="trash-menu">
             <button
               aria-expanded={trashOpen}
@@ -1612,12 +1583,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {previewPersonId !== activePersonId ? (
-        <section className="preview-notice" aria-label="Náhľad inej líštičky">
-          Pozeráš náhľad ako <strong>{previewPerson?.name ?? 'Foxie'}</strong>. Úpravy a hlasovanie sa stále ukladajú ako <strong>{activePerson?.name ?? 'Foxie'}</strong>.
-        </section>
-      ) : null}
 
       {transferModalOpen ? (
         <div className="modal-backdrop" role="presentation">

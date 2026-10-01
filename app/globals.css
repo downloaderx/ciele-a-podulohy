@@ -253,6 +253,11 @@ h1 {
   width: 48px;
 }
 
+.person-fox:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .person-details {
   display: grid;
   gap: 5px;
@@ -396,25 +401,6 @@ h1 {
   border-color: var(--person-tone);
   box-shadow: 0 5px 0 color-mix(in srgb, var(--person-tone) 28%, transparent);
   transform: translateY(-2px);
-}
-
-.person-card.previewed {
-  border-color: color-mix(in srgb, var(--person-tone) 54%, #b5d6e9);
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--person-tone) 18%, transparent);
-}
-
-.signed-in-badge.preview {
-  background: color-mix(in srgb, var(--person-tone) 18%, #ffffff);
-  color: var(--foreground);
-}
-
-.preview-select {
-  min-width: 140px;
-}
-
-.preview-select select {
-  min-height: 34px;
-  padding: 6px 28px 6px 10px;
 }
 
 .settings-menu,
@@ -666,18 +652,6 @@ h1 {
   padding: 18px;
   position: relative;
   width: min(100%, 620px);
-}
-
-.preview-notice {
-  background: color-mix(in srgb, var(--accent) 13%, #ffffff);
-  border: 2px solid color-mix(in srgb, var(--accent) 42%, #b5d6e9);
-  border-radius: 8px;
-  color: var(--foreground);
-  font-size: 13px;
-  font-weight: 800;
-  margin: 0 auto 16px;
-  max-width: 1180px;
-  padding: 10px 12px;
 }
 
 .auth-brand {
