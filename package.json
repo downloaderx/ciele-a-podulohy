@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "vite build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
