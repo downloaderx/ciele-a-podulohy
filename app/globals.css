@@ -2227,7 +2227,8 @@ select:focus {
 }
 
 .task-branch {
-  --indent: calc((var(--depth) - 1) * 18px);
+  min-width: 0;
+  --indent: clamp(0px, calc((var(--depth) - 1) * 12px), 12px);
   display: grid;
   gap: 7px;
   margin-left: var(--indent);
@@ -2240,11 +2241,15 @@ select:focus {
   border-radius: 8px;
   display: grid;
   gap: 7px;
-  grid-template-columns: 28px 16px minmax(0, 1fr) 156px 128px 118px 230px;
+  grid-template-columns: 28px 16px minmax(0, 1fr);
+  min-width: 0;
   min-height: 44px;
-  padding: 7px 42px 7px 7px;
+  padding: 5px 40px 5px 5px;
   position: relative;
 }
+
+.task-row > label { min-width: 0; }
+.task-row > label input[type="checkbox"] { min-height: 0; margin: 0; }
 
 .task-row > .icon-button.compact.danger {
   position: absolute;
@@ -2274,7 +2279,8 @@ select:focus {
 }
 
 .task-title-tooltip {
-  max-width: min(620px, 82vw);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .task-kind-select {
@@ -2301,11 +2307,32 @@ select:focus {
 
 .task-actions {
   display: flex;
-  gap: 7px;
-  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  grid-column: 1 / -1;
+  align-items: start;
   min-width: 0;
-  overflow: hidden;
 }
+
+.task-actions > button { flex-shrink: 0; }
+.task-details { min-width: 0; flex: 1 1 100px; }
+.task-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 28px;
+  width: fit-content;
+}
+.task-details-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 0 2px;
+}
+.task-details-content .deadline-field input { min-height: 30px; width: 100%; }
+.task-details-content .item-meta { white-space: normal; }
+
 
 .text-button {
   background: #ffffff;
@@ -2332,8 +2359,8 @@ select:focus {
   align-items: end;
   display: grid;
   gap: 7px;
-  grid-template-columns: minmax(180px, 1fr) auto;
-  margin-left: var(--indent, 0);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 190px) auto;
+  min-width: 0;
 }
 
 @media (max-width: 820px) {
@@ -2452,7 +2479,7 @@ select:focus {
     align-items: start;
     gap: 6px;
     grid-template-columns: auto auto minmax(0, 1fr);
-    padding: 7px 40px 8px 7px;
+    padding: 5px 40px 5px 5px;
   }
 
   .task-title-tooltip-wrap {
@@ -2460,9 +2487,6 @@ select:focus {
     min-width: 0;
   }
 
-  .task-row .item-meta,
-  .task-row .mini-progress,
-  .task-row .task-kind-select,
   .task-row .task-actions {
     grid-column: 1 / -1;
   }

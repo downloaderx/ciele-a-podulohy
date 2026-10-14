@@ -2252,6 +2252,22 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
+        <div className="task-actions">
+          <button className="text-button" onClick={() => setAdding(!adding)} type="button">
+            + podúloha
+          </button>
+          {suggestedTitleChunks.length > 1 ? (
+            <button
+              className="text-button"
+              onClick={() => setTitleChunks(suggestedTitleChunks)}
+              type="button"
+            >
+              Rozkúskovať
+            </button>
+          ) : null}
+          <details className="task-details">
+            <summary>Podrobnosti</summary>
+            <div className="task-details-content">
         <label className="task-kind-select">
           <span>Typ</span>
           <select
@@ -2279,19 +2295,8 @@ function TaskRow(props: TaskRowProps) {
             ? `${progress.percent}% · ${progress.done}/${progress.total}`
             : 'bez odškrtávania'}
         </span>
-        <div className="task-actions">
-          <button className="text-button" onClick={() => setAdding(!adding)} type="button">
-            + podúloha
-          </button>
-          {suggestedTitleChunks.length > 1 ? (
-            <button
-              className="text-button"
-              onClick={() => setTitleChunks(suggestedTitleChunks)}
-              type="button"
-            >
-              Rozkúskovať
-            </button>
-          ) : null}
+            </div>
+          </details>
         </div>
         <button
           aria-label="Presunúť podúlohu do koša"
