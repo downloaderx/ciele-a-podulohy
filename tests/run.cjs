@@ -46,12 +46,12 @@ test('validates every nested item, dates, ratings, duplicate IDs and nesting lim
   ]) { const invalid = state(); mutate(invalid); assert.equal(isValidState(invalid), false); }
 });
 
-test('personal goals, activity and ranking IDs never reach the other account', () => {
+test('both people can see personal goals, activity and rankings', () => {
   const s = state(); s.activityLog = [{ id: 'log', actorId: 'person-2', action: 'edit', target: 'private', createdAt: new Date().toISOString(), spaceId: 'person-2' }];
   const visible = visibleState(s, 'person-1');
-  assert.deepEqual(visible.goals.map((g) => g.id), ['shared', 'private-1']);
-  assert.deepEqual(visible.activityLog, []);
-  assert.equal(JSON.stringify(visible).includes('private-2'), false);
+  assert.deepEqual(visible.goals.map((g) => g.id), ['shared', 'private-1', 'private-2']);
+  assert.equal(visible.activityLog.length, 1);
+  assert.equal(JSON.stringify(visible).includes('private-2'), true);
 });
 
 test('merges independent edits, new children and separate rating votes', () => {
@@ -158,7 +158,7 @@ test('HTTP authorization, validation and atomic concurrent writes', async () => 
     assert.deepEqual(replies.map((r) => r.status).sort(), [200, 409]);
     assert.equal(stored.revision, 8);
     const conflict = await replies.find((r) => r.status === 409).json();
-    assert.equal(conflict.revision, 8); assert.equal(JSON.stringify(conflict).includes('private-2'), false);
+    assert.equal(conflict.revision, 8); assert.equal(JSON.stringify(conflict).includes('private-2'), true);
     assert.equal((await route.PUT(new Request('https://foxies.test/api/state', { method: 'PUT', headers: { origin: 'https://foxies.test' }, body: 'null' }))).status, 400);
   } finally { global.fetch = originalFetch; jar.clear(); }
 });
@@ -227,4 +227,17 @@ test('chore effort weights progress independently of occasional chores', () => {
   assert.equal(calculateChoreProgress([],'routine').percent,0);
   const s=state(); s.goals[0].category='chore'; s.goals[0].children=[task('weighted',{choreWeight:3,children:[task('nested',{choreCadence:'occasional',choreWeight:5})]})];
   assert.equal(isValidState(s),true); s.goals[0].children[0].choreWeight=2; assert.equal(isValidState(s),false);
+});
+
+test('personal boards are mutually readable but only the owner can change content', () => {
+  for (const personId of ['person-1','person-2']) {
+    const base=state(); const peerId=personId==='person-1'?'private-2':'private-1';
+    const incoming=visibleState(clone(base),personId);
+    assert.ok(incoming.goals.find(g=>g.id===peerId));
+    assert.equal(isValidState(authorizedState(base,incoming,personId)),true);
+    incoming.goals.find(g=>g.id===peerId).title='Forbidden';
+    assert.throws(()=>authorizedState(base,incoming,personId),/prezeranie/);
+    const missing=visibleState(clone(base),personId);missing.goals=missing.goals.filter(g=>g.id!==peerId);
+    assert.deepEqual(authorizedState(base,missing,personId).goals.find(g=>g.id===peerId),base.goals.find(g=>g.id===peerId));
+  }
 });

@@ -42,7 +42,7 @@ Vercel konfigurácia spúšťa `pnpm build`. Vetva/PR môže mať Preview deploy
 
 V režime `supabase` server overuje access token cez Supabase Auth a potom členstvo cez `app_members`. V predvolenom režime `profiles` cookie predstavuje iba zvolenú líštičku, nie overenú identitu. Access a refresh tokeny sú v HttpOnly cookies, v produkcii aj Secure; zápisy kontrolujú rovnaký pôvod požiadavky. RLS a odobraté oprávnenia blokujú priamy prístup klienta k obom tabuľkám. RPC môže vykonať len serverový `service_role`.
 
-GET a export poskytujú spoločné dáta a osobnú tabuľu aktívneho profilu. Skutočné obmedzenie prístupu na vlastníka platí po zapnutí režimu `supabase`. Partnerove osobné položky a ich ID v poradí sa neposielajú. Server zachová partnerov profil, hlasy a poradie aj pri zmanipulovanom zápise.
+GET a export poskytujú spoločné dáta aj osobné tabule oboch osôb. Obaja používatelia môžu osobné ciele navzájom prezerať; obsah osobnej tabule môže meniť iba jej vlastník. Server zachová partnerove osobné ciele, profil, hlasy a poradie aj pri zmanipulovanom zápise.
 
 Každý zápis uvádza revíziu. SQL funkcia zmení dáta iba pri zhodnej revízii; inak klient načíta aktuálnu verziu a zlúči zmeny voči poslednej potvrdenej zálohe. Nezávislé polia a nové položky sa zlúčia. Rozdielne úpravy toho istého poľa alebo vymazanie oproti úprave vyžadujú výber. Pred výberom možno stiahnuť lokálnu verziu a sporné serverové polia.
 
@@ -61,4 +61,4 @@ pnpm test
 pnpm build
 ```
 
-Testy overujú vnorenú validáciu, izoláciu osobných dát, ochranu partnerových hlasov, zlúčenie nezávislých úprav, textové konflikty, mazanie oproti úprave, históriu opakovania, obnoviteľné mazanie, kontrolu pôvodu a súčasné API zápisy. API test používa pamäťový testovací Supabase server; nepristupuje k produkčným dátam. Živá databáza sa musí overiť po aplikovaní migrácie. Pri budúcom zapnutí účtov treba overiť aj prihlásenie oboch reálnych používateľov.
+Testy overujú vnorenú validáciu, vzájomné prezeranie osobných dát a ochranu pred úpravou partnerovej tabule, ochranu partnerových hlasov, zlúčenie nezávislých úprav, textové konflikty, mazanie oproti úprave, históriu opakovania, obnoviteľné mazanie, kontrolu pôvodu a súčasné API zápisy. API test používa pamäťový testovací Supabase server; nepristupuje k produkčným dátam. Živá databáza sa musí overiť po aplikovaní migrácie. Pri budúcom zapnutí účtov treba overiť aj prihlásenie oboch reálnych používateľov.

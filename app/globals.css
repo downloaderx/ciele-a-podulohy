@@ -2505,3 +2505,10 @@ select:focus {
 
 .task-branch:nth-child(odd of .task-branch) > .task-row { background: #eef7ff; }
 .task-branch:nth-child(even of .task-branch) > .task-row { background: #e0f4ed; }
+
+.board-edit-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+.personal-readonly-note { color: var(--muted); margin: 0; }
+.readonly-goal { padding: 12px; }
+.readonly-goal > details > summary { cursor: pointer; }
+.readonly-goal h3 { display: inline; margin-right: 12px; }
+.readonly-task-row { grid-template-columns: 20px minmax(0, 1fr); cursor: pointer; padding: 8px; overflow-wrap: anywhere; }
