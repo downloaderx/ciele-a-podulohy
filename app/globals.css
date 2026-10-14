@@ -2488,3 +2488,10 @@ select:focus {
 .task-split-preview textarea { width: 100%; min-width: 0; resize: vertical; border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: white; color: var(--foreground); font: inherit; }
 
 .icon-button.has-hidden-subtasks { background: #126fbe; border-color: #0b5796; color: white; box-shadow: 0 0 0 2px rgb(18 111 190 / 15%); }
+
+.chore-task-group { display: grid; gap: 7px; min-width: 0; }
+.chore-group-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 8px 2px 3px; border-bottom: 1px solid var(--line); }
+.chore-group-heading h3 { margin: 0; font-size: 14px; }
+.chore-group-heading span, .chore-group-empty { font-size: 11px; color: var(--muted); }
+.chore-group-empty { margin: 4px 0 8px; }
+.task-actions .deadline-field input { min-height: 30px; max-width: 100%; }

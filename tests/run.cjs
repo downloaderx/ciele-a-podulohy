@@ -197,3 +197,19 @@ test('password-free profiles work without auth keys and cannot bypass enabled Su
     await assert.rejects(() => selectProfile('person-1'), /Supabase/);
   } finally { process.env.APP_AUTH_MODE = 'supabase'; jar.clear(); }
 });
+
+test('chore grouping survives sync and rejects unknown groups', () => {
+  const base = state(); base.goals[0].category = 'chore';
+  base.goals[0].children = [task('routine', { children: [task('nested')] }), task('occasional', { choreCadence: 'occasional', dueAt: '2026-11-01T10:00:00.000Z' })];
+  assert.equal(isValidState(base), true);
+  const invalid = clone(base); invalid.goals[0].children[0].choreCadence = 'unknown';
+  assert.equal(isValidState(invalid), false);
+  const local = clone(base), remote = clone(base);
+  local.goals[0].children[0].choreCadence = 'occasional'; remote.goals[0].children[0].title = 'Remote edit';
+  const merged = mergeStates(base, local, remote);
+  assert.equal(merged.conflicts.length, 0);
+  assert.equal(merged.state.goals[0].children[0].choreCadence, 'occasional');
+  assert.equal(merged.state.goals[0].children[0].title, 'Remote edit');
+  assert.equal(merged.state.goals[0].children[0].children[0].id, 'nested');
+  assert.equal(merged.state.goals[0].children[1].dueAt, base.goals[0].children[1].dueAt);
+});

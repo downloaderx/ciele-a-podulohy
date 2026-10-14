@@ -16,10 +16,12 @@ export type Task = {
   expanded: boolean;
   children: Task[];
   kind?: TaskKind;
+  choreCadence?: ChoreCadence;
 };
 
 export type BoardSpaceId = 'shared' | string;
 export type TaskKind = 'todo' | 'rule' | 'topic';
+export type ChoreCadence = 'routine' | 'occasional';
 
 export type Goal = Task & {
   category?: GoalCategory;
