@@ -1,716 +1,277 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useBoardSync } from './use-board-sync';
+import { useReminders } from './use-reminders';
+import { allTasks, liveGoal, isValidState, visibleState } from './state-sync';
+import { EditableInput } from './editable-input';
+import { FormEvent, KeyboardEvent, useCallback, useMemo, useState } from 'react';
+import {
+  avatarOptions,
+  calculateProgress,
+  clampImportance,
+  collectCompletedItems,
+  createId,
+  createRandomIndex,
+  defaultPeople,
+  findTaskById,
+  flattenChildren,
+  getAverageFeasibility,
+  formatDueLabel,
+  getAverageImportance,
+  getPriorityScore,
+  getAvatarOptionsForPerson,
+  getNextDueDate,
+  goalCategories,
+  isCompletableTask,
+  maxImportance,
+  minImportance,
+  normalizeDateTimeInput,
+  normalizeGoalCategory,
+  normalizeGoalFeasibility,
+  normalizeGoalImportance,
+  normalizeGoalRankings,
+  normalizeGoals,
+  normalizePeople,
+  normalizePersonRanking,
+  normalizeRecurrenceDays,
+  normalizeRecurrenceToleranceDays,
+  readTransferData,
+  recurringCategoryIds,
+  removeTask,
+  sharedSpaceId,
+  sortGoalsByAverageRanking,
+  starterGoals,
+  taskKinds,
+  updateTaskTree,
+  type ActivityItem,
+  type AppStateData,
+  type BoardSpaceId,
+  type CompletedItem,
+  type Goal,
+  type GoalCategory,
+  type Person,
+  type Task,
+  type TaskKind,
+  type TransferPayload,
+} from './page-model';
 
-type Person = {
-  id: string;
-  name: string;
-  tone: string;
-  avatarId: string;
-};
-
-type Task = {
-  id: string;
-  title: string;
-  ownerId: string;
-  updatedById?: string;
-  dueAt?: string;
-  done: boolean;
-  expanded: boolean;
-  children: Task[];
-};
-
-type Goal = Task & {
-  category?: GoalCategory;
-  description: string;
-  importanceByPerson: Record<string, number>;
-  lastCompletedAt?: string;
-  recurrenceDays?: number;
-  deletedAt?: string;
-};
-
-type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity';
-
-type ActivityItem = {
-  id: string;
-  actorId: string;
-  action: string;
-  target: string;
-  createdAt: string;
-};
-
-type CompletedItem = {
-  id: string;
-  ownerId: string;
-  title: string;
-  type: 'goal' | 'task';
-};
-
-type AppStateData = {
-  activePersonId: string;
-  activityLog: ActivityItem[];
-  goalRankings: Record<string, string[]>;
-  goals: Goal[];
-  people: Person[];
-};
-
-type TransferPayload = {
-  version: 1;
-  exportedAt: string;
-  data: AppStateData;
-};
-
-const avatarOptions = [
-  {
-    id: 'rini-orange',
-    label: 'Oranžová líštička s náramkom',
-    src: '/avatar-rini-orange.png',
-    tone: '#ff9d4a',
-  },
-  {
-    id: 'fluffy',
-    label: 'Fluffyho líštička',
-    src: '/avatar-fluffy.png',
-    tone: '#ff9d4a',
-  },
-  {
-    id: 'fluffy-red-orange',
-    label: 'Fluffy oranžový s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-orange.png',
-    tone: '#ff9d4a',
-  },
-  {
-    id: 'fluffy-red-mint',
-    label: 'Fluffy mätový s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-mint.png',
-    tone: '#58dcca',
-  },
-  {
-    id: 'fluffy-red-light-blue',
-    label: 'Fluffy svetlomodrý s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-light-blue.png',
-    tone: '#6c9fff',
-  },
-  {
-    id: 'fluffy-red-lavender',
-    label: 'Fluffy levanduľový s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-lavender.png',
-    tone: '#a98dff',
-  },
-  {
-    id: 'fluffy-red-pink',
-    label: 'Fluffy ružový s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-pink.png',
-    tone: '#ff7eb6',
-  },
-  {
-    id: 'fluffy-red-yellow',
-    label: 'Fluffy žltý s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-yellow.png',
-    tone: '#f4d84d',
-  },
-  {
-    id: 'fluffy-red-gray',
-    label: 'Fluffy sivý s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-gray.png',
-    tone: '#9ca8bd',
-  },
-  {
-    id: 'fluffy-red-navy',
-    label: 'Fluffy tmavomodrý s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-navy.png',
-    tone: '#4d67c4',
-  },
-  {
-    id: 'fluffy-red-green',
-    label: 'Fluffy zelený s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-green.png',
-    tone: '#8fe36b',
-  },
-  {
-    id: 'fluffy-red-turquoise',
-    label: 'Fluffy tyrkysový s červeným náhrdelníkom',
-    src: '/avatar-fluffy-red-turquoise.png',
-    tone: '#35d0ba',
-  },
-  {
-    id: 'rini-pink',
-    label: 'Ružová líštička s náramkom',
-    src: '/avatar-rini-pink.png',
-    tone: '#ff7eb6',
-  },
-  {
-    id: 'rini-silver',
-    label: 'Strieborná líštička s náramkom',
-    src: '/avatar-rini-silver.png',
-    tone: '#9ca8bd',
-  },
-  {
-    id: 'rini-green',
-    label: 'Zelená líštička s náramkom',
-    src: '/avatar-rini-green.png',
-    tone: '#8fe36b',
-  },
-  {
-    id: 'rini-blue-pearl',
-    label: 'Bledomodrá líštička s perličkami',
-    src: '/avatar-rini-blue-pearl.png',
-    tone: '#6c9fff',
-  },
-  {
-    id: 'rini-yellow',
-    label: 'Žltá líštička s náramkom',
-    src: '/avatar-rini-yellow.png',
-    tone: '#f4d84d',
-  },
-  {
-    id: 'rini-mint-pearl',
-    label: 'Tyrkysová líštička s perličkami',
-    src: '/avatar-rini-mint-pearl.png',
-    tone: '#35d0ba',
-  },
-  {
-    id: 'rini-mint',
-    label: 'Mätová líštička s náramkom',
-    src: '/avatar-rini-mint.png',
-    tone: '#58dcca',
-  },
-  {
-    id: 'rini-lavender',
-    label: 'Levanduľová líštička s náramkom',
-    src: '/avatar-rini-lavender.png',
-    tone: '#a98dff',
-  },
-  {
-    id: 'rini-navy',
-    label: 'Modrá líštička s perličkami',
-    src: '/avatar-rini-navy.png',
-    tone: '#4d67c4',
-  },
-];
-
-const defaultPeople: Person[] = [
-  { id: 'person-1', name: 'Rini', tone: '#ff9d4a', avatarId: 'rini-orange' },
-  { id: 'person-2', name: 'Fluffy', tone: '#ff9d4a', avatarId: 'fluffy' },
-];
-
-function getAvatarOptionsForPerson(personId: string) {
-  if (personId === 'person-2') {
-    return avatarOptions.filter((avatar) => avatar.id === 'fluffy' || avatar.id.startsWith('fluffy-'));
+function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
+  if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
+    return;
   }
 
-  return avatarOptions.filter((avatar) => avatar.id.startsWith('rini-'));
+  event.preventDefault();
+  event.currentTarget.blur();
 }
 
-const sessionPersonKey = 'ciele-session-person';
-const goalRankingsKey = 'ciele-goal-rankings';
-const minImportance = 1;
-const maxImportance = 5;
-const goalCategories: Array<{ id: GoalCategory; label: string }> = [
-  { id: 'plan', label: 'Dlhodobé ciele vo vzťahu' },
-  { id: 'chore', label: 'Chores' },
-  { id: 'errand', label: 'Vybaviť' },
-  { id: 'habit', label: 'Habits' },
-  { id: 'activity', label: 'Activities' },
-];
-const recurringCategoryIds: GoalCategory[] = ['chore', 'habit'];
-const defaultRecurrenceDays = 7;
-
-const starterGoals: Goal[] = [
-  {
-    id: 'goal-launch',
-    title: 'Naplánovať spoločný víkend',
-    category: 'plan',
-    description: 'Malý spoločný cieľ s výletom, oddychom a dobrým jedlom.',
-    ownerId: 'person-1',
-    importanceByPerson: {
-      'person-1': 5,
-      'person-2': 3,
-    },
-    done: false,
-    expanded: true,
-    children: [
-      {
-        id: 'task-research',
-        title: 'Ujasniť rozsah prvej verzie',
-        ownerId: 'person-1',
-        done: true,
-        expanded: true,
-        children: [
-          {
-            id: 'task-interviews',
-            title: 'Vybrať miesto, kam sa obaja tešíme',
-            ownerId: 'person-1',
-            done: true,
-            expanded: false,
-            children: [],
-          },
-          {
-            id: 'task-risks',
-            title: 'Pozrieť cestu a počasie',
-            ownerId: 'person-2',
-            done: false,
-            expanded: false,
-            children: [],
-          },
-        ],
-      },
-      {
-        id: 'task-content',
-        title: 'Zbaliť deku, termosku a niečo sladké',
-        ownerId: 'person-2',
-        done: false,
-        expanded: false,
-        children: [],
-      },
-    ],
-  },
-  {
-    id: 'goal-marketing',
-    title: 'Zútulniť domácnosť',
-    category: 'chore',
-    description: 'Veci, ktoré spravia spoločný priestor krajší a pokojnejší.',
-    ownerId: 'person-2',
-    importanceByPerson: {
-      'person-1': 3,
-      'person-2': 5,
-    },
-    done: false,
-    expanded: true,
-    children: [
-      {
-        id: 'task-copy',
-        title: 'Vybrať svetielka alebo lampu',
-        ownerId: 'person-2',
-        done: false,
-        expanded: false,
-        children: [],
-      },
-      {
-        id: 'task-review',
-        title: 'Dohodnúť, čo upratať ako prvé',
-        ownerId: 'person-1',
-        done: false,
-        expanded: false,
-        children: [],
-      },
-    ],
-  },
-];
-
-function isOldStarterData(goals: Goal[]) {
-  return (
-    goals.length === 2 &&
-    goals[0]?.id === 'goal-launch' &&
-    goals[0]?.title === 'Spustiť klientsky portál' &&
-    goals[1]?.id === 'goal-marketing' &&
-    goals[1]?.title === 'Dokončiť jesennú kampaň'
-  );
+function getGoalSpaceId(goal: Goal) {
+  return goal.spaceId ?? sharedSpaceId;
 }
 
-function createId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
+function getCategoryLabel(category: GoalCategory, boardSpaceId: BoardSpaceId) {
+  if (category === 'plan' && boardSpaceId !== sharedSpaceId) {
+    return 'Projekty';
   }
 
-  return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return goalCategories.find((option) => option.id === category)?.label ?? 'Projekty';
 }
 
-function createRandomIndex(length: number) {
-  if (length <= 1) {
-    return 0;
-  }
-
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const bytes = new Uint32Array(1);
-
-    crypto.getRandomValues(bytes);
-
-    return bytes[0] % length;
-  }
-
-  return Date.now() % length;
+function getBoardSpaces(people: Person[]) {
+  return [
+    { id: sharedSpaceId, label: 'Spoločné' },
+    ...people.map((person) => ({
+      id: person.id,
+      label: `${person.name} osobné`,
+    })),
+  ];
 }
 
-function calculateProgress(task: Task) {
-  const descendants = flattenChildren(task);
-  const trackedItems = descendants.length > 0 ? descendants : [task];
-  const done = trackedItems.filter((item) => item.done).length;
-  const total = trackedItems.length;
-
-  return {
-    done,
-    total,
-    percent: total === 0 ? 0 : Math.round((done / total) * 100),
-  };
-}
-
-function clampImportance(value: unknown) {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return undefined;
-  }
-
-  return Math.min(maxImportance, Math.max(minImportance, Math.round(value)));
-}
-
-function normalizeGoalImportance(goal: Goal, people: Person[]) {
-  return people.reduce<Record<string, number>>((ratings, person) => {
-    const savedValue = clampImportance(goal.importanceByPerson?.[person.id]);
-
-    ratings[person.id] = savedValue ?? (person.id === goal.ownerId ? 4 : 2);
-
-    return ratings;
-  }, {});
-}
-
-function normalizeGoals(goals: Goal[], people: Person[]) {
-  return goals.map((goal) => ({
-    ...goal,
-    category: normalizeGoalCategory(goal.category),
-    recurrenceDays: recurringCategoryIds.includes(normalizeGoalCategory(goal.category))
-      ? normalizeRecurrenceDays(goal.recurrenceDays)
-      : undefined,
-    importanceByPerson: normalizeGoalImportance(goal, people),
-  }));
-}
-
-function normalizeGoalCategory(category: Goal['category'] | 'care' | undefined): GoalCategory {
-  if (category === 'care') {
-    return 'habit';
-  }
-
-  return category && goalCategories.some((option) => option.id === category)
-    ? category
-    : 'plan';
-}
-
-function normalizeRecurrenceDays(value: unknown) {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return defaultRecurrenceDays;
-  }
-
-  return Math.max(1, Math.min(365, Math.round(value)));
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-
-  nextDate.setDate(nextDate.getDate() + days);
-  nextDate.setHours(0, 0, 0, 0);
-
-  return nextDate;
-}
-
-function getNextDueDate(goal: Goal) {
-  const category = normalizeGoalCategory(goal.category);
-  const recurrenceDays = normalizeRecurrenceDays(goal.recurrenceDays);
-  const baseDate = goal.lastCompletedAt ? new Date(goal.lastCompletedAt) : new Date();
-
-  if (!recurringCategoryIds.includes(category)) {
-    return null;
-  }
-
-  return goal.lastCompletedAt ? addDays(baseDate, recurrenceDays) : addDays(new Date(), 0);
-}
-
-function getDaysUntil(date: Date) {
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
-
-  return Math.ceil((date.getTime() - today.getTime()) / 86400000);
-}
-
-function formatDueLabel(date: Date) {
-  const daysUntil = getDaysUntil(date);
-
-  if (daysUntil < 0) {
-    return `mešká ${Math.abs(daysUntil)} d`;
-  }
-
-  if (daysUntil === 0) {
-    return 'dnes';
-  }
-
-  if (daysUntil === 1) {
-    return 'zajtra';
-  }
-
-  return `o ${daysUntil} dní`;
-}
-
-function normalizeDateTimeInput(value: string | undefined) {
-  const trimmed = value?.trim();
-
-  return trimmed || undefined;
-}
-
-function formatDeadlineLabel(value: string | undefined) {
+function toDateInputValue(value: string | undefined) {
   if (!value) {
-    return 'bez termínu';
+    return '';
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return 'neplatný termín';
+    return '';
   }
 
-  return date.toLocaleString('sk-SK', {
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
 }
 
-function getWeekDays() {
-  const today = new Date();
-  const dayIndex = (today.getDay() + 6) % 7;
-  const monday = new Date(today);
+function shiftDateByDays(date: Date, days: number) {
+  const shiftedDate = new Date(date);
 
-  monday.setDate(today.getDate() - dayIndex);
-  monday.setHours(0, 0, 0, 0);
+  shiftedDate.setDate(shiftedDate.getDate() + days);
+  shiftedDate.setHours(0, 0, 0, 0);
 
-  return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+  return shiftedDate;
 }
 
-function isSameDay(first: Date, second: Date) {
-  return first.toDateString() === second.toDateString();
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' });
 }
 
-function isCompletedThisWeek(goal: Goal, weekDays: Date[]) {
-  if (!goal.lastCompletedAt) {
-    return false;
+function formatRecurrenceWindow(dueDate: Date | null, toleranceDays: number) {
+  if (!dueDate) {
+    return 'bez termínu';
   }
 
-  const completedAt = new Date(goal.lastCompletedAt);
+  if (toleranceDays <= 0) {
+    return `termín ${formatShortDate(dueDate)}`;
+  }
 
-  return weekDays.some((day) => isSameDay(day, completedAt));
+  const windowStart = shiftDateByDays(dueDate, -toleranceDays);
+  const windowEnd = shiftDateByDays(dueDate, toleranceDays);
+
+  return `${formatShortDate(windowStart)} - ${formatShortDate(windowEnd)}`;
 }
 
-function normalizePersonRanking(ranking: string[] | undefined, goals: Goal[]) {
-  const activeGoalIds = new Set(goals.filter((goal) => !goal.deletedAt).map((goal) => goal.id));
-  const savedIds = Array.isArray(ranking)
-    ? ranking.filter((goalId) => activeGoalIds.has(goalId))
-    : [];
-  const missingIds = goals
-    .filter((goal) => !goal.deletedAt && !savedIds.includes(goal.id))
-    .map((goal) => goal.id);
+function isDateInRecurrenceWindow(date: Date, dueDate: Date, toleranceDays: number) {
+  const checkedDate = shiftDateByDays(date, 0);
+  const windowStart = shiftDateByDays(dueDate, -toleranceDays);
+  const windowEnd = shiftDateByDays(dueDate, toleranceDays);
 
-  return [...savedIds, ...missingIds];
+  return checkedDate >= windowStart && checkedDate <= windowEnd;
 }
 
-function normalizeGoalRankings(
-  rankings: Record<string, string[]> | undefined,
-  goals: Goal[],
-  people: Person[],
+function getCurrentRecurrenceStatus(dueDate: Date | null, toleranceDays: number) {
+  if (!dueDate) {
+    return { className: 'neutral', label: 'bez termínu' };
+  }
+
+  return isDateInRecurrenceWindow(new Date(), dueDate, toleranceDays)
+    ? { className: 'ok', label: 'v okne' }
+    : { className: 'muted', label: 'mimo okna' };
+}
+
+function getRecurringHistoryStatus(
+  completedAt: string,
+  previousAnchor: string | undefined,
+  recurrenceDays: number,
+  toleranceDays: number,
 ) {
-  return people.reduce<Record<string, string[]>>((normalized, person) => {
-    normalized[person.id] = normalizePersonRanking(rankings?.[person.id], goals);
-
-    return normalized;
-  }, {});
-}
-
-function getAverageImportance(goal: Goal, people: Person[]) {
-  const ratings = goal.importanceByPerson ?? {};
-  let total = 0;
-
-  for (const person of people) {
-    total += clampImportance(ratings[person.id] ?? minImportance) ?? minImportance;
+  if (!previousAnchor) {
+    return { className: 'muted', label: 'bez štartu' };
   }
 
-  return total / Math.max(people.length, 1);
-}
+  const completedDate = new Date(completedAt);
+  const dueDate = shiftDateByDays(new Date(previousAnchor), recurrenceDays);
 
-function sortGoalsByAverageRanking(
-  goals: Goal[],
-  people: Person[],
-  rankings: Record<string, string[]>,
-) {
-  const originalIndexById = new Map(goals.map((goal, index) => [goal.id, index]));
-  const rankingByPerson = people.map((person) => normalizePersonRanking(rankings[person.id], goals));
-
-  return [...goals].sort((first, second) => {
-    const firstImportance = getAverageImportance(first, people);
-    const secondImportance = getAverageImportance(second, people);
-    const firstAverage =
-      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(first.id), 0) /
-      Math.max(rankingByPerson.length, 1);
-    const secondAverage =
-      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(second.id), 0) /
-      Math.max(rankingByPerson.length, 1);
-
-    return (
-      secondImportance - firstImportance ||
-      firstAverage - secondAverage ||
-      (originalIndexById.get(first.id) ?? 0) - (originalIndexById.get(second.id) ?? 0)
-    );
-  });
-}
-
-function flattenChildren(task: Task): Task[] {
-  return task.children.flatMap((child) => [child, ...flattenChildren(child)]);
-}
-
-function collectCompletedItems(goals: Goal[]) {
-  return goals.flatMap<CompletedItem>((goal) => {
-    const completedGoal = goal.done
-      ? [{
-          id: goal.id,
-          ownerId: goal.ownerId,
-          title: goal.title,
-          type: 'goal' as const,
-        }]
-      : [];
-    const completedTasks = flattenChildren(goal)
-      .filter((task) => task.done)
-      .map((task) => ({
-        id: task.id,
-        ownerId: task.ownerId,
-        title: task.title,
-        type: 'task' as const,
-      }));
-
-    return [...completedGoal, ...completedTasks];
-  });
-}
-
-function updateTaskTree(
-  goals: Goal[],
-  id: string,
-  update: (task: Task) => Task,
-): Goal[] {
-  return goals.map((goal) => updateSingleTask(goal, id, update) as Goal);
-}
-
-function updateSingleTask(task: Task, id: string, update: (task: Task) => Task): Task {
-  if (task.id === id) {
-    return update(task);
+  if (Number.isNaN(completedDate.getTime()) || Number.isNaN(dueDate.getTime())) {
+    return { className: 'muted', label: 'nejasné' };
   }
 
-  return {
-    ...task,
-    children: task.children.map((child) => updateSingleTask(child, id, update)),
-  };
+  return isDateInRecurrenceWindow(completedDate, dueDate, toleranceDays)
+    ? { className: 'ok', label: 'v okne' }
+    : { className: 'muted', label: 'mimo okna' };
 }
 
-function removeTask(goals: Goal[], id: string) {
-  if (goals.some((goal) => goal.id === id)) {
-    return goals.map((goal) =>
-      goal.id === id
-        ? {
-            ...goal,
-            deletedAt: new Date().toISOString(),
-            updatedById: goal.updatedById,
-          }
-        : goal,
-    );
+function saveStateBackup(label: string, state: AppStateData) {
+  if (typeof window === 'undefined') {
+    return;
   }
 
-  return goals
-    .filter((goal) => goal.id !== id)
-    .map(
-      (goal) =>
-        ({
-          ...goal,
-          children: removeFromChildren(goal.children, id),
-        }) as Goal,
-    );
+  try {
+    const backupKey = `ciele-state-backups-${state.activePersonId}`;
+    const rawBackups = window.localStorage.getItem(backupKey);
+    const backups = rawBackups ? JSON.parse(rawBackups) as unknown[] : [];
+    const nextBackups = [
+      {
+        createdAt: new Date().toISOString(),
+        data: state,
+        label,
+      },
+      ...backups,
+    ].slice(0, 10);
+
+    window.localStorage.setItem(backupKey, JSON.stringify(nextBackups));
+  } catch {
+    // Backups are a best-effort safety net; normal sync should not depend on them.
+  }
 }
 
-function removeFromChildren(tasks: Task[], id: string): Task[] {
-  return tasks
-    .filter((task) => task.id !== id)
-    .map((task) => ({
-      ...task,
-      children: removeFromChildren(task.children, id),
-    }));
-}
+function splitTextByLength(text: string, targetParts: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const totalLength = words.reduce((total, word) => total + word.length + 1, 0);
+  const targetLength = Math.ceil(totalLength / targetParts);
+  const chunks: string[] = [];
+  let current = '';
 
-function findTaskById(tasks: Task[], id: string): Task | undefined {
-  for (const task of tasks) {
-    if (task.id === id) {
-      return task;
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+
+    if (current && next.length > targetLength && chunks.length < targetParts - 1) {
+      chunks.push(current);
+      current = word;
+      return;
     }
 
-    const child = findTaskById(task.children, id);
-
-    if (child) {
-      return child;
-    }
-  }
-}
-
-function normalizePeople(savedPeople: Person[]) {
-  return defaultPeople.map((defaultPerson) => {
-    const savedPerson = savedPeople.find((person) => person.id === defaultPerson.id);
-    const savedName = savedPerson?.name.trim();
-    const savedAvatar = getAvatarOptionsForPerson(defaultPerson.id).find(
-      (avatar) => avatar.id === savedPerson?.avatarId,
-    );
-    const oldDefaultName =
-      (defaultPerson.id === 'person-1' && savedName === 'Ja') ||
-      (defaultPerson.id === 'person-2' && savedName === 'Ty');
-
-    return {
-      ...defaultPerson,
-      name: savedName && !oldDefaultName ? savedName : defaultPerson.name,
-      avatarId: savedAvatar?.id ?? defaultPerson.avatarId,
-      tone: savedAvatar?.tone ?? savedPerson?.tone ?? defaultPerson.tone,
-    };
+    current = next;
   });
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks;
 }
 
-function readTransferData(parsed: unknown): TransferPayload['data'] | null {
-  if (!parsed || typeof parsed !== 'object') {
-    return null;
+function balanceTextPieces(pieces: string[], targetParts: number) {
+  const chunkCount = Math.min(Math.max(targetParts, 2), 3, pieces.length);
+  const chunks: string[] = [];
+  let index = 0;
+
+  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+    const remainingPieces = pieces.length - index;
+    const remainingChunks = chunkCount - chunkIndex;
+    const take = Math.ceil(remainingPieces / remainingChunks);
+    const chunk = pieces.slice(index, index + take).join(' ').trim();
+
+    if (chunk) {
+      chunks.push(chunk);
+    }
+
+    index += take;
   }
 
-  const maybeWrapped = parsed as Partial<TransferPayload>;
-  const data =
-    maybeWrapped.data && typeof maybeWrapped.data === 'object'
-      ? maybeWrapped.data
-      : parsed;
-  const maybeData = data as Partial<TransferPayload['data']>;
-
-  if (
-    !Array.isArray(maybeData.goals) ||
-    !Array.isArray(maybeData.people) ||
-    !Array.isArray(maybeData.activityLog) ||
-    typeof maybeData.activePersonId !== 'string'
-  ) {
-    return null;
-  }
-
-  return {
-    activePersonId: maybeData.activePersonId,
-    activityLog: maybeData.activityLog,
-    goalRankings:
-      maybeData.goalRankings && typeof maybeData.goalRankings === 'object'
-        ? maybeData.goalRankings as Record<string, string[]>
-        : {},
-    goals: maybeData.goals,
-    people: maybeData.people,
-  };
+  return chunks;
 }
 
-function readAppStateData(parsed: unknown): AppStateData | null {
-  const data = readTransferData(parsed);
+function splitLongDescription(description: string) {
+  const cleaned = description.replace(/\s+/g, ' ').trim();
 
-  if (!data) {
-    return null;
+  if (cleaned.length < 110) {
+    return [];
   }
 
-  return {
-    activePersonId: data.activePersonId,
-    activityLog: data.activityLog,
-    goalRankings: data.goalRankings,
-    goals: data.goals,
-    people: data.people,
-  };
+  const sentences = cleaned
+    .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+    ?.map((piece) => piece.trim())
+    .filter((piece) => piece.length > 0) ?? [];
+  const punctuationPieces = cleaned
+    .split(/\s*(?:;|,|→|->|\s+-\s+)\s*/)
+    .map((piece) => piece.trim())
+    .filter((piece) => piece.length > 0);
+  const connectorPieces = cleaned
+    .split(/\s+(?:a zároveň|zároveň|prípadne|poprípade|potom|následne|ale|aby|keď|kedy|kde|lebo|pretože|plus|alebo|a)\s+/iu)
+    .map((piece) => piece.trim())
+    .filter((piece) => piece.length > 0);
+  const pieces =
+    sentences.length > 1
+      ? sentences
+      : punctuationPieces.length > 1
+        ? punctuationPieces
+        : connectorPieces.length > 1
+          ? connectorPieces
+          : splitTextByLength(cleaned, cleaned.length > 230 ? 3 : 2);
+  const targetParts = cleaned.length > 230 || pieces.length > 4 ? 3 : 2;
+  const chunks = balanceTextPieces(pieces, targetParts).filter((chunk) => chunk.length >= 12);
+
+  return chunks.length > 1 ? chunks : [];
 }
 
 export default function Home() {
@@ -719,12 +280,11 @@ export default function Home() {
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [goalRankings, setGoalRankings] = useState<Record<string, string[]>>({});
-  const [authenticated, setAuthenticated] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
-  const [newGoalDueAt, setNewGoalDueAt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [transferMessage, setTransferMessage] = useState('');
@@ -733,140 +293,59 @@ export default function Home() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [priorityRefreshKey, setPriorityRefreshKey] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const state = useMemo(() => ({ goals, people, activePersonId, activityLog, goalRankings }), [goals, people, activePersonId, activityLog, goalRankings]);
+  const applyState = useCallback((data: AppStateData) => {
+    setGoals(data.goals); setPeople(data.people); setActivePersonId(data.activePersonId);
+    setActivityLog(data.activityLog); setGoalRankings(data.goalRankings);
+    setBoardSpaceId((current) => current === sharedSpaceId || current === data.activePersonId ? current : sharedSpaceId);
+  }, []);
+  const sync = useBoardSync(state, applyState);
+  const { loaded, authenticated } = sync;
+  const reminders = useReminders(goals, activePersonId, authenticated);
 
+  const boardSpaces = useMemo(() => getBoardSpaces(people).filter((space) => space.id === sharedSpaceId || space.id === activePersonId), [people, activePersonId]);
+  const boardSpaceLabel =
+    boardSpaces.find((space) => space.id === boardSpaceId)?.label ?? 'Spoločné';
   const activeGoals = useMemo(
-    () => goals.filter((goal) => !goal.deletedAt),
+    () => goals.filter((goal) => !goal.deletedAt).map(liveGoal),
     [goals],
   );
+  const visibleGoals = useMemo(
+    () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId),
+    [activeGoals, boardSpaceId],
+  );
   const activityGoals = useMemo(
-    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
-    [activeGoals],
+    () => visibleGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
+    [visibleGoals],
   );
   const boardGoals = useMemo(
-    () => activeGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'activity'),
-    [activeGoals],
+    () => visibleGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'activity'),
+    [visibleGoals],
+  );
+  const boardGoalGroups = useMemo(
+    () =>
+      goalCategories
+        .filter((category) => category.id !== 'activity')
+        .map((category) => ({
+          ...category,
+          goals: sortGoalsByAverageRanking(boardGoals.filter((goal) => normalizeGoalCategory(goal.category) === category.id), people, goalRankings),
+        }))
+        .filter((category) => category.goals.length > 0),
+    [boardGoals, people, goalRankings],
   );
   const rankedActiveGoals = useMemo(
     () => sortGoalsByAverageRanking(boardGoals, people, goalRankings),
     [boardGoals, goalRankings, people],
   );
-  const trashedGoals = useMemo(
-    () => goals.filter((goal) => goal.deletedAt),
-    [goals],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function restoreState() {
-      const savedGoals = window.localStorage.getItem('ciele-goals');
-      const savedPerson = window.localStorage.getItem('ciele-active-person');
-      const savedPeople = window.localStorage.getItem('ciele-people');
-      const savedActivityLog = window.localStorage.getItem('ciele-activity-log');
-      const savedGoalRankings = window.localStorage.getItem(goalRankingsKey);
-      const localState: AppStateData = {
-        activePersonId:
-          savedPerson && defaultPeople.some((person) => person.id === savedPerson)
-            ? savedPerson
-            : defaultPeople[0].id,
-        activityLog: savedActivityLog ? JSON.parse(savedActivityLog) as ActivityItem[] : [],
-        goalRankings: savedGoalRankings
-          ? JSON.parse(savedGoalRankings) as Record<string, string[]>
-          : {},
-        goals: savedGoals ? JSON.parse(savedGoals) as Goal[] : starterGoals,
-        people: savedPeople ? JSON.parse(savedPeople) as Person[] : defaultPeople,
-      };
-      let restoredState = localState;
-
-      try {
-        const response = await fetch('/api/state', { cache: 'no-store' });
-
-        if (response.ok) {
-          const payload = await response.json() as { data?: unknown };
-          const serverState = readAppStateData(payload.data);
-
-          if (serverState) {
-            restoredState = serverState;
-          }
-        }
-      } catch {
-        restoredState = localState;
-      }
-
-      if (cancelled) {
-        return;
-      }
-
-      const normalizedPeople = normalizePeople(restoredState.people);
-      const restoredActivePersonId = normalizedPeople.some(
-        (person) => person.id === restoredState.activePersonId,
-      )
-        ? restoredState.activePersonId
-        : normalizedPeople[0]?.id ?? defaultPeople[0].id;
-      const normalizedGoals = normalizeGoals(
-        isOldStarterData(restoredState.goals) ? starterGoals : restoredState.goals,
-        normalizedPeople,
-      );
-      const normalizedGoalRankings = normalizeGoalRankings(
-        restoredState.goalRankings,
-        normalizedGoals,
-        normalizedPeople,
-      );
-
-      setGoals(normalizedGoals);
-      setPeople(normalizedPeople);
-      setActivePersonId(restoredActivePersonId);
-      setActivityLog(restoredState.activityLog);
-      setGoalRankings(normalizedGoalRankings);
-      setAuthenticated(false);
-
-      setLoaded(true);
-    }
-
-    void restoreState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  useEffect(() => {
-    if (!loaded) {
-      return;
-    }
-
-    window.localStorage.setItem('ciele-goals', JSON.stringify(goals));
-    window.localStorage.setItem('ciele-active-person', activePersonId);
-    window.localStorage.setItem('ciele-people', JSON.stringify(people));
-    window.localStorage.setItem('ciele-activity-log', JSON.stringify(activityLog));
-    window.localStorage.removeItem('ciele-auth-records');
-    window.localStorage.setItem(goalRankingsKey, JSON.stringify(goalRankings));
-
-    const timeoutId = window.setTimeout(() => {
-      void fetch('/api/state', {
-        body: JSON.stringify({
-          activePersonId,
-          activityLog,
-          goalRankings,
-          goals,
-          people,
-        } satisfies AppStateData),
-        headers: { 'content-type': 'application/json' },
-        method: 'PUT',
-      }).catch(() => {
-        // Local storage remains the offline fallback when Supabase is unavailable.
-      });
-    }, 500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [activePersonId, activityLog, goalRankings, goals, loaded, people]);
+  const trashedGoals = useMemo(() => goals
+    .filter((goal) => getGoalSpaceId(goal) === boardSpaceId)
+    .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)), [boardSpaceId, goals]);
 
   const totals = useMemo(() => {
     const allTasks = boardGoals.flatMap((goal) => [goal, ...flattenChildren(goal)]);
-    const done = allTasks.filter((task) => task.done).length;
-    const total = allTasks.length;
+    const trackedTasks = allTasks.filter(isCompletableTask);
+    const done = trackedTasks.filter((task) => task.done).length;
+    const total = trackedTasks.length;
 
     return {
       done,
@@ -880,7 +359,7 @@ export default function Home() {
   );
   const recurringGoals = useMemo(
     () =>
-      activeGoals
+      visibleGoals
         .filter((goal) => recurringCategoryIds.includes(normalizeGoalCategory(goal.category)))
         .sort((first, second) => {
           const firstDue = getNextDueDate(first)?.getTime() ?? Number.MAX_SAFE_INTEGER;
@@ -888,7 +367,7 @@ export default function Home() {
 
           return firstDue - secondDue;
         }),
-    [activeGoals],
+    [visibleGoals],
   );
   const randomActivity = useMemo(
     () => activityGoals.find((goal) => goal.id === randomActivityId) ?? null,
@@ -897,12 +376,12 @@ export default function Home() {
 
   const goalSnapshots = useMemo(
     () =>
-      rankedActiveGoals.map((goal) => ({
+      boardGoals.map((goal) => ({
         id: goal.id,
         title: goal.title,
         ...calculateProgress(goal),
       })),
-    [rankedActiveGoals],
+    [boardGoals],
   );
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -920,7 +399,11 @@ export default function Home() {
         title,
         category: newGoalCategory,
         description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
-        dueAt: normalizeDateTimeInput(newGoalDueAt),
+        feasibilityByPerson: people.reduce<Record<string, number>>((ratings, person) => {
+          ratings[person.id] = 3;
+
+          return ratings;
+        }, {}),
         ownerId: activePersonId,
         updatedById: activePersonId,
         importanceByPerson: people.reduce<Record<string, number>>((ratings, person) => {
@@ -930,6 +413,8 @@ export default function Home() {
         }, {}),
         done: false,
         expanded: true,
+        kind: recurringCategoryIds.includes(newGoalCategory) ? 'rule' : 'topic',
+        spaceId: boardSpaceId,
         children: [],
       },
       ...current,
@@ -937,7 +422,7 @@ export default function Home() {
     if (newGoalCategory !== 'activity') {
       setGoalRankings((current) =>
         people.reduce<Record<string, string[]>>((rankings, person) => {
-          const currentRanking = normalizePersonRanking(current[person.id], boardGoals);
+          const currentRanking = normalizePersonRanking(current[person.id], activeGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'activity'));
 
           rankings[person.id] =
             person.id === activePersonId
@@ -952,10 +437,9 @@ export default function Home() {
     setNewGoalTitle('');
     setNewGoalDescription('');
     setNewGoalCategory('plan');
-    setNewGoalDueAt('');
   }
 
-  function addSubtask(parentId: string, title: string, dueAt?: string) {
+  function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo') {
     const trimmed = title.trim();
     const normalizedDueAt = normalizeDateTimeInput(dueAt);
 
@@ -977,6 +461,7 @@ export default function Home() {
             updatedById: activePersonId,
             done: false,
             expanded: true,
+            kind,
             children: [],
           },
         ],
@@ -988,16 +473,37 @@ export default function Home() {
   function toggleDone(taskId: string) {
     const task = findTaskById(goals, taskId);
 
+    if (task && !isCompletableTask(task)) {
+      return;
+    }
+
     setGoals((current) =>
       updateTaskTree(current, taskId, (task) => ({
         ...task,
-        done: !task.done,
+        done: isCompletableTask(task) ? !task.done : false,
         updatedById: activePersonId,
       })),
     );
 
     if (task) {
       addActivity(task.done ? 'vrátil(a) späť' : 'označil(a) ako hotové', task.title);
+    }
+  }
+
+  function changeTaskKind(taskId: string, kind: TaskKind) {
+    const task = findTaskById(goals, taskId);
+
+    setGoals((current) =>
+      updateTaskTree(current, taskId, (task) => ({
+        ...task,
+        done: kind === 'todo' ? task.done : false,
+        kind,
+        updatedById: activePersonId,
+      })),
+    );
+
+    if (task) {
+      addActivity('zmenil(a) typ položky', task.title);
     }
   }
 
@@ -1008,6 +514,14 @@ export default function Home() {
         expanded: !task.expanded,
       })),
     );
+  }
+
+  function changeDeadline(taskId: string, value: string) {
+    const task = findTaskById(goals, taskId);
+    const dueAt = normalizeDateTimeInput(value);
+    if (!task || task.dueAt === dueAt) return;
+    setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, dueAt, updatedById: activePersonId })));
+    addActivity(dueAt ? 'nastavil(a) termín' : 'zrušil(a) termín', task.title);
   }
 
   function renameTask(taskId: string, title: string) {
@@ -1050,24 +564,6 @@ export default function Home() {
     addActivity('upravil(a) poznámku', goal.title);
   }
 
-  function changeTaskDueAt(taskId: string, dueAt: string) {
-    const task = findTaskById(goals, taskId);
-    const normalizedDueAt = normalizeDateTimeInput(dueAt);
-
-    if (!task || task.dueAt === normalizedDueAt) {
-      return;
-    }
-
-    setGoals((current) =>
-      updateTaskTree(current, taskId, (task) => ({
-        ...task,
-        dueAt: normalizedDueAt,
-        updatedById: activePersonId,
-      })),
-    );
-    addActivity(normalizedDueAt ? 'nastavil(a) termín' : 'zrušil(a) termín', task.title);
-  }
-
   function changeGoalCategory(goalId: string, category: GoalCategory) {
     const goal = goals.find((goal) => goal.id === goalId);
 
@@ -1083,6 +579,15 @@ export default function Home() {
               category,
               recurrenceDays: recurringCategoryIds.includes(category)
                 ? normalizeRecurrenceDays(goal.recurrenceDays)
+                : undefined,
+              recurrenceHistory: recurringCategoryIds.includes(category)
+                ? (goal.recurrenceHistory ?? [])
+                : undefined,
+              recurrenceStartAt: recurringCategoryIds.includes(category)
+                ? goal.recurrenceStartAt
+                : undefined,
+              recurrenceToleranceDays: recurringCategoryIds.includes(category)
+                ? normalizeRecurrenceToleranceDays(goal.recurrenceToleranceDays)
                 : undefined,
               updatedById: activePersonId,
             }
@@ -1114,8 +619,56 @@ export default function Home() {
     addActivity('upravil(a) opakovanie', goal.title);
   }
 
+  function changeGoalRecurrenceStart(goalId: string, recurrenceStartAt: string) {
+    const goal = goals.find((goal) => goal.id === goalId);
+    const normalizedStart = normalizeDateTimeInput(recurrenceStartAt);
+
+    if (!goal || goal.recurrenceStartAt === normalizedStart) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              recurrenceStartAt: normalizedStart,
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity(
+      normalizedStart ? 'nastavil(a) začiatok opakovania' : 'zrušil(a) začiatok opakovania',
+      goal.title,
+    );
+  }
+
+  function changeGoalRecurrenceTolerance(goalId: string, toleranceDays: number) {
+    const goal = goals.find((goal) => goal.id === goalId);
+    const normalizedTolerance = normalizeRecurrenceToleranceDays(toleranceDays);
+
+    if (!goal || goal.recurrenceToleranceDays === normalizedTolerance) {
+      return;
+    }
+
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              recurrenceToleranceDays: normalizedTolerance,
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('upravil(a) toleranciu opakovania', `${goal.title} · ±${normalizedTolerance} dní`);
+  }
+
   function completeRecurringGoalToday(goalId: string) {
     const goal = goals.find((goal) => goal.id === goalId);
+    const completedAt = new Date().toISOString();
 
     if (!goal) {
       return;
@@ -1126,7 +679,8 @@ export default function Home() {
         goal.id === goalId
           ? {
               ...goal,
-              lastCompletedAt: new Date().toISOString(),
+              lastCompletedAt: completedAt,
+              recurrenceHistory: [completedAt, ...(goal.recurrenceHistory ?? [])].slice(0, 20),
               updatedById: activePersonId,
             }
           : goal,
@@ -1150,34 +704,20 @@ export default function Home() {
   function deleteTask(taskId: string) {
     const task = findTaskById(goals, taskId);
 
-    setGoals((current) => removeTask(current, taskId));
+    setGoals((current) => updateTaskTree(removeTask(current, taskId), taskId, (task) => ({ ...task, updatedById: activePersonId })));
 
     if (task) {
       addActivity(
-        goals.some((goal) => goal.id === taskId) ? 'presunul(a) plán do koša' : 'zmazal(a)',
+        goals.some((goal) => goal.id === taskId) ? 'presunul(a) plán do koša' : 'presunul(a) podúlohu do koša',
         task.title,
       );
     }
   }
 
   function restoreGoal(goalId: string) {
-    const goal = goals.find((goal) => goal.id === goalId);
-
-    setGoals((current) =>
-      current.map((goal) =>
-        goal.id === goalId
-          ? {
-              ...goal,
-              deletedAt: undefined,
-              updatedById: activePersonId,
-            }
-          : goal,
-      ),
-    );
-
-    if (goal) {
-      addActivity('obnovil(a) plán z koša', goal.title);
-    }
+    const task = findTaskById(goals, goalId);
+    setGoals((current) => updateTaskTree(current, goalId, (item) => ({ ...item, deletedAt: undefined, updatedById: activePersonId })));
+    if (task) addActivity('obnovil(a) položku z koša', task.title);
   }
 
   function rateGoalImportance(goalId: string, personId: string, importance: number) {
@@ -1206,33 +746,30 @@ export default function Home() {
     addActivity('ohodnotil(a) dôležitosť', `${goal.title} · ${personName}: ${normalizedImportance}/5`);
   }
 
-  function moveGoalInRanking(goalId: string, direction: -1 | 1) {
-    const activeGoalIds = boardGoals.map((goal) => goal.id);
-    const currentRanking = normalizePersonRanking(goalRankings[activePersonId], boardGoals);
-    const currentIndex = currentRanking.indexOf(goalId);
-    const nextIndex = currentIndex + direction;
+  function rateGoalFeasibility(goalId: string, personId: string, feasibility: number) {
+    const normalizedFeasibility = clampImportance(feasibility);
+    const goal = goals.find((goal) => goal.id === goalId);
+    const personName = people.find((person) => person.id === personId)?.name ?? 'Foxie';
 
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentRanking.length) {
+    if (!goal || !normalizedFeasibility) {
       return;
     }
 
-    const nextRanking = [...currentRanking];
-    const [movedGoalId] = nextRanking.splice(currentIndex, 1);
-    nextRanking.splice(nextIndex, 0, movedGoalId);
-
-    setGoalRankings((current) => ({
-      ...current,
-      [activePersonId]: [
-        ...nextRanking,
-        ...(current[activePersonId] ?? []).filter((savedGoalId) => !activeGoalIds.includes(savedGoalId)),
-      ],
-    }));
-
-    const movedGoal = goals.find((goal) => goal.id === goalId);
-
-    if (movedGoal) {
-      addActivity('zoradil(a) priority', movedGoal.title);
-    }
+    setGoals((current) =>
+      current.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              feasibilityByPerson: {
+                ...normalizeGoalFeasibility(goal, people),
+                [personId]: normalizedFeasibility,
+              },
+              updatedById: activePersonId,
+            }
+          : goal,
+      ),
+    );
+    addActivity('ohodnotil(a) reálnosť riešenia', `${goal.title} · ${personName}: ${normalizedFeasibility}/5`);
   }
 
   function renamePerson(personId: string, name: string) {
@@ -1310,15 +847,10 @@ export default function Home() {
         action,
         target,
         createdAt: new Date().toISOString(),
+        spaceId: boardSpaceId,
       },
       ...current,
     ].slice(0, 80));
-  }
-
-  function authenticatePerson(personId: string) {
-    setActivePersonId(personId);
-    setAuthenticated(true);
-    window.localStorage.setItem(sessionPersonKey, personId);
   }
 
   function createTransferPayload(): TransferPayload {
@@ -1375,13 +907,12 @@ export default function Home() {
         return;
       }
 
-      const importedPeople = normalizePeople(data.people);
-      const importedActivePersonId = importedPeople.some(
-        (person) => person.id === data.activePersonId,
-      )
-        ? data.activePersonId
-        : importedPeople[0]?.id ?? defaultPeople[0].id;
-      const importedGoals = normalizeGoals(data.goals, importedPeople);
+      if (!isValidState(data)) { setTransferMessage('Záloha obsahuje neplatné položky. Existujúce dáta zostali zachované.'); return; }
+      saveStateBackup('Pred importom', state);
+      const scoped = visibleState(data, activePersonId);
+      const importedPeople = normalizePeople(scoped.people).map((person) => person.id === activePersonId ? person : people.find((item) => item.id === person.id)!);
+      const importedActivePersonId = activePersonId;
+      const importedGoals = normalizeGoals(scoped.goals, importedPeople);
       const importedGoalRankings = normalizeGoalRankings(
         data.goalRankings,
         importedGoals,
@@ -1390,16 +921,9 @@ export default function Home() {
 
       setGoals(importedGoals);
       setPeople(importedPeople);
-      setActivityLog(data.activityLog);
+      setActivityLog(scoped.activityLog.filter((item) => item.actorId === activePersonId));
       setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
-
-      window.localStorage.setItem('ciele-goals', JSON.stringify(importedGoals));
-      window.localStorage.setItem('ciele-active-person', importedActivePersonId);
-      window.localStorage.setItem('ciele-people', JSON.stringify(importedPeople));
-      window.localStorage.setItem('ciele-activity-log', JSON.stringify(data.activityLog));
-      window.localStorage.removeItem('ciele-auth-records');
-      window.localStorage.setItem(goalRankingsKey, JSON.stringify(importedGoalRankings));
 
       setImportText('');
       setTransferMessage('Dáta sú importované. Táto verzia appky ich už vidí.');
@@ -1408,7 +932,9 @@ export default function Home() {
     }
   }
 
-  const recentActivity = activityLog.slice(0, 12);
+  const recentActivity = activityLog
+    .filter((item) => (item.spaceId ?? sharedSpaceId) === boardSpaceId)
+    .slice(0, 12);
 
   if (!loaded) {
     return null;
@@ -1417,7 +943,10 @@ export default function Home() {
   if (!authenticated) {
     return (
       <AuthGate
-        onAuthenticate={authenticatePerson}
+        onAuthenticate={sync.login}
+        onChooseProfile={sync.chooseProfile}
+        mode={sync.mode}
+        status={sync.status}
         people={people}
       />
     );
@@ -1425,10 +954,33 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      <section className="sync-status" role="status" aria-live="polite">
+        <span>{sync.status}</span>
+        <button type="button" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
+        <button type="button" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
+        <button type="button" onClick={() => void sync.logout().catch(() => setTransferMessage('Odhlásenie zlyhalo. Skúste znova.'))}>{sync.mode === 'profiles' ? 'Zmeniť líštičku' : 'Odhlásiť sa'}</button>
+        {sync.recovery ? <button type="button" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť poškodenú zálohu</button> : null}
+        {reminders.message ? <span>{reminders.message}</span> : null}
+      </section>
+      {sync.conflicts.length > 0 ? <section className="sync-conflicts" role="alert">
+        <h2>Rozdielne úpravy tej istej položky</h2>
+        <p>Nezávislé zmeny sa zlúčia. Pri poliach nižšie vyberte, ktorú verziu zachovať. Pred výberom si môžete stiahnuť obe verzie.</p>
+        <ul>{sync.conflicts.map((conflict) => <li key={conflict.path}><strong>{conflictLabel(conflict.path, state)}</strong><br />Toto zariadenie: {conflictValue(conflict.local)}<br />Server: {conflictValue(conflict.remote)}</li>)}</ul>
+        <button type="button" onClick={() => downloadJson(JSON.stringify({ local: state, conflicts: sync.conflicts }, null, 2), 'foxies-rozdielne-upravy.json')}>Stiahnuť verzie</button>
+        <button type="button" onClick={() => sync.resolve('local')}>Zachovať moje sporné polia</button>
+        <button type="button" onClick={() => sync.resolve('remote')}>Zachovať serverové sporné polia</button>
+      </section> : null}
       <section className="topbar" aria-label="Prehľad tímu">
         <div className="brand-lockup">
           <div className="fox-pair" aria-hidden="true">
-            <img alt="" className="foxies-logo" src="/foxies-logo.png" />
+            <Image
+              alt=""
+              className="foxies-logo"
+              height={74}
+              priority
+              src="/foxies-logo.png"
+              width={98}
+            />
           </div>
           <div>
             <p className="eyebrow">Virtuálna tabuľa plánov</p>
@@ -1470,6 +1022,7 @@ export default function Home() {
                       className="person-name"
                       onChange={(event) => changePersonName(person.id, event.target.value)}
                       onBlur={(event) => renamePerson(person.id, event.target.value)}
+                      onKeyDown={saveInputOnEnter}
                       value={person.name}
                     />
                   ) : (
@@ -1481,7 +1034,7 @@ export default function Home() {
                     </span>
                   )}
                   {person.id === activePersonId ? (
-                    <span className="signed-in-badge">prihlásený</span>
+                    <span className="signed-in-badge">{sync.mode === 'profiles' ? 'zvolená' : 'prihlásený'}</span>
                   ) : null}
                 </div>
                 {person.id === activePersonId ? (
@@ -1507,7 +1060,7 @@ export default function Home() {
                               title={avatar.label}
                               type="button"
                             >
-                              <img alt="" src={avatar.src} />
+                              <Image alt="" height={21} src={avatar.src} width={21} />
                             </button>
                           ))}
                         </div>
@@ -1578,6 +1131,10 @@ export default function Home() {
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
                 </button>
+                <button type="button" onClick={() => {
+                  exportData();
+                  void sync.logout(true).catch(() => setTransferMessage('Odhlásenie zlyhalo. Lokálna záloha je zachovaná.'));
+                }}>Stiahnuť zálohu a opustiť profil</button>
               </div>
             ) : null}
           </div>
@@ -1632,6 +1189,23 @@ export default function Home() {
         </div>
       ) : null}
 
+      <section className="board-space-switcher" aria-label="Výber tabule">
+        {boardSpaces.map((space) => (
+          <button
+            aria-pressed={space.id === boardSpaceId}
+            className={space.id === boardSpaceId ? 'active' : ''}
+            key={space.id}
+            onClick={() => {
+              setRandomActivityId(null);
+              setBoardSpaceId(space.id);
+            }}
+            type="button"
+          >
+            {space.label}
+          </button>
+        ))}
+      </section>
+
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
           <span className="label">Stav na tabuli</span>
@@ -1641,13 +1215,13 @@ export default function Home() {
           </div>
           <GrowthBranch percent={totals.percent} />
           <p>
-            Hotovo {totals.done} z {totals.total} drobných krokov vo vašich spoločných plánoch.
+            Hotovo {totals.done} z {totals.total} drobných krokov v tejto tabuľke.
           </p>
         </div>
         <form className="new-goal" onSubmit={addGoal}>
           <ProjectProgressStrip goals={goalSnapshots} />
           <label>
-            Nový spoločný plán
+            Nový plán v tabuľke {boardSpaceLabel}
             <input
               onChange={(event) => setNewGoalTitle(event.target.value)}
               placeholder="Napr. spraviť filmový večer"
@@ -1670,18 +1244,10 @@ export default function Home() {
             >
               {goalCategories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.label}
+                  {getCategoryLabel(category.id, boardSpaceId)}
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Dokedy
-            <input
-              onChange={(event) => setNewGoalDueAt(event.target.value)}
-              type="datetime-local"
-              value={newGoalDueAt}
-            />
           </label>
           <button type="submit">Pridať plán</button>
         </form>
@@ -1702,84 +1268,121 @@ export default function Home() {
       />
 
       <RecurringCalendarPanel
+        boardSpaceId={boardSpaceId}
         goals={recurringGoals}
         onChangeRecurrence={changeGoalRecurrence}
+        onChangeRecurrenceStart={changeGoalRecurrenceStart}
+        onChangeRecurrenceTolerance={changeGoalRecurrenceTolerance}
         onCompleteToday={completeRecurringGoalToday}
       />
 
       <PriorityPoll
-        activePersonId={activePersonId}
-        goals={boardGoals}
-        goalRankings={goalRankings}
         onRefreshOrder={() => setPriorityRefreshKey((key) => key + 1)}
-        onMoveGoal={moveGoalInRanking}
+        boardSpaceId={boardSpaceId}
         people={people}
         refreshKey={priorityRefreshKey}
         rankedGoals={rankedActiveGoals}
       />
 
       <section className="board" aria-label="Zoznam cieľov">
-        {rankedActiveGoals.map((goal) => (
-          <GoalPanel
-            activePersonId={activePersonId}
-            goal={goal}
-            key={goal.id}
-            onAddSubtask={addSubtask}
-            onChangeCategory={changeGoalCategory}
-            onChangeRecurrence={changeGoalRecurrence}
-            onCompleteRecurring={completeRecurringGoalToday}
-            onDelete={deleteTask}
-            onChangeDueAt={changeTaskDueAt}
-            onRateImportance={rateGoalImportance}
-            onRenameDescription={updateGoalDescription}
-            onRename={renameTask}
-            people={people}
-            toggleDone={toggleDone}
-            toggleExpanded={toggleExpanded}
-          />
-        ))}
+        {boardGoalGroups.length > 0 ? (
+          boardGoalGroups.map((category) => (
+            <section className="board-category" key={category.id}>
+              <div className="board-category-heading">
+                <h2>{getCategoryLabel(category.id, boardSpaceId)}</h2>
+                <span>{category.goals.length}</span>
+              </div>
+              <div className="board-category-list">
+                {category.goals.map((goal) => (
+                  <GoalPanel
+                    activePersonId={activePersonId}
+                    goal={goal}
+                    key={goal.id}
+                    boardSpaceId={boardSpaceId}
+                    onAddSubtask={addSubtask}
+                    onChangeCategory={changeGoalCategory}
+                    onChangeRecurrence={changeGoalRecurrence}
+                    onChangeTaskKind={changeTaskKind}
+                    onChangeDeadline={changeDeadline}
+                    onCompleteRecurring={completeRecurringGoalToday}
+                    onDelete={deleteTask}
+                    onRateFeasibility={rateGoalFeasibility}
+                    onRateImportance={rateGoalImportance}
+                    onRenameDescription={updateGoalDescription}
+                    onRename={renameTask}
+                    people={people}
+                    toggleDone={toggleDone}
+                    toggleExpanded={toggleExpanded}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <p className="empty-board">Prvý plán si nájde miesto hneď tu.</p>
+        )}
       </section>
     </main>
   );
 }
 
-function AuthGate({
-  onAuthenticate,
-  people,
-}: {
-  onAuthenticate: (personId: string) => void;
-  people: Person[];
-}) {
-  return (
-    <main className="auth-shell">
-      <section className="auth-card" aria-label="Prihlásenie do tabule">
-        <div className="auth-brand">
-          <div className="fox-pair" aria-hidden="true">
-            <img alt="" className="foxies-logo" src="/foxies-logo.png" />
-          </div>
-          <div>
-            <p className="eyebrow">Little acorns Foxies</p>
-            <h1>Ktorá líštička ide plánovať?</h1>
-          </div>
-        </div>
+function downloadJson(content: string, name: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
-        <div className="auth-people" aria-label="Vybrať používateľa">
-          {people.map((person) => (
-            <button
-              className="auth-person"
-              key={person.id}
-              onClick={() => onAuthenticate(person.id)}
-              style={{ '--person-tone': person.tone } as React.CSSProperties}
-              type="button"
-            >
-              <AvatarFox person={person} size="medium" />
-              <span>{person.name}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
+function conflictLabel(path: string, state: AppStateData) {
+  const parts = path.split('/');
+  const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
+  const person = state.people.find((person) => parts.includes(person.id));
+  const names: Record<string, string> = { title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const field = [...parts].reverse().find((part) => names[part]);
+  return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
+}
+
+function conflictValue(value: unknown): string {
+  if (value === undefined) return 'bez hodnoty / odstránené';
+  if (typeof value === 'boolean') return value ? 'áno' : 'nie';
+  if (value && typeof value === 'object' && 'title' in value) return `${String(value.title)}${'deletedAt' in value && value.deletedAt ? ' (v koši)' : ''}`;
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function AuthGate({ onAuthenticate, onChooseProfile, mode, people, status }: {
+  onAuthenticate: (email: string, password: string) => Promise<void>;
+  onChooseProfile: (personId: string) => Promise<void>;
+  mode: 'profiles' | 'supabase';
+  people: Person[];
+  status: string;
+}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  return <main className="auth-shell"><section className="auth-card" aria-label="Prihlásenie do tabule">
+    <Image alt="Little acorns Foxies" className="foxies-logo" src="/foxies-logo.png" width={98} height={74} priority />
+    <h1>Vitaj doma, líštička</h1>
+    <p>{mode === 'profiles' ? 'Ktorá líštička ide plánovať?' : 'Prihlás sa do svojho účtu. Uvidíš spoločnú a svoju osobnú tabuľu.'}</p>
+    {mode === 'profiles' ? <div className="auth-people">
+      {people.map((person) => <button className="auth-person" type="button" disabled={busy} key={person.id} onClick={async () => {
+        setBusy(true); setError('');
+        try { await onChooseProfile(person.id); }
+        catch (error) { setError(error instanceof Error ? error.message : 'Výber sa nepodaril. Skús znova.'); }
+        finally { setBusy(false); }
+      }}><AvatarFox person={person} size="medium" /><span>{person.name}</span></button>)}
+      {error || status ? <p role="alert">{error || status}</p> : null}
+    </div> : <form className="login-form" onSubmit={async (event) => {
+      event.preventDefault(); setError(''); setBusy(true);
+      try { await onAuthenticate(email, password); setPassword(''); }
+      catch (error) { setError(error instanceof Error ? error.message : 'Prihlásenie zlyhalo. Skús znova.'); }
+      finally { setBusy(false); }
+    }}>
+      <label>E-mail<input autoComplete="username" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+      <label>Heslo<input autoComplete="current-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <button type="submit" disabled={busy}>{busy ? 'Prihlasujem…' : 'Prihlásiť sa'}</button>
+      {error || status ? <p role="alert">{error || status}</p> : null}
+    </form>}
+  </section></main>;
 }
 
 function RecentActivityPanel({
@@ -1810,8 +1413,8 @@ function RecentActivityPanel({
                 {actor ? <AvatarFox person={actor} size="small" /> : null}
                 {actor?.name ?? 'Foxie'}
               </span>
-              <span>{item.action}</span>
-              <strong>{item.target}</strong>
+              <span className="activity-action">{item.action}</span>
+              <strong className="activity-target">{item.target}</strong>
               <time dateTime={item.createdAt}>
                 {new Date(item.createdAt).toLocaleString('sk-SK', {
                   day: '2-digit',
@@ -1945,16 +1548,20 @@ function ActivityWheelPanel({
 }
 
 function RecurringCalendarPanel({
+  boardSpaceId,
   goals,
   onChangeRecurrence,
+  onChangeRecurrenceStart,
+  onChangeRecurrenceTolerance,
   onCompleteToday,
 }: {
+  boardSpaceId: BoardSpaceId;
   goals: Goal[];
   onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
+  onChangeRecurrenceStart: (goalId: string, recurrenceStartAt: string) => void;
+  onChangeRecurrenceTolerance: (goalId: string, toleranceDays: number) => void;
   onCompleteToday: (goalId: string) => void;
 }) {
-  const weekDays = getWeekDays();
-
   return (
     <section className="special-panel recurring-calendar" aria-label="Kalendár chores a habits">
       <div className="special-heading">
@@ -1967,41 +1574,20 @@ function RecurringCalendarPanel({
         <ol className="recurring-list">
           {goals.map((goal) => {
             const dueDate = getNextDueDate(goal);
-            const dueLabel = dueDate ? formatDueLabel(dueDate) : 'bez termínu';
-            const doneThisWeek = isCompletedThisWeek(goal, weekDays);
-            const category = goalCategories.find(
-              (category) => category.id === normalizeGoalCategory(goal.category),
-            );
+            const recurrenceDays = normalizeRecurrenceDays(goal.recurrenceDays);
+            const toleranceDays = normalizeRecurrenceToleranceDays(goal.recurrenceToleranceDays);
+            const dueLabel = formatRecurrenceWindow(dueDate, toleranceDays);
+            const history = goal.recurrenceHistory ?? (goal.lastCompletedAt ? [goal.lastCompletedAt] : []);
+            const currentStatus = getCurrentRecurrenceStatus(dueDate, toleranceDays);
+            const category = normalizeGoalCategory(goal.category);
 
             return (
               <li key={goal.id}>
                 <div className="recurring-copy">
                   <strong>{goal.title}</strong>
                   <span>
-                    {category?.label ?? 'Opakované'} · každých {normalizeRecurrenceDays(goal.recurrenceDays)} dní
+                    {getCategoryLabel(category, boardSpaceId)} · každých {recurrenceDays} dní
                   </span>
-                </div>
-                <div className="week-graph" aria-label={`Týždenný stav pre ${goal.title}`}>
-                  {weekDays.map((day) => {
-                    const isDueDay = dueDate ? isSameDay(day, dueDate) : false;
-                    const isDoneDay = goal.lastCompletedAt
-                      ? isSameDay(day, new Date(goal.lastCompletedAt))
-                      : false;
-
-                    return (
-                      <span
-                        className={[
-                          isDueDay ? 'due' : '',
-                          isDoneDay ? 'done' : '',
-                          isSameDay(day, new Date()) ? 'today' : '',
-                        ].filter(Boolean).join(' ')}
-                        key={day.toISOString()}
-                        title={day.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric', weekday: 'short' })}
-                      >
-                        {day.toLocaleDateString('sk-SK', { weekday: 'short' }).slice(0, 2)}
-                      </span>
-                    );
-                  })}
                 </div>
                 <label className="mini-recurrence">
                   každých
@@ -2013,9 +1599,58 @@ function RecurringCalendarPanel({
                   />
                   dní
                 </label>
-                <time className={doneThisWeek ? 'done' : ''}>
-                  {doneThisWeek ? 'hotové tento týždeň' : dueLabel}
+                <label className="mini-recurrence">
+                  tolerancia
+                  <input
+                    min={0}
+                    onChange={(event) => onChangeRecurrenceTolerance(goal.id, Number(event.target.value))}
+                    type="number"
+                    value={toleranceDays}
+                  />
+                  dní
+                </label>
+                <label className="mini-recurrence start-date">
+                  od
+                  <input
+                    onChange={(event) => onChangeRecurrenceStart(goal.id, event.target.value)}
+                    type="date"
+                    value={toDateInputValue(goal.recurrenceStartAt)}
+                  />
+                </label>
+                <time>
+                  {dueLabel}
                 </time>
+                <span className={`recurring-status ${currentStatus.className}`}>
+                  ✓ {currentStatus.label}
+                </span>
+                <details className="recurring-history">
+                  <summary title="História dokončení">✓ {history.length}</summary>
+                  <ol>
+                    {history.length > 0 ? (
+                      history.slice(0, 8).map((completedAt, index) => {
+                        const status = getRecurringHistoryStatus(
+                          completedAt,
+                          history[index + 1] ?? goal.recurrenceStartAt,
+                          recurrenceDays,
+                          toleranceDays,
+                        );
+
+                        return (
+                          <li key={completedAt}>
+                            <span className={`history-check ${status.className}`} title={status.label}>✓</span>
+                            {new Date(completedAt).toLocaleDateString('sk-SK', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                            })}
+                          </li>
+                        );
+                      })
+                    ) : (
+                      <li>Zatiaľ nič</li>
+                    )}
+                  </ol>
+                </details>
                 <button onClick={() => onCompleteToday(goal.id)} type="button">
                   Dnes hotovo
                 </button>
@@ -2031,26 +1666,18 @@ function RecurringCalendarPanel({
 }
 
 function PriorityPoll({
-  activePersonId,
-  goals,
-  goalRankings,
+  boardSpaceId,
   onRefreshOrder,
-  onMoveGoal,
   people,
   refreshKey,
   rankedGoals,
 }: {
-  activePersonId: string;
-  goals: Goal[];
-  goalRankings: Record<string, string[]>;
+  boardSpaceId: BoardSpaceId;
   onRefreshOrder: () => void;
-  onMoveGoal: (goalId: string, direction: -1 | 1) => void;
   people: Person[];
   refreshKey: number;
   rankedGoals: Goal[];
 }) {
-  const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
-  const activeRanking = normalizePersonRanking(goalRankings[activePersonId], goals);
   const groupedGoals = goalCategories
     .filter((category) => category.id !== 'activity')
     .map((category) => ({
@@ -2065,6 +1692,10 @@ function PriorityPoll({
         <div>
           <span className="label">Anketa priorít</span>
           <h2>Čo je teraz najdôležitejšie</h2>
+          <p className="priority-poll-help">
+            Dôležitosť = ako veľmi danej osobe aktuálny stav vyhovuje alebo nevyhovuje.
+            Reálnosť = ako reálne daný človek vidí, že sa problém vie vyriešiť.
+          </p>
         </div>
         <div className="priority-heading-actions">
           <button className="refresh-order-button" onClick={onRefreshOrder} type="button">
@@ -2073,7 +1704,7 @@ function PriorityPoll({
           <button
             aria-label="Ako funguje anketa priorít"
             className="info-button"
-            title="Poradie vychádza najprv z priemernej dôležitosti 1-5 od oboch líštičiek. Ak majú veci rovnakú dôležitosť, rozhodne ich poradie v ankete."
+            title="Poradie používa kombinované skóre: dôležitosť má väčšiu váhu, reálnosť riešenia pomáha rozlíšiť podobne dôležité veci."
             type="button"
           >
             i
@@ -2087,18 +1718,21 @@ function PriorityPoll({
         <div className="priority-groups">
           {groupedGoals.map((category) => (
             <section className="priority-group" key={category.id}>
-              <h3>{category.label}</h3>
+              <h3>{getCategoryLabel(category.id, boardSpaceId)}</h3>
               <ol className="priority-list">
                 {category.goals.map((goal, index) => {
-                  const activeIndex = activeRanking.indexOf(goal.id);
+                  const averageFeasibility = getAverageFeasibility(goal, people);
                   const averageImportance = getAverageImportance(goal, people);
+                  const priorityScore = getPriorityScore(goal, people);
 
                   return (
                     <li key={goal.id}>
                       <span className="priority-rank">{index + 1}</span>
                       <div className="priority-copy">
                         <strong>{goal.title}</strong>
-                        <span>Priemer dôležitosti {averageImportance.toFixed(1)}/5</span>
+                        <span>
+                          Skóre {priorityScore.toFixed(1)}/5 · dôležitosť {averageImportance.toFixed(1)} · reálnosť {averageFeasibility.toFixed(1)}
+                        </span>
                       </div>
                       <div className="priority-votes" aria-label={`Poradie pre ${goal.title}`}>
                         {people.map((person) => (
@@ -2107,29 +1741,10 @@ function PriorityPoll({
                             style={{ '--person-tone': person.tone } as React.CSSProperties}
                           >
                             <AvatarFox person={person} size="small" />
-                            {clampImportance(goal.importanceByPerson?.[person.id]) ?? minImportance}/5
+                            {clampImportance(goal.importanceByPerson?.[person.id]) ?? minImportance}/
+                            {clampImportance(goal.feasibilityByPerson?.[person.id]) ?? 3}
                           </span>
                         ))}
-                      </div>
-                      <div className="priority-controls" aria-label={`Zmeniť poradie pre ${activePerson?.name}`}>
-                        <button
-                          aria-label={`Posunúť ${goal.title} vyššie v mojom poradí`}
-                          disabled={activeIndex <= 0}
-                          onClick={() => onMoveGoal(goal.id, -1)}
-                          title="Vyššie v mojom poradí"
-                          type="button"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          aria-label={`Posunúť ${goal.title} nižšie v mojom poradí`}
-                          disabled={activeIndex < 0 || activeIndex >= activeRanking.length - 1}
-                          onClick={() => onMoveGoal(goal.id, 1)}
-                          title="Nižšie v mojom poradí"
-                          type="button"
-                        >
-                          ↓
-                        </button>
                       </div>
                     </li>
                   );
@@ -2183,13 +1798,16 @@ function ProjectProgressStrip({
 
 type GoalPanelProps = {
   activePersonId: string;
+  boardSpaceId: BoardSpaceId;
   goal: Goal;
-  onAddSubtask: (parentId: string, title: string, dueAt?: string) => void;
+  onAddSubtask: (parentId: string, title: string, dueAt?: string, kind?: TaskKind) => void;
   onChangeCategory: (goalId: string, category: GoalCategory) => void;
-  onChangeDueAt: (taskId: string, dueAt: string) => void;
   onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
+  onChangeTaskKind: (taskId: string, kind: TaskKind) => void;
+  onChangeDeadline: (taskId: string, value: string) => void;
   onCompleteRecurring: (goalId: string) => void;
   onDelete: (taskId: string) => void;
+  onRateFeasibility: (goalId: string, personId: string, feasibility: number) => void;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
   onRename: (taskId: string, title: string) => void;
   onRenameDescription: (goalId: string, description: string) => void;
@@ -2199,10 +1817,22 @@ type GoalPanelProps = {
 };
 
 function GoalPanel(props: GoalPanelProps) {
+  const [descriptionChunks, setDescriptionChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.goal);
+  const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
   const importanceByPerson = normalizeGoalImportance(props.goal, props.people);
   const category = normalizeGoalCategory(props.goal.category);
   const isRecurring = recurringCategoryIds.includes(category);
+  const isCompletable = isCompletableTask(props.goal);
+  const suggestedDescriptionChunks = useMemo(
+    () => splitLongDescription(props.goal.description),
+    [props.goal.description],
+  );
+
+  function addDescriptionChunksAsSubtasks() {
+    descriptionChunks.forEach((chunk) => props.onAddSubtask(props.goal.id, chunk));
+    setDescriptionChunks([]);
+  }
 
   return (
     <article className="goal-panel">
@@ -2216,21 +1846,56 @@ function GoalPanel(props: GoalPanelProps) {
           {props.goal.expanded ? '−' : '+'}
         </button>
         <div className="goal-title-block">
-          <input
+          <EditableInput
             aria-label="Názov cieľa"
             className="title-input"
-            defaultValue={props.goal.title}
-            onBlur={(event) => props.onRename(props.goal.id, event.target.value)}
+            value={props.goal.title}
+            onCommit={(value) => props.onRename(props.goal.id, value)}
+            onKeyDown={saveInputOnEnter}
             title="Klikni a uprav názov"
           />
-          <input
-            aria-label="Poznámka k cieľu"
-            className="description-input"
-            defaultValue={props.goal.description}
-            onBlur={(event) => props.onRenameDescription(props.goal.id, event.target.value)}
-            placeholder="Poznámka k plánu"
-            title="Klikni a uprav poznámku"
-          />
+          <span className="description-tooltip-wrap">
+            <EditableInput
+              aria-label="Poznámka k cieľu"
+              className="description-input"
+              value={props.goal.description}
+              onCommit={(value) => props.onRenameDescription(props.goal.id, value)}
+              onKeyDown={saveInputOnEnter}
+              placeholder="Poznámka k plánu"
+              title="Klikni a uprav poznámku"
+            />
+            {props.goal.description.trim() ? (
+              <span className="description-tooltip" role="tooltip">
+                {props.goal.description}
+              </span>
+            ) : null}
+          </span>
+          {descriptionChunks.length > 0 ? (
+            <div className="description-split-preview">
+              <span>Navrhnuté podúlohy</span>
+              <ol>
+                {descriptionChunks.map((chunk, index) => (
+                  <li key={`${index}-${chunk}`}>{chunk}</li>
+                ))}
+              </ol>
+              <div className="description-split-actions">
+                <button onClick={addDescriptionChunksAsSubtasks} type="button">
+                  Pridať ako podúlohy
+                </button>
+                <button onClick={() => setDescriptionChunks([])} type="button">
+                  Zrušiť
+                </button>
+              </div>
+            </div>
+          ) : suggestedDescriptionChunks.length > 1 ? (
+            <button
+              className="description-split-button"
+              onClick={() => setDescriptionChunks(suggestedDescriptionChunks)}
+              type="button"
+            >
+              Rozkúskovať poznámku
+            </button>
+          ) : null}
         </div>
         <div className="progress-badge">
           <strong>{progress.percent}%</strong>
@@ -2249,19 +1914,39 @@ function GoalPanel(props: GoalPanelProps) {
       </div>
 
       <div className="goal-meta">
-        <label className="check-row">
-          <input
-            checked={props.goal.done}
-            onChange={() => props.toggleDone(props.goal.id)}
-            type="checkbox"
-          />
-          Plán označený ako hotový
+        <label className="deadline-field">Termín
+          <input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} />
         </label>
+        {isCompletable ? (
+          <label className="check-row">
+            <input
+              checked={props.goal.done}
+              onChange={() => props.toggleDone(props.goal.id)}
+              type="checkbox"
+            />
+            Plán označený ako hotový
+          </label>
+        ) : (
+          <span className="non-checkable-note">Bez checkboxu</span>
+        )}
         <ItemMeta
           createdById={props.goal.ownerId}
           people={props.people}
           updatedById={props.goal.updatedById}
         />
+        <label className="category-select kind-select">
+          Typ
+          <select
+            onChange={(event) => props.onChangeTaskKind(props.goal.id, event.target.value as TaskKind)}
+            value={props.goal.kind ?? 'todo'}
+          >
+            {taskKinds.map((kind) => (
+              <option key={kind.id} value={kind.id}>
+                {kind.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="category-select">
           Kategória
           <select
@@ -2270,24 +1955,11 @@ function GoalPanel(props: GoalPanelProps) {
           >
             {goalCategories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.label}
+                {getCategoryLabel(category.id, props.boardSpaceId)}
               </option>
             ))}
           </select>
         </label>
-        <label className="category-select deadline-select">
-          Dokedy
-          <input
-            onChange={(event) => props.onChangeDueAt(props.goal.id, event.target.value)}
-            type="datetime-local"
-            value={props.goal.dueAt ?? ''}
-          />
-        </label>
-        {props.goal.dueAt ? (
-          <span className="deadline-chip">
-            Termín: {formatDeadlineLabel(props.goal.dueAt)}
-          </span>
-        ) : null}
         {isRecurring ? (
           <label className="category-select recurrence-select">
             Opakovať
@@ -2319,8 +1991,10 @@ function GoalPanel(props: GoalPanelProps) {
 
       <ImportancePanel
         activePersonId={props.activePersonId}
+        feasibilityByPerson={feasibilityByPerson}
         goalId={props.goal.id}
         importanceByPerson={importanceByPerson}
+        onRateFeasibility={props.onRateFeasibility}
         onRateImportance={props.onRateImportance}
         people={props.people}
       />
@@ -2331,6 +2005,7 @@ function GoalPanel(props: GoalPanelProps) {
             <TaskRow
               {...props}
               key={child.id}
+              parentId={props.goal.id}
               task={child}
               depth={1}
             />
@@ -2347,14 +2022,18 @@ function GoalPanel(props: GoalPanelProps) {
 
 function ImportancePanel({
   activePersonId,
+  feasibilityByPerson,
   goalId,
   importanceByPerson,
+  onRateFeasibility,
   onRateImportance,
   people,
 }: {
   activePersonId: string;
+  feasibilityByPerson: Record<string, number>;
   goalId: string;
   importanceByPerson: Record<string, number>;
+  onRateFeasibility: (goalId: string, personId: string, feasibility: number) => void;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
   people: Person[];
 }) {
@@ -2378,14 +2057,14 @@ function ImportancePanel({
   return (
     <section
       className="importance-panel"
-      aria-label="Dôležitosť plánu pre jednotlivé líštičky"
+      aria-label="Dôležitosť a reálnosť plánu pre jednotlivé líštičky"
     >
       <div className="importance-heading">
         <span>{summary}</span>
         <button
           aria-label="Ako čítať dôležitosť"
           className="info-button"
-          title="1 znamená skôr vedľajšia vec, 5 znamená veľmi dôležitá vec. Ak je plán pre niekoho väčšou prioritou, mal(a) by okolo neho viac iniciovať, pripomínať ho a plánovať ďalšie kroky."
+          title="Dôležitosť má v poradí väčšiu váhu. Reálnosť riešenia pomáha rozlíšiť, či už vidíte uskutočniteľný ďalší krok: 1 zatiaľ ťažko, 5 veľmi reálne."
           type="button"
         >
           i
@@ -2394,6 +2073,7 @@ function ImportancePanel({
       <div className="importance-rows">
         {people.map((person) => {
           const importance = importanceByPerson[person.id] ?? minImportance;
+          const feasibility = feasibilityByPerson[person.id] ?? 3;
           const canEdit = person.id === activePersonId;
 
           return (
@@ -2406,35 +2086,29 @@ function ImportancePanel({
                 <AvatarFox person={person} size="small" />
                 {person.name}
               </span>
-              <div
-                className="importance-meter"
-                aria-label={`${person.name}: dôležitosť ${importance} z 5`}
-              >
-                {Array.from({ length: maxImportance }, (_, index) => {
-                  const value = index + 1;
-
-                  return (
-                    <button
-                      aria-label={
-                        canEdit
-                          ? `${person.name}: nastaviť dôležitosť ${value} z 5`
-                          : `${person.name}: dôležitosť ${value} z 5`
-                      }
-                      className={value <= importance ? 'active' : ''}
-                      disabled={!canEdit}
-                      key={value}
-                      onClick={() => onRateImportance(goalId, person.id, value)}
-                      title={
-                        canEdit
-                          ? `${person.name}: nastaviť ${value}/5`
-                          : `${person.name}: toto hodnotenie si mení iba ${person.name}`
-                      }
-                      type="button"
-                    />
-                  );
-                })}
+              <div className="rating-stack">
+                <span>Dôležitosť</span>
+                <RatingMeter
+                  activeTone="importance"
+                  canEdit={canEdit}
+                  label={`${person.name}: dôležitosť`}
+                  onRate={(value) => onRateImportance(goalId, person.id, value)}
+                  personName={person.name}
+                  value={importance}
+                />
               </div>
-              <strong>{importance}/5</strong>
+              <div className="rating-stack">
+                <span>Reálnosť</span>
+                <RatingMeter
+                  activeTone="feasibility"
+                  canEdit={canEdit}
+                  label={`${person.name}: reálnosť riešenia`}
+                  onRate={(value) => onRateFeasibility(goalId, person.id, value)}
+                  personName={person.name}
+                  value={feasibility}
+                />
+              </div>
+              <strong>{importance}/{feasibility}</strong>
             </div>
           );
         })}
@@ -2443,32 +2117,106 @@ function ImportancePanel({
   );
 }
 
+function RatingMeter({
+  activeTone,
+  canEdit,
+  label,
+  onRate,
+  personName,
+  value,
+}: {
+  activeTone: 'importance' | 'feasibility';
+  canEdit: boolean;
+  label: string;
+  onRate: (value: number) => void;
+  personName: string;
+  value: number;
+}) {
+  return (
+    <div
+      className={`importance-meter ${activeTone}`}
+      aria-label={`${label} ${value} z 5`}
+    >
+      {Array.from({ length: maxImportance }, (_, index) => {
+        const rating = index + 1;
+
+        return (
+          <button
+            aria-label={
+              canEdit
+                ? `${label}: nastaviť ${rating} z 5`
+                : `${label}: ${rating} z 5`
+            }
+            className={rating <= value ? 'active' : ''}
+            disabled={!canEdit}
+            key={rating}
+            onClick={() => onRate(rating)}
+            title={
+              canEdit
+                ? `${personName}: nastaviť ${rating}/5`
+                : `${personName}: toto hodnotenie si mení iba ${personName}`
+            }
+            type="button"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' | 'medium' }) {
   const avatar =
     avatarOptions.find((option) => option.id === person.avatarId) ?? avatarOptions[0];
 
   return (
-    <img
+    <Image
       alt=""
       className={`avatar-fox ${size}`}
+      height={size === 'medium' ? 42 : 23}
       src={avatar.src}
+      width={size === 'medium' ? 42 : 23}
     />
   );
 }
 
 type TaskRowProps = GoalPanelProps & {
   depth: number;
+  parentId: string;
   task: Task;
 };
 
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
+  const [titleChunks, setTitleChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.task);
   const hasChildren = props.task.children.length > 0;
+  const isCompletable = isCompletableTask(props.task);
+  const suggestedTitleChunks = useMemo(
+    () => splitLongDescription(props.task.title),
+    [props.task.title],
+  );
+
+  function splitTaskIntoSiblings() {
+    const [firstChunk, ...siblingChunks] = titleChunks;
+
+    if (!firstChunk) {
+      return;
+    }
+
+    props.onRename(props.task.id, firstChunk);
+    siblingChunks.forEach((chunk) =>
+      props.onAddSubtask(props.parentId, chunk, props.task.dueAt, props.task.kind ?? 'todo'),
+    );
+    setTitleChunks([]);
+  }
 
   return (
     <div className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
-      <div className={props.task.done ? 'task-row done' : 'task-row'}>
+      <div className={[
+        'task-row',
+        props.task.done ? 'done' : '',
+        isCompletable ? '' : 'no-checkbox',
+      ].filter(Boolean).join(' ')}>
         <button
           aria-label={props.task.expanded ? 'Zbaliť podúlohu' : 'Rozbaliť podúlohu'}
           className="icon-button compact"
@@ -2478,47 +2226,75 @@ function TaskRow(props: TaskRowProps) {
         >
           {hasChildren ? (props.task.expanded ? '−' : '+') : '•'}
         </button>
-        <label className="checkbox-only" aria-label="Označiť ako hotové">
-          <input
-            checked={props.task.done}
-            onChange={() => props.toggleDone(props.task.id)}
-            type="checkbox"
+        {isCompletable ? (
+          <label className="checkbox-only" aria-label="Označiť ako hotové">
+            <input
+              checked={props.task.done}
+              onChange={() => props.toggleDone(props.task.id)}
+              type="checkbox"
+            />
+          </label>
+        ) : (
+          <span className="checkbox-spacer" aria-hidden="true" />
+        )}
+        <span className="task-title-tooltip-wrap">
+          <EditableInput
+            aria-label="Názov podúlohy"
+            className="task-title"
+            value={props.task.title}
+            onCommit={(value) => props.onRename(props.task.id, value)}
+            onKeyDown={saveInputOnEnter}
+            title="Klikni a uprav podúlohu"
           />
+          {props.task.title.trim() ? (
+            <span className="task-title-tooltip" role="tooltip">
+              {props.task.title}
+            </span>
+          ) : null}
+        </span>
+        <label className="task-kind-select">
+          <span>Typ</span>
+          <select
+            aria-label="Typ podúlohy"
+            onChange={(event) => props.onChangeTaskKind(props.task.id, event.target.value as TaskKind)}
+            value={props.task.kind ?? 'todo'}
+          >
+            {taskKinds.map((kind) => (
+              <option key={kind.id} value={kind.id}>
+                {kind.label}
+              </option>
+            ))}
+          </select>
         </label>
-        <input
-          aria-label="Názov podúlohy"
-          className="task-title"
-          defaultValue={props.task.title}
-          onBlur={(event) => props.onRename(props.task.id, event.target.value)}
-          title="Klikni a uprav podúlohu"
-        />
+        <label className="deadline-field">Termín
+          <input aria-label="Termín podúlohy" type="datetime-local" value={deadlineInput(props.task.dueAt)} onChange={(event) => props.onChangeDeadline(props.task.id, event.target.value)} />
+        </label>
         <ItemMeta
           createdById={props.task.ownerId}
           people={props.people}
           updatedById={props.task.updatedById}
         />
-        <label className="task-deadline">
-          Dokedy
-          <input
-            aria-label={`Dokedy má byť hotové: ${props.task.title}`}
-            onChange={(event) => props.onChangeDueAt(props.task.id, event.target.value)}
-            type="datetime-local"
-            value={props.task.dueAt ?? ''}
-          />
-        </label>
-        {props.task.dueAt ? (
-          <span className="deadline-chip compact">
-            {formatDeadlineLabel(props.task.dueAt)}
-          </span>
-        ) : null}
         <span className="mini-progress">
-          {progress.percent}% · {progress.done}/{progress.total}
+          {progress.total > 0
+            ? `${progress.percent}% · ${progress.done}/${progress.total}`
+            : 'bez odškrtávania'}
         </span>
-        <button className="text-button" onClick={() => setAdding(!adding)} type="button">
-          + podúloha
-        </button>
+        <div className="task-actions">
+          <button className="text-button" onClick={() => setAdding(!adding)} type="button">
+            + podúloha
+          </button>
+          {suggestedTitleChunks.length > 1 ? (
+            <button
+              className="text-button"
+              onClick={() => setTitleChunks(suggestedTitleChunks)}
+              type="button"
+            >
+              Rozkúskovať
+            </button>
+          ) : null}
+        </div>
         <button
-          aria-label="Vymazať podúlohu"
+          aria-label="Presunúť podúlohu do koša"
           className="icon-button compact danger"
           onClick={() => props.onDelete(props.task.id)}
           type="button"
@@ -2526,6 +2302,25 @@ function TaskRow(props: TaskRowProps) {
           ×
         </button>
       </div>
+
+      {titleChunks.length > 0 ? (
+        <div className="description-split-preview task-split-preview">
+          <span>Navrhnuté podúlohy v tej istej skupine</span>
+          <ol>
+            {titleChunks.map((chunk, index) => (
+              <li key={`${index}-${chunk}`}>{chunk}</li>
+            ))}
+          </ol>
+          <div className="description-split-actions">
+            <button onClick={splitTaskIntoSiblings} type="button">
+              Rozdeliť podúlohu
+            </button>
+            <button onClick={() => setTitleChunks([])} type="button">
+              Zrušiť
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {adding ? (
         <AddTaskForm
@@ -2544,6 +2339,7 @@ function TaskRow(props: TaskRowProps) {
               {...props}
               depth={props.depth + 1}
               key={child.id}
+              parentId={props.task.id}
               task={child}
             />
           ))}
@@ -2595,7 +2391,8 @@ function AddTaskForm({
       className="add-task"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(title, dueAt);
+        if (!title.trim()) return;
+        onSubmit(title, dueAt || undefined);
         setTitle('');
         setDueAt('');
       }}
@@ -2608,15 +2405,18 @@ function AddTaskForm({
           value={title}
         />
       </label>
-      <label>
-        Dokedy
-        <input
-          onChange={(event) => setDueAt(event.target.value)}
-          type="datetime-local"
-          value={dueAt}
-        />
+      <label>Termín (voliteľný)
+        <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
       </label>
       <button type="submit">Pridať</button>
     </form>
   );
+}
+
+function deadlineInput(value: string | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
 }
