@@ -2188,7 +2188,6 @@ type TaskRowProps = GoalPanelProps & {
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
   const [titleChunks, setTitleChunks] = useState<string[]>([]);
-  const progress = calculateProgress(props.task);
   const hasChildren = props.task.children.length > 0;
   const isCompletable = isCompletableTask(props.task);
   const suggestedTitleChunks = useMemo(
@@ -2265,9 +2264,6 @@ function TaskRow(props: TaskRowProps) {
               Rozkúskovať
             </button>
           ) : null}
-          <details className="task-details">
-            <summary>Podrobnosti</summary>
-            <div className="task-details-content">
         <label className="task-kind-select">
           <span>Typ</span>
           <select
@@ -2282,21 +2278,11 @@ function TaskRow(props: TaskRowProps) {
             ))}
           </select>
         </label>
-        <label className="deadline-field">Termín
-          <input aria-label="Termín podúlohy" type="datetime-local" value={deadlineInput(props.task.dueAt)} onChange={(event) => props.onChangeDeadline(props.task.id, event.target.value)} />
-        </label>
         <ItemMeta
           createdById={props.task.ownerId}
           people={props.people}
           updatedById={props.task.updatedById}
         />
-        <span className="mini-progress">
-          {progress.total > 0
-            ? `${progress.percent}% · ${progress.done}/${progress.total}`
-            : 'bez odškrtávania'}
-        </span>
-            </div>
-          </details>
         </div>
         <button
           aria-label="Presunúť podúlohu do koša"

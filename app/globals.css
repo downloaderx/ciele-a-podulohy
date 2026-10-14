@@ -2310,28 +2310,12 @@ select:focus {
   flex-wrap: wrap;
   gap: 6px;
   grid-column: 1 / -1;
-  align-items: start;
+  align-items: center;
   min-width: 0;
 }
 
 .task-actions > button { flex-shrink: 0; }
-.task-details { min-width: 0; flex: 1 1 100px; }
-.task-details summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 28px;
-  width: fit-content;
-}
-.task-details-content {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  padding: 6px 0 2px;
-}
-.task-details-content .deadline-field input { min-height: 30px; width: 100%; }
-.task-details-content .item-meta { white-space: normal; }
+.task-actions .item-meta { min-width: 0; white-space: normal; }
 
 
 .text-button {
