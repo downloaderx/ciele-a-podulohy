@@ -1,0 +1,718 @@
+export type Person = {
+  id: string;
+  name: string;
+  tone: string;
+  avatarId: string;
+};
+
+export type Task = {
+  id: string;
+  title: string;
+  ownerId: string;
+  updatedById?: string;
+  dueAt?: string;
+  deletedAt?: string;
+  done: boolean;
+  expanded: boolean;
+  children: Task[];
+  kind?: TaskKind;
+};
+
+export type BoardSpaceId = 'shared' | string;
+export type TaskKind = 'todo' | 'rule' | 'topic';
+
+export type Goal = Task & {
+  category?: GoalCategory;
+  description: string;
+  feasibilityByPerson?: Record<string, number>;
+  importanceByPerson: Record<string, number>;
+  lastCompletedAt?: string;
+  recurrenceHistory?: string[];
+  recurrenceDays?: number;
+  recurrenceStartAt?: string;
+  recurrenceToleranceDays?: number;
+  deletedAt?: string;
+  spaceId?: BoardSpaceId;
+};
+
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity';
+
+export type ActivityItem = {
+  id: string;
+  actorId: string;
+  action: string;
+  target: string;
+  createdAt: string;
+  spaceId?: BoardSpaceId;
+};
+
+export type CompletedItem = {
+  id: string;
+  ownerId: string;
+  title: string;
+  type: 'goal' | 'task';
+};
+
+export type AppStateData = {
+  activePersonId: string;
+  activityLog: ActivityItem[];
+  goalRankings: Record<string, string[]>;
+  goals: Goal[];
+  people: Person[];
+};
+
+export type TransferPayload = {
+  version: 1;
+  exportedAt: string;
+  data: AppStateData;
+};
+
+export const avatarOptions = [
+  {
+    id: 'rini-orange',
+    label: 'Oranžová líštička s náramkom',
+    src: '/avatar-rini-orange.png',
+    tone: '#ff9d4a',
+  },
+  {
+    id: 'fluffy',
+    label: 'Fluffyho líštička',
+    src: '/avatar-fluffy.png',
+    tone: '#ff9d4a',
+  },
+  {
+    id: 'fluffy-red-orange',
+    label: 'Fluffy oranžový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-orange.png',
+    tone: '#ff9d4a',
+  },
+  {
+    id: 'fluffy-red-mint',
+    label: 'Fluffy mätový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-mint.png',
+    tone: '#58dcca',
+  },
+  {
+    id: 'fluffy-red-light-blue',
+    label: 'Fluffy svetlomodrý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-light-blue.png',
+    tone: '#6c9fff',
+  },
+  {
+    id: 'fluffy-red-lavender',
+    label: 'Fluffy levanduľový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-lavender.png',
+    tone: '#a98dff',
+  },
+  {
+    id: 'fluffy-red-pink',
+    label: 'Fluffy ružový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-pink.png',
+    tone: '#ff7eb6',
+  },
+  {
+    id: 'fluffy-red-yellow',
+    label: 'Fluffy žltý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-yellow.png',
+    tone: '#f4d84d',
+  },
+  {
+    id: 'fluffy-red-gray',
+    label: 'Fluffy sivý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-gray.png',
+    tone: '#9ca8bd',
+  },
+  {
+    id: 'fluffy-red-navy',
+    label: 'Fluffy tmavomodrý s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-navy.png',
+    tone: '#4d67c4',
+  },
+  {
+    id: 'fluffy-red-green',
+    label: 'Fluffy zelený s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-green.png',
+    tone: '#8fe36b',
+  },
+  {
+    id: 'fluffy-red-turquoise',
+    label: 'Fluffy tyrkysový s červeným náhrdelníkom',
+    src: '/avatar-fluffy-red-turquoise.png',
+    tone: '#35d0ba',
+  },
+  {
+    id: 'rini-pink',
+    label: 'Ružová líštička s náramkom',
+    src: '/avatar-rini-pink.png',
+    tone: '#ff7eb6',
+  },
+  {
+    id: 'rini-silver',
+    label: 'Strieborná líštička s náramkom',
+    src: '/avatar-rini-silver.png',
+    tone: '#9ca8bd',
+  },
+  {
+    id: 'rini-green',
+    label: 'Zelená líštička s náramkom',
+    src: '/avatar-rini-green.png',
+    tone: '#8fe36b',
+  },
+  {
+    id: 'rini-blue-pearl',
+    label: 'Bledomodrá líštička s perličkami',
+    src: '/avatar-rini-blue-pearl.png',
+    tone: '#6c9fff',
+  },
+  {
+    id: 'rini-yellow',
+    label: 'Žltá líštička s náramkom',
+    src: '/avatar-rini-yellow.png',
+    tone: '#f4d84d',
+  },
+  {
+    id: 'rini-mint-pearl',
+    label: 'Tyrkysová líštička s perličkami',
+    src: '/avatar-rini-mint-pearl.png',
+    tone: '#35d0ba',
+  },
+  {
+    id: 'rini-mint',
+    label: 'Mätová líštička s náramkom',
+    src: '/avatar-rini-mint.png',
+    tone: '#58dcca',
+  },
+  {
+    id: 'rini-lavender',
+    label: 'Levanduľová líštička s náramkom',
+    src: '/avatar-rini-lavender.png',
+    tone: '#a98dff',
+  },
+  {
+    id: 'rini-navy',
+    label: 'Modrá líštička s perličkami',
+    src: '/avatar-rini-navy.png',
+    tone: '#4d67c4',
+  },
+];
+
+export const defaultPeople: Person[] = [
+  { id: 'person-1', name: 'Rini', tone: '#ff9d4a', avatarId: 'rini-orange' },
+  { id: 'person-2', name: 'Fluffy', tone: '#ff9d4a', avatarId: 'fluffy' },
+];
+
+export function getAvatarOptionsForPerson(personId: string) {
+  if (personId === 'person-2') {
+    return avatarOptions.filter((avatar) => avatar.id === 'fluffy' || avatar.id.startsWith('fluffy-'));
+  }
+
+  return avatarOptions.filter((avatar) => avatar.id.startsWith('rini-'));
+}
+
+export const sessionPersonKey = 'ciele-session-person';
+export const goalRankingsKey = 'ciele-goal-rankings';
+export const boardSpaceKey = 'ciele-board-space';
+export const sharedSpaceId = 'shared';
+export const minImportance = 1;
+export const maxImportance = 5;
+export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
+  { id: 'plan', label: 'Dlhodobé ciele vo vzťahu' },
+  { id: 'chore', label: 'Chores' },
+  { id: 'errand', label: 'Vybaviť' },
+  { id: 'habit', label: 'Habits' },
+  { id: 'activity', label: 'Activities' },
+];
+export const taskKinds: Array<{ id: TaskKind; label: string }> = [
+  { id: 'todo', label: 'Úloha' },
+  { id: 'rule', label: 'Pravidlo' },
+  { id: 'topic', label: 'Téma' },
+];
+export const recurringCategoryIds: GoalCategory[] = ['chore', 'habit'];
+export const defaultRecurrenceDays = 7;
+export const defaultRecurrenceToleranceDays = 5;
+
+export const starterGoals: Goal[] = [];
+
+export function isStarterGoal(goal: Goal) {
+  if (goal.id === 'goal-launch') {
+    return (
+      goal.title === 'Spustiť klientsky portál' ||
+      goal.title === 'Naplánovať spoločný víkend'
+    );
+  }
+
+  if (goal.id === 'goal-marketing') {
+    return (
+      goal.title === 'Dokončiť jesennú kampaň' ||
+      goal.title === 'Zútulniť domácnosť'
+    );
+  }
+
+  return false;
+}
+
+export function isOldStarterData(goals: Goal[]) {
+  if (goals.length !== 2) {
+    return false;
+  }
+
+  const firstGoal = goals[0];
+  const secondGoal = goals[1];
+
+  return Boolean(firstGoal && secondGoal && isStarterGoal(firstGoal) && isStarterGoal(secondGoal));
+}
+export function createId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function createRandomIndex(length: number) {
+  if (length <= 1) {
+    return 0;
+  }
+
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint32Array(1);
+
+    crypto.getRandomValues(bytes);
+
+    return bytes[0] % length;
+  }
+
+  return Date.now() % length;
+}
+
+export function calculateProgress(task: Task) {
+  const descendants = flattenChildren(task);
+  const trackedItems = descendants.length > 0
+    ? descendants.filter(isCompletableTask)
+    : [task].filter(isCompletableTask);
+  const done = trackedItems.filter((item) => item.done).length;
+  const total = trackedItems.length;
+
+  return {
+    done,
+    total,
+    percent: total === 0 ? 0 : Math.round((done / total) * 100),
+  };
+}
+
+export function normalizeTaskKind(kind: Task['kind'] | undefined): TaskKind {
+  return kind && taskKinds.some((option) => option.id === kind) ? kind : 'todo';
+}
+
+export function isCompletableTask(task: Task) {
+  return normalizeTaskKind(task.kind) === 'todo';
+}
+
+export function clampImportance(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return undefined;
+  }
+
+  return Math.min(maxImportance, Math.max(minImportance, Math.round(value)));
+}
+
+export function normalizeGoalImportance(goal: Goal, people: Person[]) {
+  return people.reduce<Record<string, number>>((ratings, person) => {
+    const savedValue = clampImportance(goal.importanceByPerson?.[person.id]);
+
+    ratings[person.id] = savedValue ?? (person.id === goal.ownerId ? 4 : 2);
+
+    return ratings;
+  }, {});
+}
+
+export function normalizeGoalFeasibility(goal: Goal, people: Person[]) {
+  return people.reduce<Record<string, number>>((ratings, person) => {
+    const savedValue = clampImportance(goal.feasibilityByPerson?.[person.id]);
+
+    ratings[person.id] = savedValue ?? 3;
+
+    return ratings;
+  }, {});
+}
+
+export function normalizeGoals(goals: Goal[], people: Person[]): Goal[] {
+  return goals.map((goal) => {
+    const category = normalizeGoalCategory(goal.category);
+    const normalizedGoal = normalizeTask(goal);
+
+    return {
+      ...normalizedGoal,
+      category,
+      recurrenceDays: recurringCategoryIds.includes(category)
+      ? normalizeRecurrenceDays(goal.recurrenceDays)
+      : undefined,
+      recurrenceHistory: recurringCategoryIds.includes(category)
+      ? (Array.isArray(goal.recurrenceHistory) ? goal.recurrenceHistory.filter(Boolean).slice(0, 20) : [])
+      : undefined,
+      recurrenceStartAt: recurringCategoryIds.includes(category)
+      ? normalizeDateTimeInput(goal.recurrenceStartAt)
+      : undefined,
+      recurrenceToleranceDays: recurringCategoryIds.includes(category)
+      ? normalizeRecurrenceToleranceDays(goal.recurrenceToleranceDays)
+      : undefined,
+      feasibilityByPerson: normalizeGoalFeasibility(goal, people),
+      importanceByPerson: normalizeGoalImportance(goal, people),
+      spaceId: goal.spaceId ?? sharedSpaceId,
+    };
+  });
+}
+
+export function normalizeTask<T extends Task>(task: T): T {
+  const kind = normalizeTaskKind(task.kind);
+
+  return {
+    ...task,
+    done: kind === 'todo' ? task.done : false,
+    kind,
+    children: task.children.map(normalizeTask),
+  };
+}
+
+export function normalizeGoalCategory(category: Goal['category'] | 'care' | undefined): GoalCategory {
+  if (category === 'care') {
+    return 'habit';
+  }
+
+  return category && goalCategories.some((option) => option.id === category)
+    ? category
+    : 'plan';
+}
+
+export function normalizeRecurrenceDays(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return defaultRecurrenceDays;
+  }
+
+  return Math.max(1, Math.min(365, Math.round(value)));
+}
+
+export function normalizeRecurrenceToleranceDays(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return defaultRecurrenceToleranceDays;
+  }
+
+  return Math.max(0, Math.min(60, Math.round(value)));
+}
+
+export function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+
+  nextDate.setDate(nextDate.getDate() + days);
+  nextDate.setHours(0, 0, 0, 0);
+
+  return nextDate;
+}
+
+export function getNextDueDate(goal: Goal) {
+  const category = normalizeGoalCategory(goal.category);
+  const recurrenceDays = normalizeRecurrenceDays(goal.recurrenceDays);
+  const anchorDate = goal.lastCompletedAt ?? goal.recurrenceStartAt;
+
+  if (!recurringCategoryIds.includes(category)) {
+    return null;
+  }
+
+  return anchorDate ? addDays(new Date(anchorDate), recurrenceDays) : addDays(new Date(), 0);
+}
+
+export function getDaysUntil(date: Date) {
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  return Math.ceil((date.getTime() - today.getTime()) / 86400000);
+}
+
+export function formatDueLabel(date: Date) {
+  const daysUntil = getDaysUntil(date);
+
+  if (daysUntil < 0) {
+    return `mešká ${Math.abs(daysUntil)} d`;
+  }
+
+  if (daysUntil === 0) {
+    return 'dnes';
+  }
+
+  if (daysUntil === 1) {
+    return 'zajtra';
+  }
+
+  return `o ${daysUntil} dní`;
+}
+
+export function normalizeDateTimeInput(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed || undefined;
+}
+
+export function formatDeadlineLabel(value: string | undefined) {
+  if (!value) {
+    return 'bez termínu';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'neplatný termín';
+  }
+
+  return date.toLocaleString('sk-SK', {
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export function getWeekDays() {
+  const today = new Date();
+  const dayIndex = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+
+  monday.setDate(today.getDate() - dayIndex);
+  monday.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+}
+
+export function isSameDay(first: Date, second: Date) {
+  return first.toDateString() === second.toDateString();
+}
+
+export function isCompletedThisWeek(goal: Goal, weekDays: Date[]) {
+  if (!goal.lastCompletedAt) {
+    return false;
+  }
+
+  const completedAt = new Date(goal.lastCompletedAt);
+
+  return weekDays.some((day) => isSameDay(day, completedAt));
+}
+
+export function normalizePersonRanking(ranking: string[] | undefined, goals: Goal[]) {
+  const activeGoalIds = new Set(goals.filter((goal) => !goal.deletedAt).map((goal) => goal.id));
+  const savedIds = Array.isArray(ranking)
+    ? ranking.filter((goalId) => activeGoalIds.has(goalId))
+    : [];
+  const missingIds = goals
+    .filter((goal) => !goal.deletedAt && !savedIds.includes(goal.id))
+    .map((goal) => goal.id);
+
+  return [...savedIds, ...missingIds];
+}
+
+export function normalizeGoalRankings(
+  rankings: Record<string, string[]> | undefined,
+  goals: Goal[],
+  people: Person[],
+) {
+  return people.reduce<Record<string, string[]>>((normalized, person) => {
+    normalized[person.id] = normalizePersonRanking(rankings?.[person.id], goals);
+
+    return normalized;
+  }, {});
+}
+
+export function getAverageImportance(goal: Goal, people: Person[]) {
+  const ratings = goal.importanceByPerson ?? {};
+  let total = 0;
+
+  for (const person of people) {
+    total += clampImportance(ratings[person.id] ?? minImportance) ?? minImportance;
+  }
+
+  return total / Math.max(people.length, 1);
+}
+
+export function getAverageFeasibility(goal: Goal, people: Person[]) {
+  const ratings = goal.feasibilityByPerson ?? {};
+  let total = 0;
+
+  for (const person of people) {
+    total += clampImportance(ratings[person.id] ?? 3) ?? 3;
+  }
+
+  return total / Math.max(people.length, 1);
+}
+
+export function getPriorityScore(goal: Goal, people: Person[]) {
+  return getAverageImportance(goal, people) * 0.75 + getAverageFeasibility(goal, people) * 0.25;
+}
+
+export function sortGoalsByAverageRanking(
+  goals: Goal[],
+  people: Person[],
+  rankings: Record<string, string[]>,
+) {
+  const originalIndexById = new Map(goals.map((goal, index) => [goal.id, index]));
+  const rankingByPerson = people.map((person) => normalizePersonRanking(rankings[person.id], goals));
+
+  return [...goals].sort((first, second) => {
+    const firstScore = getPriorityScore(first, people);
+    const secondScore = getPriorityScore(second, people);
+    const firstAverage =
+      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(first.id), 0) /
+      Math.max(rankingByPerson.length, 1);
+    const secondAverage =
+      rankingByPerson.reduce((sum, ranking) => sum + ranking.indexOf(second.id), 0) /
+      Math.max(rankingByPerson.length, 1);
+
+    return (
+      secondScore - firstScore ||
+      firstAverage - secondAverage ||
+      (originalIndexById.get(first.id) ?? 0) - (originalIndexById.get(second.id) ?? 0)
+    );
+  });
+}
+
+export function flattenChildren(task: Task): Task[] {
+  return task.children.flatMap((child) => [child, ...flattenChildren(child)]);
+}
+
+export function collectCompletedItems(goals: Goal[]) {
+  return goals.flatMap<CompletedItem>((goal) => {
+    const completedGoal = goal.done && isCompletableTask(goal)
+      ? [{
+          id: goal.id,
+          ownerId: goal.ownerId,
+          title: goal.title,
+          type: 'goal' as const,
+        }]
+      : [];
+    const completedTasks = flattenChildren(goal)
+      .filter((task) => task.done && isCompletableTask(task))
+      .map((task) => ({
+        id: task.id,
+        ownerId: task.ownerId,
+        title: task.title,
+        type: 'task' as const,
+      }));
+
+    return [...completedGoal, ...completedTasks];
+  });
+}
+
+export function updateTaskTree(
+  goals: Goal[],
+  id: string,
+  update: (task: Task) => Task,
+): Goal[] {
+  return goals.map((goal) => updateSingleTask(goal, id, update) as Goal);
+}
+
+export function updateSingleTask(task: Task, id: string, update: (task: Task) => Task): Task {
+  if (task.id === id) {
+    return update(task);
+  }
+
+  return {
+    ...task,
+    children: task.children.map((child) => updateSingleTask(child, id, update)),
+  };
+}
+
+export function removeTask(goals: Goal[], id: string) {
+  return updateTaskTree(goals, id, (task) => ({ ...task, deletedAt: new Date().toISOString() }));
+}
+
+export function removeFromChildren(tasks: Task[], id: string): Task[] {
+  return tasks
+    .filter((task) => task.id !== id)
+    .map((task) => ({
+      ...task,
+      children: removeFromChildren(task.children, id),
+    }));
+}
+
+export function findTaskById(tasks: Task[], id: string): Task | undefined {
+  for (const task of tasks) {
+    if (task.id === id) {
+      return task;
+    }
+
+    const child = findTaskById(task.children, id);
+
+    if (child) {
+      return child;
+    }
+  }
+}
+
+export function normalizePeople(savedPeople: Person[]) {
+  return defaultPeople.map((defaultPerson) => {
+    const savedPerson = savedPeople.find((person) => person.id === defaultPerson.id);
+    const savedName = savedPerson?.name.trim();
+    const savedAvatar = getAvatarOptionsForPerson(defaultPerson.id).find(
+      (avatar) => avatar.id === savedPerson?.avatarId,
+    );
+    const oldDefaultName =
+      (defaultPerson.id === 'person-1' && savedName === 'Ja') ||
+      (defaultPerson.id === 'person-2' && savedName === 'Ty');
+
+    return {
+      ...defaultPerson,
+      name: savedName && !oldDefaultName ? savedName : defaultPerson.name,
+      avatarId: savedAvatar?.id ?? defaultPerson.avatarId,
+      tone: savedAvatar?.tone ?? savedPerson?.tone ?? defaultPerson.tone,
+    };
+  });
+}
+
+export function readTransferData(parsed: unknown): TransferPayload['data'] | null {
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+
+  const maybeWrapped = parsed as Partial<TransferPayload>;
+  const data =
+    maybeWrapped.data && typeof maybeWrapped.data === 'object'
+      ? maybeWrapped.data
+      : parsed;
+  const maybeData = data as Partial<TransferPayload['data']>;
+
+  if (
+    !Array.isArray(maybeData.goals) ||
+    !Array.isArray(maybeData.people) ||
+    !Array.isArray(maybeData.activityLog) ||
+    typeof maybeData.activePersonId !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    activePersonId: maybeData.activePersonId,
+    activityLog: maybeData.activityLog,
+    goalRankings:
+      maybeData.goalRankings && typeof maybeData.goalRankings === 'object'
+        ? maybeData.goalRankings as Record<string, string[]>
+        : {},
+    goals: maybeData.goals,
+    people: maybeData.people,
+  };
+}
+
+export function readAppStateData(parsed: unknown): AppStateData | null {
+  const data = readTransferData(parsed);
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    activePersonId: data.activePersonId,
+    activityLog: data.activityLog,
+    goalRankings: data.goalRankings,
+    goals: data.goals,
+    people: data.people,
+  };
+}
+
