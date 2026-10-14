@@ -382,6 +382,7 @@ export default function Home() {
     () =>
       rankedActiveGoals.map((goal) => ({
         id: goal.id,
+        isChore: normalizeGoalCategory(goal.category) === 'chore',
         title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores` : goal.title,
         ...calculateProgress(goal),
       })),
@@ -1241,7 +1242,8 @@ export default function Home() {
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Percentá chores zohľadňujú náročnosť. Občasné chores sa počítajú samostatne v ich skupine.</p> : null}
-          <ProjectProgressStrip goals={goalSnapshots} />
+          <ProjectProgressStrip goals={goalSnapshots.filter((goal) => !goal.isChore)} />
+          {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
             Nový plán v tabuľke {boardSpaceLabel}
             <input
@@ -1787,15 +1789,17 @@ function PriorityPoll({
 
 function ProjectProgressStrip({
   goals,
+  heading = 'Plány na očiach',
 }: {
   goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
+  heading?: string;
 }) {
   const visibleGoals = goals.slice(0, 8);
 
   return (
-    <div className="project-strip" aria-label="Progres jednotlivých plánov">
+    <div className="project-strip" aria-label={heading === 'Chores' ? 'Progres chores' : 'Progres jednotlivých plánov'}>
       <div className="project-strip-heading">
-        <span className="label">Plány na očiach</span>
+        <span className="label">{heading}</span>
         <strong>{goals.length}</strong>
       </div>
       {visibleGoals.length > 0 ? (
