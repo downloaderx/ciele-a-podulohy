@@ -2486,3 +2486,5 @@ select:focus {
 }
 
 .task-split-preview textarea { width: 100%; min-width: 0; resize: vertical; border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: white; color: var(--foreground); font: inherit; }
+
+.icon-button.has-hidden-subtasks { background: #126fbe; border-color: #0b5796; color: white; box-shadow: 0 0 0 2px rgb(18 111 190 / 15%); }

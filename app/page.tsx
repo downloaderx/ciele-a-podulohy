@@ -2218,8 +2218,10 @@ function TaskRow(props: TaskRowProps) {
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
         <button
-          aria-label={props.task.expanded ? 'Zbaliť podúlohu' : 'Rozbaliť podúlohu'}
-          className="icon-button compact"
+          aria-label={hasChildren ? (props.task.expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
+          aria-expanded={hasChildren ? props.task.expanded : undefined}
+          title={hasChildren ? `${props.task.expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
+          className={`icon-button compact${hasChildren && !props.task.expanded ? ' has-hidden-subtasks' : ''}`}
           disabled={!hasChildren}
           onClick={() => props.toggleExpanded(props.task.id)}
           type="button"
