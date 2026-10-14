@@ -2257,7 +2257,7 @@ function TaskRow(props: TaskRowProps) {
           onClick={() => props.toggleExpanded(props.task.id)}
           type="button"
         >
-          {hasChildren ? (props.task.expanded ? '−' : '+') : '•'}
+          <span aria-hidden="true">{hasChildren ? (props.task.expanded ? '▾' : '▸') : '•'}</span>
         </button>
         {isCompletable ? (
           <label className="checkbox-only" aria-label="Označiť ako hotové">
