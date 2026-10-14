@@ -380,12 +380,12 @@ export default function Home() {
 
   const goalSnapshots = useMemo(
     () =>
-      boardGoals.map((goal) => ({
+      rankedActiveGoals.map((goal) => ({
         id: goal.id,
         title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores` : goal.title,
         ...calculateProgress(goal),
       })),
-    [boardGoals],
+    [rankedActiveGoals],
   );
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1790,7 +1790,7 @@ function ProjectProgressStrip({
 }: {
   goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
 }) {
-  const visibleGoals = goals.slice(0, 4);
+  const visibleGoals = goals.slice(0, 8);
 
   return (
     <div className="project-strip" aria-label="Progres jednotlivých plánov">
