@@ -53,6 +53,7 @@ import {
   type Person,
   type Task,
   type TaskKind,
+  type ChoreCadence,
   type TransferPayload,
 } from './page-model';
 
@@ -439,7 +440,7 @@ export default function Home() {
     setNewGoalCategory('plan');
   }
 
-  function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo') {
+  function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo', choreCadence?: ChoreCadence) {
     const trimmed = title.trim();
     const normalizedDueAt = normalizeDateTimeInput(dueAt);
 
@@ -462,6 +463,7 @@ export default function Home() {
             done: false,
             expanded: true,
             kind,
+            choreCadence: choreCadence ?? task.choreCadence,
             children: [],
           },
         ],
@@ -505,6 +507,13 @@ export default function Home() {
     if (task) {
       addActivity('zmenil(a) typ položky', task.title);
     }
+  }
+
+  function changeChoreCadence(taskId: string, choreCadence: ChoreCadence) {
+    const task = findTaskById(goals, taskId);
+    if (!task || (task.choreCadence ?? 'routine') === choreCadence) return;
+    setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, choreCadence, updatedById: activePersonId })));
+    addActivity('zmenil(a) skupinu chores', task.title);
   }
 
   function toggleExpanded(taskId: string) {
@@ -1303,6 +1312,7 @@ export default function Home() {
                     onChangeCategory={changeGoalCategory}
                     onChangeRecurrence={changeGoalRecurrence}
                     onChangeTaskKind={changeTaskKind}
+                    onChangeChoreCadence={changeChoreCadence}
                     onChangeDeadline={changeDeadline}
                     onCompleteRecurring={completeRecurringGoalToday}
                     onDelete={deleteTask}
@@ -1336,7 +1346,7 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
@@ -1800,10 +1810,11 @@ type GoalPanelProps = {
   activePersonId: string;
   boardSpaceId: BoardSpaceId;
   goal: Goal;
-  onAddSubtask: (parentId: string, title: string, dueAt?: string, kind?: TaskKind) => void;
+  onAddSubtask: (parentId: string, title: string, dueAt?: string, kind?: TaskKind, choreCadence?: ChoreCadence) => void;
   onChangeCategory: (goalId: string, category: GoalCategory) => void;
   onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
   onChangeTaskKind: (taskId: string, kind: TaskKind) => void;
+  onChangeChoreCadence: (taskId: string, cadence: ChoreCadence) => void;
   onChangeDeadline: (taskId: string, value: string) => void;
   onCompleteRecurring: (goalId: string) => void;
   onDelete: (taskId: string) => void;
@@ -2001,15 +2012,7 @@ function GoalPanel(props: GoalPanelProps) {
 
       {props.goal.expanded ? (
         <div className="children-list">
-          {props.goal.children.map((child) => (
-            <TaskRow
-              {...props}
-              key={child.id}
-              parentId={props.goal.id}
-              task={child}
-              depth={1}
-            />
-          ))}
+          <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
           <AddTaskForm
             label="Pridať podúlohu k cieľu"
             onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)}
@@ -2185,6 +2188,19 @@ type TaskRowProps = GoalPanelProps & {
   task: Task;
 };
 
+function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; depth: number }) {
+  const renderTasks = (tasks: Task[]) => tasks.map((task) => <TaskRow {...props} key={task.id} task={task} />);
+  if (normalizeGoalCategory(props.goal.category) !== 'chore' || (props.depth > 1 && new Set(props.tasks.map((task) => task.choreCadence ?? 'routine')).size < 2)) return <>{renderTasks(props.tasks)}</>;
+  return <>{(['routine', 'occasional'] as const).map((cadence) => {
+    const tasks = props.tasks.filter((task) => (task.choreCadence ?? 'routine') === cadence);
+    if (!tasks.length && props.depth > 1) return null;
+    return <section className="chore-task-group" key={cadence} aria-label={cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}>
+      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Často, podľa potreby' : 'Raz za dlhší čas'}</span></div>
+      {tasks.length ? renderTasks(tasks) : <p className="chore-group-empty">{cadence === 'routine' ? 'Podúlohu sem zaradíš výberom „Bežné“ v jej riadku.' : 'Podúlohu sem zaradíš výberom „Občasné“ v jej riadku.'}</p>}
+    </section>;
+  })}</>;
+}
+
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
   const [splitDraft, setSplitDraft] = useState<string | null>(null);
@@ -2205,7 +2221,7 @@ function TaskRow(props: TaskRowProps) {
 
     props.onRename(props.task.id, firstChunk);
     siblingChunks.forEach((chunk) =>
-      props.onAddSubtask(props.parentId, chunk, props.task.dueAt, props.task.kind ?? 'todo'),
+      props.onAddSubtask(props.parentId, chunk, props.task.dueAt, props.task.kind ?? 'todo', props.task.choreCadence),
     );
     setSplitDraft(null);
   }
@@ -2281,6 +2297,19 @@ function TaskRow(props: TaskRowProps) {
             ))}
           </select>
         </label>
+        {normalizeGoalCategory(props.goal.category) === 'chore' ? (
+          <label className="task-kind-select">
+            <span>Chores</span>
+            <select aria-label="Skupina chores" value={props.task.choreCadence ?? 'routine'} onChange={(event) => props.onChangeChoreCadence(props.task.id, event.target.value as ChoreCadence)}>
+              <option value="routine">Bežné</option><option value="occasional">Občasné</option>
+            </select>
+          </label>
+        ) : null}
+        {normalizeGoalCategory(props.goal.category) === 'chore' && props.task.choreCadence === 'occasional' ? (
+          <label className="deadline-field">Najbližší termín
+            <input aria-label="Najbližší termín občasnej podúlohy" type="datetime-local" value={deadlineInput(props.task.dueAt)} onChange={(event) => props.onChangeDeadline(props.task.id, event.target.value)} />
+          </label>
+        ) : null}
         <ItemMeta
           createdById={props.task.ownerId}
           people={props.people}
@@ -2331,15 +2360,7 @@ function TaskRow(props: TaskRowProps) {
 
       {props.task.expanded && hasChildren ? (
         <div className="nested">
-          {props.task.children.map((child) => (
-            <TaskRow
-              {...props}
-              depth={props.depth + 1}
-              key={child.id}
-              parentId={props.task.id}
-              task={child}
-            />
-          ))}
+          <TaskList {...props} tasks={props.task.children} parentId={props.task.id} depth={props.depth + 1} />
         </div>
       ) : null}
     </div>
