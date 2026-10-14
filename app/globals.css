@@ -2499,3 +2499,6 @@ select:focus {
 .chore-weight-select select { width: 120px; }
 .chore-group-heading strong { margin-left: auto; font-size: 12px; color: #126fbe; }
 .chore-progress-note { color: var(--muted); font-size: 11px; }
+
+.priority-list > li:nth-child(odd) { background: #eef7ff; }
+.priority-list > li:nth-child(even) { background: #e0f4ed; }
