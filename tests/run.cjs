@@ -213,3 +213,18 @@ test('chore grouping survives sync and rejects unknown groups', () => {
   assert.equal(merged.state.goals[0].children[0].children[0].id, 'nested');
   assert.equal(merged.state.goals[0].children[1].dueAt, base.goals[0].children[1].dueAt);
 });
+
+test('chore effort weights progress independently of occasional chores', () => {
+  const { calculateChoreProgress } = require('../app/page-model.ts');
+  const tasks = [task('small', {done:true}), task('medium', {choreWeight:3}), task('large', {choreWeight:5}), task('occasional', {choreCadence:'occasional',choreWeight:5}), task('rule',{kind:'rule',choreWeight:5}), task('deleted',{deletedAt:'2026-10-14T10:00:00.000Z',choreWeight:5})];
+  assert.equal(calculateChoreProgress(tasks,'routine').percent,11);
+  assert.equal(calculateChoreProgress(tasks,'routine').totalWeight,9);
+  assert.equal(calculateChoreProgress(tasks,'occasional').percent,0);
+  tasks[1].done=true; assert.equal(calculateChoreProgress(tasks,'routine').percent,44);
+  tasks[3].done=true; assert.equal(calculateChoreProgress(tasks,'occasional').percent,100);
+  assert.equal(calculateChoreProgress(tasks,'routine').percent,44);
+  tasks[2].done=true; assert.equal(calculateChoreProgress(tasks,'routine').percent,100);
+  assert.equal(calculateChoreProgress([],'routine').percent,0);
+  const s=state(); s.goals[0].category='chore'; s.goals[0].children=[task('weighted',{choreWeight:3,children:[task('nested',{choreCadence:'occasional',choreWeight:5})]})];
+  assert.equal(isValidState(s),true); s.goals[0].children[0].choreWeight=2; assert.equal(isValidState(s),false);
+});

@@ -23,6 +23,7 @@ export function isValidState(value: unknown): value is AppStateData {
         typeof task.done !== 'boolean' || typeof task.expanded !== 'boolean' ||
         (task.kind !== undefined && !['todo', 'rule', 'topic'].includes(String(task.kind))) ||
         (task.choreCadence !== undefined && !['routine', 'occasional'].includes(String(task.choreCadence))) ||
+        (task.choreWeight !== undefined && ![1, 3, 5].includes(task.choreWeight as number)) ||
         !date(task.dueAt) || !date(task.deletedAt) || !Array.isArray(task.children)) return false;
     ids.add(task.id);
     return task.children.every((child) => validTask(child, depth + 1));
