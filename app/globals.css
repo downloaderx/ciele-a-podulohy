@@ -2484,3 +2484,5 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.task-split-preview textarea { width: 100%; min-width: 0; resize: vertical; border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: white; color: var(--foreground); font: inherit; }

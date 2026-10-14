@@ -2187,7 +2187,8 @@ type TaskRowProps = GoalPanelProps & {
 
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
-  const [titleChunks, setTitleChunks] = useState<string[]>([]);
+  const [splitDraft, setSplitDraft] = useState<string | null>(null);
+  const titleChunks = (splitDraft ?? '').split('\n').map((chunk) => chunk.trim()).filter(Boolean);
   const hasChildren = props.task.children.length > 0;
   const isCompletable = isCompletableTask(props.task);
   const suggestedTitleChunks = useMemo(
@@ -2198,7 +2199,7 @@ function TaskRow(props: TaskRowProps) {
   function splitTaskIntoSiblings() {
     const [firstChunk, ...siblingChunks] = titleChunks;
 
-    if (!firstChunk) {
+    if (!firstChunk || titleChunks.length < 2) {
       return;
     }
 
@@ -2206,7 +2207,7 @@ function TaskRow(props: TaskRowProps) {
     siblingChunks.forEach((chunk) =>
       props.onAddSubtask(props.parentId, chunk, props.task.dueAt, props.task.kind ?? 'todo'),
     );
-    setTitleChunks([]);
+    setSplitDraft(null);
   }
 
   return (
@@ -2255,15 +2256,15 @@ function TaskRow(props: TaskRowProps) {
           <button className="text-button" onClick={() => setAdding(!adding)} type="button">
             + podúloha
           </button>
-          {suggestedTitleChunks.length > 1 ? (
-            <button
-              className="text-button"
-              onClick={() => setTitleChunks(suggestedTitleChunks)}
-              type="button"
-            >
-              Rozkúskovať
-            </button>
-          ) : null}
+          <button
+            aria-label="Rozkúskovať podúlohu"
+            title="Rozkúskovať podúlohu"
+            className="icon-button compact"
+            onClick={() => setSplitDraft((suggestedTitleChunks.length ? suggestedTitleChunks : [props.task.title]).join('\n'))}
+            type="button"
+          >
+            <span aria-hidden="true">✂</span>
+          </button>
         <label className="task-kind-select">
           <span>Typ</span>
           <select
@@ -2294,19 +2295,22 @@ function TaskRow(props: TaskRowProps) {
         </button>
       </div>
 
-      {titleChunks.length > 0 ? (
+      {splitDraft !== null ? (
         <div className="description-split-preview task-split-preview">
-          <span>Navrhnuté podúlohy v tej istej skupine</span>
-          <ol>
-            {titleChunks.map((chunk, index) => (
-              <li key={`${index}-${chunk}`}>{chunk}</li>
-            ))}
-          </ol>
+          <label>
+            Rozdelenie podúlohy (každý riadok bude samostatná podúloha)
+            <textarea
+              aria-label="Rozdelenie podúlohy"
+              value={splitDraft}
+              onChange={(event) => setSplitDraft(event.target.value)}
+              rows={Math.max(3, Math.min(8, titleChunks.length))}
+            />
+          </label>
           <div className="description-split-actions">
-            <button onClick={splitTaskIntoSiblings} type="button">
+            <button disabled={titleChunks.length < 2} onClick={splitTaskIntoSiblings} type="button">
               Rozdeliť podúlohu
             </button>
-            <button onClick={() => setTitleChunks([])} type="button">
+            <button onClick={() => setSplitDraft(null)} type="button">
               Zrušiť
             </button>
           </div>
