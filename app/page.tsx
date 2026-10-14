@@ -300,13 +300,14 @@ export default function Home() {
   const applyState = useCallback((data: AppStateData) => {
     setGoals(data.goals); setPeople(data.people); setActivePersonId(data.activePersonId);
     setActivityLog(data.activityLog); setGoalRankings(data.goalRankings);
-    setBoardSpaceId((current) => current === sharedSpaceId || current === data.activePersonId ? current : sharedSpaceId);
+    setBoardSpaceId((current) => current === sharedSpaceId || data.people.some((person) => person.id === current) ? current : sharedSpaceId);
   }, []);
   const sync = useBoardSync(state, applyState);
   const { loaded, authenticated } = sync;
   const reminders = useReminders(goals, activePersonId, authenticated);
 
-  const boardSpaces = useMemo(() => getBoardSpaces(people).filter((space) => space.id === sharedSpaceId || space.id === activePersonId), [people, activePersonId]);
+  const boardSpaces = useMemo(() => getBoardSpaces(people), [people]);
+  const canEditBoard = boardSpaceId === sharedSpaceId || boardSpaceId === activePersonId;
   const boardSpaceLabel =
     boardSpaces.find((space) => space.id === boardSpaceId)?.label ?? 'Spoločné';
   const activeGoals = useMemo(
@@ -341,8 +342,8 @@ export default function Home() {
     [boardGoals, goalRankings, people],
   );
   const trashedGoals = useMemo(() => goals
-    .filter((goal) => getGoalSpaceId(goal) === boardSpaceId)
-    .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)), [boardSpaceId, goals]);
+    .filter((goal) => canEditBoard && getGoalSpaceId(goal) === boardSpaceId)
+    .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)), [boardSpaceId, goals, canEditBoard]);
 
   const totals = useMemo(() => {
     const trackedTasks = boardGoals.flatMap((goal) => {
@@ -1237,7 +1238,8 @@ export default function Home() {
             Hotovo {totals.done} z {totals.total} drobných krokov v tejto tabuľke.
           </p>
         </div>
-        <form className="new-goal" onSubmit={addGoal}>
+        {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
+        <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Percentá chores zohľadňujú náročnosť. Občasné chores sa počítajú samostatne v ich skupine.</p> : null}
           <ProjectProgressStrip goals={goalSnapshots} />
           <label>
@@ -1270,7 +1272,7 @@ export default function Home() {
             </select>
           </label>
           <button type="submit">Pridať plán</button>
-        </form>
+        </form></fieldset>
       </section>
 
       {recentActivity.length > 0 ? (
@@ -1287,7 +1289,7 @@ export default function Home() {
         selectedActivity={randomActivity}
       />
 
-      <RecurringCalendarPanel
+      <fieldset disabled={!canEditBoard} className="board-edit-controls"><RecurringCalendarPanel
         boardSpaceId={boardSpaceId}
         goals={recurringGoals}
         onChangeRecurrence={changeGoalRecurrence}
@@ -1296,6 +1298,7 @@ export default function Home() {
         onCompleteToday={completeRecurringGoalToday}
       />
 
+      </fieldset>
       <PriorityPoll
         onRefreshOrder={() => setPriorityRefreshKey((key) => key + 1)}
         boardSpaceId={boardSpaceId}
@@ -1859,6 +1862,8 @@ function GoalPanel(props: GoalPanelProps) {
     setDescriptionChunks([]);
   }
 
+  if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} />;
+
   return (
     <article className="goal-panel">
       <div className="goal-header">
@@ -2194,6 +2199,24 @@ function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' 
       width={size === 'medium' ? 42 : 23}
     />
   );
+}
+
+function ReadOnlyTasks({ tasks }: { tasks: Task[] }) {
+  return <div className="nested">{tasks.map((task) => <div className="task-branch" key={task.id}>
+    <details open={task.expanded}>
+      <summary className="task-row readonly-task-row"><span aria-hidden="true">{task.done ? '✓' : '•'}</span><span>{task.title}</span></summary>
+      {task.children.length ? <ReadOnlyTasks tasks={task.children} /> : null}
+    </details>
+  </div>)}</div>;
+}
+function ReadOnlyGoal({ goal, people }: { goal: Goal; people: Person[] }) {
+  const progress = calculateProgress(goal);
+  return <article className="goal-panel readonly-goal"><details open={goal.expanded}>
+    <summary><h3>{goal.title}</h3><span>{progress.percent}%</span></summary>
+    <p>{goal.description}</p>
+    <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p>
+    <ReadOnlyTasks tasks={goal.children} />
+  </details></article>;
 }
 
 type TaskRowProps = GoalPanelProps & {

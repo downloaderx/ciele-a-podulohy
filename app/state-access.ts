@@ -1,6 +1,7 @@
+import { normalizeGoals } from './page-model';
 import { ApiError } from './server-storage';
 import type { AppStateData, Goal, Task } from './page-model';
-import { visibleState, stableJson } from './state-sync';
+import { stableJson } from './state-sync';
 
 function retainRemoved(previous: Task[], next: Task[]): Task[] {
   const ids = new Set(next.map((task) => task.id));
@@ -12,7 +13,7 @@ function retainRemoved(previous: Task[], next: Task[]): Task[] {
 
 export function authorizedState(previous: AppStateData, incoming: AppStateData, personId: string): AppStateData {
   const allowedSpace = (id: string | undefined) => !id || id === 'shared' || id === personId;
-  const previousVisible = visibleState(previous, personId);
+  const previousVisible = { ...previous, goals: previous.goals.filter((goal) => allowedSpace(goal.spaceId)) };
   const hiddenGoals = previous.goals.filter((goal) => !allowedSpace(goal.spaceId));
   const hiddenIds = new Set<string>();
   const collect = (task: Task) => { hiddenIds.add(task.id); task.children.forEach(collect); };
@@ -22,7 +23,11 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
     task.children.forEach(check);
   };
   for (const goal of incoming.goals) {
-    if (!allowedSpace(goal.spaceId)) throw new ApiError(403, 'Nemáte prístup k tejto osobnej tabuli.');
+    if (!allowedSpace(goal.spaceId)) {
+      const old = previous.goals.find((item) => item.id === goal.id);
+      if (!old || stableJson(normalizeGoals([old], previous.people)) !== stableJson(normalizeGoals([goal], previous.people))) throw new ApiError(403, 'Osobné ciele druhej osoby sú iba na prezeranie.');
+      continue;
+    }
     const old = previous.goals.find((item) => item.id === goal.id);
     if (old && (old.spaceId ?? 'shared') !== (goal.spaceId ?? 'shared')) throw new ApiError(403, 'Zmena priestoru existujúceho cieľa nie je povolená.');
     check(goal);
@@ -37,7 +42,7 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
       updatedById: stableJson(task) === stableJson(old) ? old?.updatedById : personId,
       children: task.children.map(stamp) };
   };
-  const goals = (retainRemoved(previousVisible.goals, incoming.goals) as Goal[]).map((goal) => {
+  const goals = (retainRemoved(previousVisible.goals, incoming.goals.filter((goal) => allowedSpace(goal.spaceId))) as Goal[]).map((goal) => {
     const old = previous.goals.find((item) => item.id === goal.id);
     return { ...goal, ...stamp(goal),
       importanceByPerson: { ...goal.importanceByPerson, [otherId]: old?.importanceByPerson[otherId] ?? 2 },

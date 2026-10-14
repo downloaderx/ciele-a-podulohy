@@ -50,7 +50,7 @@ export function isValidState(value: unknown): value is AppStateData {
 }
 
 export function visibleState(state: AppStateData, personId: string): AppStateData {
-  const visible = (space: string | undefined) => !space || space === 'shared' || space === personId;
+  const visible = (space: string | undefined) => !space || space === 'shared' || state.people.some((person) => person.id === space);
   const goals = state.goals.filter((goal) => visible(goal.spaceId));
   const ids = new Set(goals.map((goal) => goal.id));
   return { ...state, activePersonId: personId, goals,
