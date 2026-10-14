@@ -2253,7 +2253,7 @@ function TaskRow(props: TaskRowProps) {
           ) : null}
         </span>
         <div className="task-actions">
-          <button aria-label="Podúloha" title="Podúloha" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
+          <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
           </button>
           <button
