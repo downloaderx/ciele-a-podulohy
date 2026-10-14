@@ -2253,8 +2253,8 @@ function TaskRow(props: TaskRowProps) {
           ) : null}
         </span>
         <div className="task-actions">
-          <button className="text-button" onClick={() => setAdding(!adding)} type="button">
-            + podúloha
+          <button aria-label="Podúloha" title="Podúloha" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
+            <span aria-hidden="true">+</span>
           </button>
           <button
             aria-label="Rozkúskovať podúlohu"
