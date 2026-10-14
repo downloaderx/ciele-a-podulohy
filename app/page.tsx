@@ -1794,7 +1794,7 @@ function ProjectProgressStrip({
   goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
   heading?: string;
 }) {
-  const visibleGoals = goals.slice(0, 8);
+  const visibleGoals = goals.slice(0, 4);
 
   return (
     <div className="project-strip" aria-label={heading === 'Chores' ? 'Progres chores' : 'Progres jednotlivých plánov'}>
