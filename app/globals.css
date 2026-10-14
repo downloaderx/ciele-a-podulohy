@@ -2502,3 +2502,6 @@ select:focus {
 
 .priority-list > li:nth-child(odd) { background: #eef7ff; }
 .priority-list > li:nth-child(even) { background: #e0f4ed; }
+
+.task-branch:nth-child(odd of .task-branch) > .task-row { background: #eef7ff; }
+.task-branch:nth-child(even of .task-branch) > .task-row { background: #e0f4ed; }
