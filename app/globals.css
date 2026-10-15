@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './themes.css';
 
 .sync-status, .sync-conflicts {
   max-width: 1180px;
