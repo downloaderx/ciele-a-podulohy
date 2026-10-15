@@ -2524,3 +2524,11 @@ select:focus {
 
 .project-strip-title { display: grid; gap: 4px; min-width: 0; }
 .project-strip-subtitle { color: var(--foreground); font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+
+.activity-wheel-stage { display: grid; justify-items: center; gap: 8px; margin: 12px 0; }
+.wheel-frames-window { width: min(220px, 65vw); aspect-ratio: 328 / 280; overflow: hidden; border-radius: 12px; }
+.wheel-frames { display: block; width: 2400%; max-width: none; height: 100%; }
+.wheel-frames.spinning { animation: wheel-frames-spin 1s steps(23, end) 3; }
+@keyframes wheel-frames-spin { from { transform: translateX(0); } to { transform: translateX(-95.8333333333%); } }
+.wheel-spin-status { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .wheel-frames.spinning { animation-duration: .01s; animation-iteration-count: 1; } }
