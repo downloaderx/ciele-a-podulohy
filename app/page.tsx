@@ -382,11 +382,12 @@ export default function Home() {
     () =>
       rankedActiveGoals.map((goal) => ({
         id: goal.id,
+        categoryLabel: getCategoryLabel(normalizeGoalCategory(goal.category), boardSpaceId),
         isChore: normalizeGoalCategory(goal.category) === 'chore',
         title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores` : goal.title,
         ...calculateProgress(goal),
       })),
-    [rankedActiveGoals],
+    [rankedActiveGoals, boardSpaceId],
   );
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1242,7 +1243,7 @@ export default function Home() {
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Percentá chores zohľadňujú náročnosť. Občasné chores sa počítajú samostatne v ich skupine.</p> : null}
-          <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
+          <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
           {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
             Nový plán v tabuľke {boardSpaceLabel}
@@ -1790,9 +1791,11 @@ function PriorityPoll({
 function ProjectProgressStrip({
   goals,
   heading = 'Plány na očiach',
+  subtitle,
 }: {
   goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
   heading?: string;
+  subtitle?: string;
 }) {
   const [start, setStart] = useState(0);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
@@ -1824,7 +1827,7 @@ function ProjectProgressStrip({
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
       <div className="project-strip-heading">
-        <span className="label">{heading}</span>
+        <div className="project-strip-title"><span className="label">{heading}</span>{subtitle ? <span className="project-strip-subtitle">{subtitle}</span> : null}</div>
         <div className="project-strip-controls">
           <button type="button" title="Predchádzajúce položky" aria-label={heading + ': predchádzajúce položky'} disabled={!canSlide} onClick={() => move(-1)}>‹</button>
           <button type="button" title="Náhodný výber" aria-label={heading + ': náhodný výber'} disabled={goals.length < 2} onClick={shuffle}>🔀</button>

@@ -2521,3 +2521,6 @@ select:focus {
 .project-order-reset { justify-self: start; border: 0; background: transparent; color: #126fbe; font-size: 11px; text-decoration: underline; cursor: pointer; }
 
 .activity-list > li, .completed-list > li { background: #f5f3f8; border-color: #dedbe5; }
+
+.project-strip-title { display: grid; gap: 4px; min-width: 0; }
+.project-strip-subtitle { color: var(--foreground); font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
