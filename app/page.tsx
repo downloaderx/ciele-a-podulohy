@@ -720,7 +720,7 @@ export default function Home() {
     const nextActivity = activityGoals[createRandomIndex(activityGoals.length)];
 
     setRandomActivityId(nextActivity.id);
-    addActivity('vyžreboval(a) aktivitu', nextActivity.title);
+    if (canEditBoard) addActivity('vyžreboval(a) aktivitu', nextActivity.title);
   }
 
   function deleteTask(taskId: string) {
@@ -1284,7 +1284,7 @@ export default function Home() {
 
       <CompletedWorkPanel completedItems={completedItems} people={people} />
 
-      <ActivityWheelPanel
+      <ActivityWheelPanel key={boardSpaceId + activePersonId}
         activitiesOpen={activitiesOpen}
         activities={activityGoals}
         onToggleActivities={() => setActivitiesOpen((open) => !open)}
@@ -1519,60 +1519,34 @@ function CompletedWorkPanel({
   );
 }
 
-function ActivityWheelPanel({
-  activitiesOpen,
-  activities,
-  onToggleActivities,
-  onPickRandom,
-  selectedActivity,
-}: {
-  activitiesOpen: boolean;
-  activities: Goal[];
-  onToggleActivities: () => void;
-  onPickRandom: () => void;
-  selectedActivity: Goal | null;
+function ActivityWheelPanel({ activitiesOpen, activities, onToggleActivities, onPickRandom, selectedActivity }: {
+  activitiesOpen: boolean; activities: Goal[]; onToggleActivities: () => void; onPickRandom: () => void; selectedActivity: Goal | null;
 }) {
-  return (
-    <section className="special-panel activity-wheel" aria-label="Náhodný výber aktivity">
-      <div className="special-heading">
-        <div className="wheel-title">
-          <span className="wheel-icon" aria-hidden="true">
-            <span />
-          </span>
-          <div>
-            <span className="label">Activities</span>
-            <h2>Koleso čo ísť robiť</h2>
-          </div>
-        </div>
-        <button disabled={activities.length === 0} onClick={onPickRandom} type="button">
-          Zatočiť
-        </button>
+  const [spinning, setSpinning] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  function spin() {
+    if (spinning || !ready || activities.length === 0) return;
+    if (imageFailed) { onPickRandom(); return; }
+    setSpinning(true);
+  }
+  return <section className="special-panel activity-wheel" aria-label="Náhodný výber aktivity">
+    <div className="special-heading">
+      <div><span className="label">Activities</span><h2>Koleso čo ísť robiť</h2></div>
+      <button disabled={activities.length === 0 || spinning || !ready} onClick={spin} type="button">{spinning ? 'Točí sa…' : 'Zatočiť'}</button>
+    </div>
+    <div className="activity-wheel-stage" aria-busy={spinning}>
+      <div className="wheel-frames-window" aria-hidden="true">
+        <Image className={spinning ? 'wheel-frames spinning' : 'wheel-frames'} src="/activity-wheel/frames.webp" alt="" width={7872} height={280} unoptimized loading="eager"
+          onLoad={() => setReady(true)} onError={() => { setImageFailed(true); setReady(true); }}
+          onAnimationEnd={(event) => { if (event.animationName === 'wheel-frames-spin') { setSpinning(false); onPickRandom(); } }} />
       </div>
-      {activities.length > 0 ? (
-        <button className="activity-list-toggle" onClick={onToggleActivities} type="button">
-          {activitiesOpen ? 'Skryť aktivity' : 'Ukázať aktivity'}
-        </button>
-      ) : null}
-      {activitiesOpen ? (
-        <div className="activity-options">
-          {activities.map((activity) => (
-            <span key={activity.id}>{activity.title}</span>
-          ))}
-        </div>
-      ) : null}
-      {selectedActivity ? (
-        <div className="activity-result">
-          <span>Vybrané</span>
-          <strong>{selectedActivity.title}</strong>
-          <p>{selectedActivity.description}</p>
-        </div>
-      ) : (
-        <p>
-          Pridaj položky v kategórii Activities a tu sa z nich bude dať náhodne vybrať, čo ísť robiť.
-        </p>
-      )}
-    </section>
-  );
+      <p className="wheel-spin-status" role="status">{spinning ? 'Koleso sa točí…' : !ready ? 'Načítavam koleso…' : imageFailed ? 'Animáciu sa nepodarilo načítať. Výber aktivity je dostupný.' : activities.length ? 'Zatoč a nechaj vybrať koleso.' : 'Najprv pridaj aktivity do kategórie Activities.'}</p>
+    </div>
+    {activities.length > 0 ? <button className="activity-list-toggle" onClick={onToggleActivities} type="button">{activitiesOpen ? 'Skryť aktivity' : 'Ukázať aktivity'}</button> : null}
+    {activitiesOpen ? <div className="activity-options">{activities.map((activity) => <span key={activity.id}>{activity.title}</span>)}</div> : null}
+    {!spinning && selectedActivity ? <div className="activity-result" role="status"><span>Vybrané</span><strong>{selectedActivity.title}</strong><p>{selectedActivity.description}</p></div> : null}
+  </section>;
 }
 
 function RecurringCalendarPanel({
