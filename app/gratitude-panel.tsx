@@ -37,8 +37,9 @@ export function GratitudePanel({ entries, people, activePersonId, onSave }: Prop
       })}
     </ul>
     <GratitudeEditor key={`${activePersonId}-${day}-${own?.text ?? ''}`} entry={own} day={day} onSave={onSave} />
-    {historyDays.length ? <details className="gratitude-history">
+    <details className="gratitude-history">
       <summary>Predchádzajúce dni ({historyDays.length})</summary>
+      {historyDays.length === 0 ? <p>Tu nájdete zápisy z predchádzajúcich dní. Zatiaľ tu žiadne nie sú — dnešné sa sem presunú zajtra.</p> : null}
       <div className="gratitude-history-days">
         {historyDays.map((historyDay) => <section key={historyDay}>
           <h3><time dateTime={historyDay}>{gratitudeDateLabel(historyDay)}</time></h3>
@@ -46,7 +47,7 @@ export function GratitudePanel({ entries, people, activePersonId, onSave }: Prop
             <li key={entry.id}><strong>{people.find((person) => person.id === entry.personId)?.name}</strong><p>{entry.text}</p></li>)}</ul>
         </section>)}
       </div>
-    </details> : null}
+    </details>
   </section>;
 }
 
