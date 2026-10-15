@@ -5,7 +5,7 @@ import { useBoardSync } from './use-board-sync';
 import { useReminders } from './use-reminders';
 import { allTasks, liveGoal, isValidState, visibleState } from './state-sync';
 import { EditableInput } from './editable-input';
-import { FormEvent, KeyboardEvent, useCallback, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   avatarOptions,
   calculateProgress,
@@ -1242,8 +1242,8 @@ export default function Home() {
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Percentá chores zohľadňujú náročnosť. Občasné chores sa počítajú samostatne v ich skupine.</p> : null}
-          <ProjectProgressStrip goals={goalSnapshots.filter((goal) => !goal.isChore)} />
-          {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
+          <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
+          {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
             Nový plán v tabuľke {boardSpaceLabel}
             <input
@@ -1794,33 +1794,57 @@ function ProjectProgressStrip({
   goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
   heading?: string;
 }) {
-  const visibleGoals = goals.slice(0, 4);
-
+  const [start, setStart] = useState(0);
+  const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
+  const [auto, setAuto] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const ordered = shuffledIds ? shuffledIds.map((id) => goals.find((goal) => goal.id === id)!).filter(Boolean) : goals;
+  const canSlide = ordered.length > 4;
+  const visibleGoals = Array.from({ length: Math.min(4, ordered.length) }, (_, index) => ordered[(start + index) % ordered.length]);
+  const move = (direction: number) => setStart((current) => (current + direction + ordered.length) % ordered.length);
+  useEffect(() => {
+    if (!auto || paused || !canSlide) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setStart((current) => (current + 1) % goals.length);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [auto, paused, canSlide, goals.length]);
+  function shuffle() {
+    const ids = goals.map((goal) => goal.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = createRandomIndex(i + 1);
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    setShuffledIds(ids); setStart(0);
+  }
   return (
-    <div className="project-strip" aria-label={heading === 'Chores' ? 'Progres chores' : 'Progres jednotlivých plánov'}>
+    <div className="project-strip" aria-label={heading === 'Chores' ? 'Progres chores' : 'Progres jednotlivých plánov'}
+      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
       <div className="project-strip-heading">
         <span className="label">{heading}</span>
-        <strong>{goals.length}</strong>
+        <div className="project-strip-controls">
+          <button type="button" title="Predchádzajúce položky" aria-label={heading + ': predchádzajúce položky'} disabled={!canSlide} onClick={() => move(-1)}>‹</button>
+          <button type="button" title="Náhodný výber" aria-label={heading + ': náhodný výber'} disabled={goals.length < 2} onClick={shuffle}>🔀</button>
+          <button type="button" title={auto ? 'Zastaviť automatické posúvanie' : 'Automaticky posúvať každých 15 sekúnd'} aria-label={heading + ': automatické posúvanie'} aria-pressed={auto} disabled={!canSlide} onClick={() => setAuto((value) => !value)}>{auto ? '⏸' : '▶'}</button>
+          <button type="button" title="Ďalšie položky" aria-label={heading + ': ďalšie položky'} disabled={!canSlide} onClick={() => move(1)}>›</button>
+          <strong title="Celkový počet položiek">{goals.length}</strong>
+        </div>
       </div>
+      {shuffledIds ? <button type="button" className="project-order-reset" onClick={() => { setShuffledIds(null); setStart(0); }}>Podľa ankety</button> : null}
       {visibleGoals.length > 0 ? (
-        <div className="project-bars">
+        <div className="project-bars" aria-live={auto ? 'off' : 'polite'}>
           {visibleGoals.map((goal) => (
             <div className="project-bar" key={goal.id}>
               <div className="project-bar-copy">
-                <span>{goal.title}</span>
-                <strong>
-                  {goal.percent}% · {goal.done}/{goal.total}
-                </strong>
+                <span title={goal.title}>{goal.title}</span>
+                <strong>{goal.percent}% · {goal.done}/{goal.total}</strong>
               </div>
-              <div className="meter mini" aria-hidden="true">
-                <span style={{ width: `${goal.percent}%` }} />
-              </div>
+              <div className="meter mini" aria-hidden="true"><span style={{ width: goal.percent + '%' }} /></div>
             </div>
           ))}
         </div>
-      ) : (
-        <p>Prvý plán si nájde miesto hneď tu.</p>
-      )}
+      ) : <p>Prvý plán si nájde miesto hneď tu.</p>}
     </div>
   );
 }
