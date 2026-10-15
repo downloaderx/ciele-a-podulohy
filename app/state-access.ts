@@ -1,3 +1,4 @@
+import { gratitudeDay } from './gratitude';
 import { normalizeGoals } from './page-model';
 import { ApiError } from './server-storage';
 import type { AppStateData, Goal, Task } from './page-model';
@@ -58,8 +59,16 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
     if (item.actorId !== personId || !allowedSpace(item.spaceId)) throw new ApiError(403, 'Neplatný autor zmeny.');
     return item;
   });
+  const gratitudeEntries = new Map((previous.gratitudeEntries ?? []).map((entry) => [entry.id, entry]));
+  const today = gratitudeDay();
+  for (const entry of incoming.gratitudeEntries ?? []) {
+    const old = gratitudeEntries.get(entry.id);
+    if (stableJson(entry) === stableJson(old)) continue;
+    if (entry.personId !== personId || entry.day !== today) throw new ApiError(403, 'Upravovať môžeš iba svoj dnešný zápis vďačnosti.');
+    gratitudeEntries.set(entry.id, entry);
+  }
   const mergedLog = new Map([...previous.activityLog, ...log].map((item) => [item.id, item]));
-  return { activePersonId: personId, people, goals: [...goals, ...hiddenGoals],
+  return { activePersonId: personId, people, gratitudeEntries: [...gratitudeEntries.values()], goals: [...goals, ...hiddenGoals],
     activityLog: [...mergedLog.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 80),
     goalRankings: { ...previous.goalRankings, [personId]: [
       ...(incoming.goalRankings[personId] ?? []),

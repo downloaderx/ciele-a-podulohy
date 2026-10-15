@@ -57,7 +57,15 @@ export type CompletedItem = {
   type: 'goal' | 'task';
 };
 
+export type GratitudeEntry = {
+  id: string;
+  personId: string;
+  day: string;
+  text: string;
+};
+
 export type AppStateData = {
+  gratitudeEntries?: GratitudeEntry[];
   activePersonId: string;
   activityLog: ActivityItem[];
   goalRankings: Record<string, string[]>;
@@ -704,6 +712,7 @@ export function readTransferData(parsed: unknown): TransferPayload['data'] | nul
   return {
     activePersonId: maybeData.activePersonId,
     activityLog: maybeData.activityLog,
+    gratitudeEntries: maybeData.gratitudeEntries,
     goalRankings:
       maybeData.goalRankings && typeof maybeData.goalRankings === 'object'
         ? maybeData.goalRankings as Record<string, string[]>
@@ -723,6 +732,7 @@ export function readAppStateData(parsed: unknown): AppStateData | null {
   return {
     activePersonId: data.activePersonId,
     activityLog: data.activityLog,
+    gratitudeEntries: data.gratitudeEntries,
     goalRankings: data.goalRankings,
     goals: data.goals,
     people: data.people,
