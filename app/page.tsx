@@ -59,6 +59,8 @@ import {
   type TransferPayload,
 } from './page-model';
 
+const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit');
+
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
     return;
@@ -315,7 +317,7 @@ export default function Home() {
     [goals],
   );
   const visibleGoals = useMemo(
-    () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId),
+    () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && enabledGoalCategories.some((category) => category.id === normalizeGoalCategory(goal.category))),
     [activeGoals, boardSpaceId],
   );
   const activityGoals = useMemo(
@@ -328,7 +330,7 @@ export default function Home() {
   );
   const boardGoalGroups = useMemo(
     () =>
-      goalCategories
+      enabledGoalCategories
         .filter((category) => category.id !== 'activity')
         .map((category) => ({
           ...category,
@@ -1267,7 +1269,7 @@ export default function Home() {
               onChange={(event) => setNewGoalCategory(event.target.value as GoalCategory)}
               value={newGoalCategory}
             >
-              {goalCategories.map((category) => (
+              {enabledGoalCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {getCategoryLabel(category.id, boardSpaceId)}
                 </option>
@@ -1565,7 +1567,7 @@ function RecurringCalendarPanel({
   onCompleteToday: (goalId: string) => void;
 }) {
   return (
-    <section className="special-panel recurring-calendar" aria-label="Kalendár chores a habits">
+    <section className="special-panel recurring-calendar" aria-label="Kalendár chores">
       <div className="special-heading">
         <div>
           <span className="label">Chores calendar</span>
@@ -1661,7 +1663,7 @@ function RecurringCalendarPanel({
           })}
         </ol>
       ) : (
-        <p>Chores alebo habits dostanú opakovanie a objavia sa tu ako malý kalendár.</p>
+        <p>Chores dostanú opakovanie a objavia sa tu ako malý kalendár.</p>
       )}
     </section>
   );
@@ -1680,7 +1682,7 @@ function PriorityPoll({
   refreshKey: number;
   rankedGoals: Goal[];
 }) {
-  const groupedGoals = goalCategories
+  const groupedGoals = enabledGoalCategories
     .filter((category) => category.id !== 'activity')
     .map((category) => ({
       ...category,
@@ -1990,7 +1992,7 @@ function GoalPanel(props: GoalPanelProps) {
             onChange={(event) => props.onChangeCategory(props.goal.id, event.target.value as GoalCategory)}
             value={props.goal.category ?? 'plan'}
           >
-            {goalCategories.map((category) => (
+            {enabledGoalCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {getCategoryLabel(category.id, props.boardSpaceId)}
               </option>
