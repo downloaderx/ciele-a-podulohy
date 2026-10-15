@@ -1797,7 +1797,9 @@ function ProjectProgressStrip({
   const [start, setStart] = useState(0);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
   const [auto, setAuto] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
   const ordered = shuffledIds ? shuffledIds.map((id) => goals.find((goal) => goal.id === id)!).filter(Boolean) : goals;
   const canSlide = ordered.length > 4;
   const visibleGoals = Array.from({ length: Math.min(4, ordered.length) }, (_, index) => ordered[(start + index) % ordered.length]);
@@ -1819,14 +1821,14 @@ function ProjectProgressStrip({
   }
   return (
     <div className="project-strip" aria-label={heading === 'Chores' ? 'Progres chores' : 'Progres jednotlivých plánov'}
-      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
       <div className="project-strip-heading">
         <span className="label">{heading}</span>
         <div className="project-strip-controls">
           <button type="button" title="Predchádzajúce položky" aria-label={heading + ': predchádzajúce položky'} disabled={!canSlide} onClick={() => move(-1)}>‹</button>
           <button type="button" title="Náhodný výber" aria-label={heading + ': náhodný výber'} disabled={goals.length < 2} onClick={shuffle}>🔀</button>
-          <button type="button" title={auto ? 'Zastaviť automatické posúvanie' : 'Automaticky posúvať každých 15 sekúnd'} aria-label={heading + ': automatické posúvanie'} aria-pressed={auto} disabled={!canSlide} onClick={() => setAuto((value) => !value)}>{auto ? '⏸' : '▶'}</button>
+          <button type="button" title={auto ? 'Zastaviť automatické posúvanie' : 'Automaticky posúvať každých 15 sekúnd'} aria-label={heading + ': automatické posúvanie'} aria-pressed={auto} disabled={!canSlide} onClick={(event) => { setAuto((value) => !value); if (event.detail > 0) event.currentTarget.blur(); }}>{auto ? '⏸' : '▶'}</button>
           <button type="button" title="Ďalšie položky" aria-label={heading + ': ďalšie položky'} disabled={!canSlide} onClick={() => move(1)}>›</button>
           <strong title="Celkový počet položiek">{goals.length}</strong>
         </div>
