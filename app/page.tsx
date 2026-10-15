@@ -1855,6 +1855,7 @@ type GoalPanelProps = {
 };
 
 function GoalPanel(props: GoalPanelProps) {
+  const [expanded, setExpanded] = useState(false);
   const [descriptionChunks, setDescriptionChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.goal);
   const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
@@ -1876,15 +1877,17 @@ function GoalPanel(props: GoalPanelProps) {
   if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} />;
 
   return (
-    <article className="goal-panel">
+    <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}`}>
       <div className="goal-header">
         <button
-          aria-label={props.goal.expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
+          aria-label={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
+          aria-expanded={expanded}
+          title={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
           className="icon-button"
-          onClick={() => props.toggleExpanded(props.goal.id)}
+          onClick={() => setExpanded((current) => !current)}
           type="button"
         >
-          {props.goal.expanded ? '−' : '+'}
+          {expanded ? '▾' : '▸'}
         </button>
         <div className="goal-title-block">
           <EditableInput
@@ -1895,6 +1898,7 @@ function GoalPanel(props: GoalPanelProps) {
             onKeyDown={saveInputOnEnter}
             title="Klikni a uprav názov"
           />
+          {expanded ? <>
           <span className="description-tooltip-wrap">
             <EditableInput
               aria-label="Poznámka k cieľu"
@@ -1937,6 +1941,7 @@ function GoalPanel(props: GoalPanelProps) {
               Rozkúskovať poznámku
             </button>
           ) : null}
+          </> : null}
         </div>
         <div className="progress-badge">
           {category === 'chore' ? <><strong>Bežné: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span></> : <strong>{progress.percent}%</strong>}
@@ -1944,16 +1949,17 @@ function GoalPanel(props: GoalPanelProps) {
             {progress.done}/{progress.total}
           </span>
         </div>
-        <button
+        {expanded ? <button
           aria-label="Presunúť plán do koša"
           className="icon-button danger"
           onClick={() => props.onDelete(props.goal.id)}
           type="button"
         >
           ×
-        </button>
+        </button> : null}
       </div>
 
+      {expanded ? <>
       <div className="goal-meta">
         <label className="deadline-field">Termín
           <input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} />
@@ -2040,7 +2046,6 @@ function GoalPanel(props: GoalPanelProps) {
         people={props.people}
       />
 
-      {props.goal.expanded ? (
         <div className="children-list">
           <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
           <AddTaskForm
@@ -2048,7 +2053,7 @@ function GoalPanel(props: GoalPanelProps) {
             onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)}
           />
         </div>
-      ) : null}
+      </> : null}
     </article>
   );
 }
@@ -2222,7 +2227,7 @@ function ReadOnlyTasks({ tasks }: { tasks: Task[] }) {
 }
 function ReadOnlyGoal({ goal, people }: { goal: Goal; people: Person[] }) {
   const progress = calculateProgress(goal);
-  return <article className="goal-panel readonly-goal"><details open={goal.expanded}>
+  return <article className="goal-panel readonly-goal"><details>
     <summary><h3>{goal.title}</h3><span>{progress.percent}%</span></summary>
     <p>{goal.description}</p>
     <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p>
