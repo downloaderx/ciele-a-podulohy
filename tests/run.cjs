@@ -241,3 +241,50 @@ test('personal boards are mutually readable but only the owner can change conten
     assert.deepEqual(authorizedState(base,missing,personId).goals.find(g=>g.id===peerId),base.goals.find(g=>g.id===peerId));
   }
 });
+
+const { gratitudeDay } = require('../app/gratitude.ts');
+const { readTransferData } = require('../app/page-model.ts');
+const gratitude = (personId, day, text = 'Spoločná večera') => ({ id: personId + ':' + day, personId, day, text });
+
+test('gratitude uses Bratislava day boundaries, including summer time', () => {
+  assert.equal(gratitudeDay(new Date('2026-01-01T23:30:00Z')), '2026-01-02');
+  assert.equal(gratitudeDay(new Date('2026-07-01T22:30:00Z')), '2026-07-02');
+});
+
+test('gratitude validates one entry per person/day and survives backup parsing', () => {
+  const s = state(); s.gratitudeEntries = [gratitude('person-1', '2026-10-16')];
+  assert.equal(isValidState(s), true);
+  assert.deepEqual(readTransferData({ data: s }).gratitudeEntries, s.gratitudeEntries);
+  for (const entry of [
+    gratitude('person-1', '2026-02-30'), gratitude('person-3', '2026-10-16'),
+    gratitude('person-1', '2026-10-16', ''), gratitude('person-1', '2026-10-16', 'x'.repeat(1001)),
+    { ...s.gratitudeEntries[0], id: 'another-id' },
+  ]) assert.equal(isValidState({ ...s, gratitudeEntries: [entry] }), false);
+  assert.equal(isValidState({ ...s, gratitudeEntries: [...s.gratitudeEntries, ...s.gratitudeEntries] }), false);
+  assert.equal(isValidState(state()), true);
+});
+
+test('gratitude preserves partner/history and permits only own current entry', () => {
+  const today = gratitudeDay(); const oldDay = '2020-01-01';
+  const base = state(); base.gratitudeEntries = [gratitude('person-2', today), gratitude('person-1', oldDay)];
+  const next = clone(base); next.gratitudeEntries.push(gratitude('person-1', today));
+  const saved = authorizedState(base, next, 'person-1');
+  assert.equal(saved.gratitudeEntries.length, 3);
+  next.gratitudeEntries[2].text = 'Pokojný deň';
+  assert.equal(authorizedState(saved, next, 'person-1').gratitudeEntries.find(e => e.personId === 'person-1' && e.day === today).text, 'Pokojný deň');
+  for (const entry of [gratitude('person-2', today, 'Forged'), gratitude('person-1', oldDay, 'Changed'), gratitude('person-1', '2099-01-01')]) {
+    assert.throws(() => authorizedState(base, { ...base, gratitudeEntries: [entry] }, 'person-1'), /dnešný zápis/);
+  }
+  assert.deepEqual(authorizedState(saved, state(), 'person-1').gratitudeEntries, saved.gratitudeEntries);
+  assert.equal(visibleState(saved, 'person-2').gratitudeEntries.length, 3);
+});
+
+test('simultaneous gratitude entries merge without losing either person', () => {
+  const base = state(), local = state(), remote = state(), day = gratitudeDay();
+  local.gratitudeEntries = [gratitude('person-1', day)];
+  remote.gratitudeEntries = [gratitude('person-2', day)];
+  const merged = mergeStates(base, local, remote);
+  assert.equal(merged.conflicts.length, 0); assert.equal(merged.state.gratitudeEntries.length, 2);
+  const a = clone(local), b = clone(local); a.gratitudeEntries[0].text = 'A'; b.gratitudeEntries[0].text = 'B';
+  assert.equal(mergeStates(local, a, b).conflicts.length, 1);
+});

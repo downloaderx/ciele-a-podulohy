@@ -1,3 +1,4 @@
+import { validGratitudeDay } from './gratitude';
 import type { AppStateData, Goal, Task } from './page-model';
 
 const personIds = ['person-1', 'person-2'];
@@ -38,6 +39,16 @@ export function isValidState(value: unknown): value is AppStateData {
     return ['recurrenceDays', 'recurrenceToleranceDays'].every((key) => goal[key] === undefined ||
       (typeof goal[key] === 'number' && Number.isInteger(goal[key]) && Number(goal[key]) >= 0 && Number(goal[key]) <= 365));
   })) return false;
+  if (value.gratitudeEntries !== undefined) {
+    if (!Array.isArray(value.gratitudeEntries) || value.gratitudeEntries.length > 20000) return false;
+    const entryIds = new Set<string>();
+    if (!value.gratitudeEntries.every((entry: unknown) => {
+      if (!record(entry) || !personIds.includes(String(entry.personId)) || !validGratitudeDay(entry.day) ||
+          entry.id !== entry.personId + ':' + entry.day || entryIds.has(String(entry.id)) ||
+          !string(entry.text, 1000) || !entry.text.trim() || entry.text !== entry.text.trim()) return false;
+      entryIds.add(String(entry.id)); return true;
+    })) return false;
+  }
   const activityIds = new Set<string>();
   if (!value.activityLog.every((item: unknown) => {
     if (!record(item) || !string(item.id, 200) || activityIds.has(item.id) || !personIds.includes(String(item.actorId)) ||

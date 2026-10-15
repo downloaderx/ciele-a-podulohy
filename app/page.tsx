@@ -1,5 +1,8 @@
 'use client';
 
+import { GratitudePanel } from './gratitude-panel';
+import { gratitudeDay } from './gratitude';
+
 import Image from 'next/image';
 import { useBoardSync } from './use-board-sync';
 import { useReminders } from './use-reminders';
@@ -48,6 +51,7 @@ import {
   updateTaskTree,
   type ActivityItem,
   type AppStateData,
+  type GratitudeEntry,
   type BoardSpaceId,
   type CompletedItem,
   type Goal,
@@ -285,6 +289,7 @@ export default function Home() {
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
+  const [gratitudeEntries, setGratitudeEntries] = useState<GratitudeEntry[]>([]);
   const [goalRankings, setGoalRankings] = useState<Record<string, string[]>>({});
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
@@ -299,10 +304,10 @@ export default function Home() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [priorityRefreshKey, setPriorityRefreshKey] = useState(0);
-  const state = useMemo(() => ({ goals, people, activePersonId, activityLog, goalRankings }), [goals, people, activePersonId, activityLog, goalRankings]);
+  const state = useMemo(() => ({ goals, people, activePersonId, activityLog, goalRankings, gratitudeEntries }), [goals, people, activePersonId, activityLog, goalRankings, gratitudeEntries]);
   const applyState = useCallback((data: AppStateData) => {
     setGoals(data.goals); setPeople(data.people); setActivePersonId(data.activePersonId);
-    setActivityLog(data.activityLog); setGoalRankings(data.goalRankings);
+    setActivityLog(data.activityLog); setGoalRankings(data.goalRankings); setGratitudeEntries(data.gratitudeEntries ?? []);
     setBoardSpaceId((current) => current === sharedSpaceId || data.people.some((person) => person.id === current) ? current : sharedSpaceId);
   }, []);
   const sync = useBoardSync(state, applyState);
@@ -885,6 +890,7 @@ export default function Home() {
       data: {
         activePersonId,
         activityLog,
+        gratitudeEntries,
         goalRankings,
         goals,
         people,
@@ -1243,6 +1249,11 @@ export default function Home() {
           <p>
             Hotovo {totals.done} z {totals.total} drobných krokov v tejto tabuľke.
           </p>
+          <GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
+            if (day !== gratitudeDay()) return;
+            const entry = { id: activePersonId + ':' + day, personId: activePersonId, day, text };
+            setGratitudeEntries((current) => [...current.filter((item) => item.id !== entry.id), entry]);
+          }} />
         </div>
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
@@ -1368,7 +1379,7 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
