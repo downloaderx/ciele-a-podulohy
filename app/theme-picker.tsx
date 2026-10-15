@@ -25,14 +25,14 @@ const serverTheme = (): Theme => 'original';
 function useTheme() { return useSyncExternalStore(subscribe, readTheme, serverTheme); }
 export function ThemeController() {
   const theme = useTheme();
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   return null;
 }
 export function ThemePicker() {
   const selected = useTheme();
   function choose(theme: Theme) {
     try { window.localStorage.setItem(key, theme); } catch { /* Selection still works for this visit. */ }
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
     window.dispatchEvent(new Event(eventName));
   }
   return <section className="theme-picker" aria-label="Farebná téma">
