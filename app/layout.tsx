@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeController } from './theme-picker';
 
 export const metadata: Metadata = {
   title: 'Little acorns Foxies',
-  description: 'Modrá virtuálna tabuľa plánov pre Foxies, spoločné ciele a vnorené podúlohy s priebežným progresom.',
+  description: 'Virtuálna tabuľa plánov pre Foxies, spoločné ciele a vnorené podúlohy s priebežným progresom.',
 };
 
 export default function RootLayout({
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="sk">
       <body>
+        <ThemeController />
         {children}
       </body>
     </html>

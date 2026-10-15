@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useBoardSync } from './use-board-sync';
 import { useReminders } from './use-reminders';
 import { allTasks, liveGoal, isValidState, visibleState } from './state-sync';
+import { ThemePicker } from './theme-picker';
 import { EditableInput } from './editable-input';
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -1152,6 +1153,7 @@ export default function Home() {
             </button>
             {settingsOpen ? (
               <div className="settings-popover">
+                <ThemePicker />
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
                 </button>
