@@ -2519,3 +2519,5 @@ select:focus {
 .project-strip-controls button[aria-pressed="true"] { background: var(--panel-soft); border-color: #126fbe; }
 .project-strip-controls button:disabled { opacity: .4; cursor: default; }
 .project-order-reset { justify-self: start; border: 0; background: transparent; color: #126fbe; font-size: 11px; text-decoration: underline; cursor: pointer; }
+
+.activity-list > li, .completed-list > li { background: #fff7df; border-color: #e4d39e; }
