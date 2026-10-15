@@ -2210,7 +2210,7 @@ function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' 
 
 function ReadOnlyTasks({ tasks }: { tasks: Task[] }) {
   return <div className="nested">{tasks.map((task) => <div className="task-branch" key={task.id}>
-    <details open={task.expanded}>
+    <details>
       <summary className="task-row readonly-task-row"><span aria-hidden="true">{task.done ? '✓' : '•'}</span><span>{task.title}</span></summary>
       {task.children.length ? <ReadOnlyTasks tasks={task.children} /> : null}
     </details>
@@ -2248,6 +2248,7 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
 
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [splitDraft, setSplitDraft] = useState<string | null>(null);
   const titleChunks = (splitDraft ?? '').split('\n').map((chunk) => chunk.trim()).filter(Boolean);
   const hasChildren = props.task.children.length > 0;
@@ -2279,15 +2280,15 @@ function TaskRow(props: TaskRowProps) {
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
         <button
-          aria-label={hasChildren ? (props.task.expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
-          aria-expanded={hasChildren ? props.task.expanded : undefined}
-          title={hasChildren ? `${props.task.expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
-          className={`icon-button compact${hasChildren && !props.task.expanded ? ' has-hidden-subtasks' : ''}`}
+          aria-label={hasChildren ? (expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
+          aria-expanded={hasChildren ? expanded : undefined}
+          title={hasChildren ? `${expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
+          className={`icon-button compact${hasChildren && !expanded ? ' has-hidden-subtasks' : ''}`}
           disabled={!hasChildren}
-          onClick={() => props.toggleExpanded(props.task.id)}
+          onClick={() => setExpanded((value) => !value)}
           type="button"
         >
-          <span aria-hidden="true">{hasChildren ? (props.task.expanded ? '▾' : '▸') : '•'}</span>
+          <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
         </button>
         {isCompletable ? (
           <label className="checkbox-only" aria-label="Označiť ako hotové">
@@ -2406,12 +2407,13 @@ function TaskRow(props: TaskRowProps) {
           label="Názov ďalšej podúlohy"
           onSubmit={(title, dueAt) => {
             props.onAddSubtask(props.task.id, title, dueAt);
+            setExpanded(true);
             setAdding(false);
           }}
         />
       ) : null}
 
-      {props.task.expanded && hasChildren ? (
+      {expanded && hasChildren ? (
         <div className="nested">
           <TaskList {...props} tasks={props.task.children} parentId={props.task.id} depth={props.depth + 1} />
         </div>
