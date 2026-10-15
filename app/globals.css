@@ -2512,3 +2512,10 @@ select:focus {
 .readonly-goal > details > summary { cursor: pointer; }
 .readonly-goal h3 { display: inline; margin-right: 12px; }
 .readonly-task-row { grid-template-columns: 20px minmax(0, 1fr); cursor: pointer; padding: 8px; overflow-wrap: anywhere; }
+
+.project-strip-heading { gap: 8px; flex-wrap: wrap; }
+.project-strip-controls { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.project-strip-controls button { background: white; border: 1px solid var(--line); border-radius: 6px; min-width: 28px; min-height: 28px; padding: 2px 5px; color: var(--foreground); cursor: pointer; }
+.project-strip-controls button[aria-pressed="true"] { background: var(--panel-soft); border-color: #126fbe; }
+.project-strip-controls button:disabled { opacity: .4; cursor: default; }
+.project-order-reset { justify-self: start; border: 0; background: transparent; color: #126fbe; font-size: 11px; text-decoration: underline; cursor: pointer; }
