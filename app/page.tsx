@@ -14,6 +14,7 @@ import {
   avatarOptions,
   calculateProgress,
   calculateChoreProgress,
+  calculateCategoryProgress,
   choreView,
   clampImportance,
   collectCompletedItems,
@@ -21,7 +22,6 @@ import {
   createRandomIndex,
   defaultPeople,
   findTaskById,
-  flattenChildren,
   getAverageFeasibility,
   formatDueLabel,
   getAverageImportance,
@@ -361,18 +361,10 @@ export default function Home() {
     .filter((goal) => canEditBoard && getGoalSpaceId(goal) === boardSpaceId)
     .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)), [boardSpaceId, goals, canEditBoard]);
 
-  const totals = useMemo(() => {
-    const trackedTasks = boardGoals.flatMap((goal) => {
-      const chore = normalizeGoalCategory(goal.category) === 'chore';
-      const tasks = chore && goal.children.length ? flattenChildren(goal) : [goal, ...flattenChildren(goal)];
-      return tasks.filter((task) => isCompletableTask(task) && (!chore || (task.choreCadence ?? 'routine') === 'routine')).map((task) => ({ task, weight: chore ? task.choreWeight ?? 1 : 1 }));
-    });
-    const done = trackedTasks.filter(({ task }) => task.done).length;
-    const total = trackedTasks.length;
-    const weight = trackedTasks.reduce((sum, item) => sum + item.weight, 0);
-    const doneWeight = trackedTasks.reduce((sum, item) => sum + (item.task.done ? item.weight : 0), 0);
-    return { done, total, percent: weight ? Math.round(doneWeight / weight * 100) : 0 };
-  }, [boardGoals]);
+  const categoryTotals = useMemo(() => ({
+    plan: calculateCategoryProgress(boardGoals, 'plan', choreDay),
+    chore: calculateCategoryProgress(boardGoals, 'chore', choreDay),
+  }), [boardGoals, choreDay]);
   const completedItems = useMemo(
     () => collectCompletedItems(boardGoals).slice(0, 10),
     [boardGoals],
@@ -1266,15 +1258,21 @@ export default function Home() {
 
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
-          <span className="label">Stav na tabuli</span>
-          <strong>{totals.percent}%</strong>
-          <div className="meter" aria-hidden="true">
-            <span style={{ width: `${totals.percent}%` }} />
+          <div className="category-progress-summary">
+            {(['plan', 'chore'] as const).map((category) => {
+              const progress = categoryTotals[category];
+              const label = getCategoryLabel(category, boardSpaceId);
+              return <section className="category-progress-card" aria-label={`Priebeh: ${label}`} key={category}>
+                <h2>{label}</h2>
+                {category === 'chore' ? <span className="category-progress-context">Bežné chores · dnes</span> : null}
+                <strong>{progress.total ? `${progress.percent}%` : '—'}</strong>
+                <div className="meter" aria-hidden="true"><span style={{ width: `${progress.percent}%` }} /></div>
+                <GrowthBranch percent={progress.percent} />
+                <p>{progress.total ? `Hotovo ${progress.done} z ${progress.total} ${category === 'chore' ? 'bežných prác dnes' : 'krokov v tejto kategórii'}.` : 'V tejto kategórii zatiaľ nie sú úlohy na dokončenie.'}</p>
+                {category === 'chore' ? <p className="category-progress-note">Percento zohľadňuje náročnosť. Občasné práce majú vlastný priebeh pri jednotlivých projektoch.</p> : null}
+              </section>;
+            })}
           </div>
-          <GrowthBranch percent={totals.percent} />
-          <p>
-            Hotovo {totals.done} z {totals.total} drobných krokov v tejto tabuľke.
-          </p>
           <GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
             if (day !== gratitudeDay()) return;
             const entry = { id: activePersonId + ':' + day, personId: activePersonId, day, text };
