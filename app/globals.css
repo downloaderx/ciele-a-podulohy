@@ -2581,3 +2581,10 @@ select:focus {
 .chore-completion-history li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 5px; border-bottom: 1px solid var(--line); }
 .chore-completion-history button { color: var(--foreground); background: var(--surface, #fff); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; cursor: pointer; font: inherit; }
 .chore-completion-history p { font-size: 11px; }
+
+.category-progress-summary { display: grid; gap: 20px; }
+.category-progress-card { min-width: 0; }
+.category-progress-card + .category-progress-card { border-top: 1px solid var(--line); padding-top: 20px; }
+.category-progress-card h2 { color: var(--muted); font-size: 14px; line-height: 1.4; margin: 0 0 8px; }
+.category-progress-context { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.summary-panel .category-progress-note { font-size: 11px; line-height: 1.5; }

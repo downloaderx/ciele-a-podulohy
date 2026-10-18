@@ -327,3 +327,19 @@ test('server preserves chore history for old clients and restricts undo to origi
   const forged=clone(b);forged.goals[0].children[0].choreCompletions.push(choreEntry('forged','person-2'));
   assert.throws(()=>authorizedState(b,forged,'person-1'),/autor vykonania/);
 });
+
+const { calculateCategoryProgress } = require('../app/page-model.ts');
+test('relationship and chores summary progress stays independent', () => {
+  const plan=goal('relationship',{kind:'topic',children:[task('p1',{done:true}),task('p2')]});
+  const chore=goal('chores',{category:'chore',children:[task('c1',{choreWeight:3,choreCompletions:[choreEntry('work')]}),task('c2'),task('occasional',{choreCadence:'occasional',done:true,choreWeight:5}),task('removed',{done:true,deletedAt:'2026-10-17T12:00:00Z'})]});
+  const goals=[plan,chore,goal('activity',{category:'activity',done:true})];
+  const relation=calculateCategoryProgress(goals,'plan','2026-10-18');
+  assert.equal(relation.percent,50);assert.equal(relation.total,2);
+  const chores=calculateCategoryProgress(goals,'chore','2026-10-18');
+  assert.equal(chores.percent,75);assert.equal(chores.done,1);assert.equal(chores.total,2);
+  assert.equal(calculateCategoryProgress(goals,'chore','2026-10-19').percent,0);
+  chore.children[1].done=true;
+  assert.equal(calculateCategoryProgress(goals,'chore','2026-10-18').percent,100);
+  assert.deepEqual(calculateCategoryProgress(goals,'plan','2026-10-18'),relation);
+  assert.equal(calculateCategoryProgress([],'plan').total,0);
+});

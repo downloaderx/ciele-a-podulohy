@@ -340,6 +340,19 @@ export function calculateChoreProgress(tasks: Task[], cadence: ChoreCadence) {
   return { done: tracked.filter((task) => choreDone(task)).length, total: tracked.length, totalWeight, doneWeight, percent: totalWeight ? Math.round(doneWeight / totalWeight * 100) : 0 };
 }
 
+export function calculateCategoryProgress(goals: Goal[], category: 'plan' | 'chore', day = gratitudeDay()) {
+  const collect = (tasks: Task[]): Task[] => tasks.flatMap((task) => task.deletedAt ? [] : [task, ...collect(task.children)]);
+  const tracked = goals.filter((goal) => !goal.deletedAt && normalizeGoalCategory(goal.category) === category).flatMap((goal) => {
+    const items = category === 'chore' && goal.children.length ? collect(goal.children) : collect([goal]);
+    return items.filter((task) => isCompletableTask(task) && (category !== 'chore' || (task.choreCadence ?? 'routine') === 'routine'));
+  });
+  const completed = (task: Task) => category === 'chore' ? choreDone(task, day) : task.done;
+  const weight = (task: Task) => category === 'chore' ? task.choreWeight ?? 1 : 1;
+  const totalWeight = tracked.reduce((sum, task) => sum + weight(task), 0);
+  const doneWeight = tracked.reduce((sum, task) => sum + (completed(task) ? weight(task) : 0), 0);
+  return { done: tracked.filter(completed).length, total: tracked.length, totalWeight, doneWeight, percent: totalWeight ? Math.round(doneWeight / totalWeight * 100) : 0 };
+}
+
 export function normalizeTaskKind(kind: Task['kind'] | undefined): TaskKind {
   return kind && taskKinds.some((option) => option.id === kind) ? kind : 'todo';
 }
