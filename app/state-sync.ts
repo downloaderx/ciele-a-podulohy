@@ -26,6 +26,15 @@ export function isValidState(value: unknown): value is AppStateData {
         (task.choreCadence !== undefined && !['routine', 'occasional'].includes(String(task.choreCadence))) ||
         (task.choreWeight !== undefined && ![1, 3, 5].includes(task.choreWeight as number)) ||
         !date(task.dueAt) || !date(task.deletedAt) || !Array.isArray(task.children)) return false;
+    if (task.choreCompletions !== undefined) {
+      if (!Array.isArray(task.choreCompletions) || task.choreCompletions.length > 200) return false;
+      const completionIds = new Set<string>();
+      if (!task.choreCompletions.every((entry: unknown) => {
+        if (!record(entry) || !string(entry.id, 200) || !entry.id || completionIds.has(entry.id) ||
+            !personIds.includes(String(entry.personId)) || !string(entry.completedAt, 64) || !date(entry.completedAt) || !date(entry.undoneAt)) return false;
+        completionIds.add(entry.id); return true;
+      })) return false;
+    }
     ids.add(task.id);
     return task.children.every((child) => validTask(child, depth + 1));
   }
@@ -93,8 +102,9 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
     if (Array.isArray(l) && Array.isArray(r) && [...l, ...r].every((item) => record(item) && string(item.id))) {
       const byId = (items: unknown) => new Map((Array.isArray(items) ? items : []).map((item) => [(item as { id: string }).id, item]));
       const bm = byId(b), lm = byId(l), rm = byId(r);
-      return [...new Set([...lm.keys(), ...rm.keys(), ...bm.keys()])]
+      const items = [...new Set([...lm.keys(), ...rm.keys(), ...bm.keys()])]
         .map((id) => merge(bm.get(id), lm.get(id), rm.get(id), `${path}/${id}`)).filter((item) => item !== undefined);
+      return path.endsWith('/choreCompletions') ? items.sort((a, b) => String((b as { completedAt: string }).completedAt).localeCompare(String((a as { completedAt: string }).completedAt))).slice(0, 200) : items;
     }
     if (record(l) && record(r) && (b === undefined || record(b))) {
       return Object.fromEntries([...new Set([...Object.keys(l), ...Object.keys(r), ...Object.keys(record(b) ? b : {})])]

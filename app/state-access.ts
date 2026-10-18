@@ -39,7 +39,15 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   previousVisible.goals.forEach(index);
   const stamp = (task: Task): Task => {
     const old = previousTasks.get(task.id);
-    return { ...task, ownerId: old?.ownerId ?? personId,
+    const completions = new Map((old?.choreCompletions ?? []).map((entry) => [entry.id, entry]));
+    for (const entry of task.choreCompletions ?? []) {
+      const prior = completions.get(entry.id);
+      if (prior && (entry.personId !== prior.personId || entry.completedAt !== prior.completedAt ||
+          (entry.undoneAt !== prior.undoneAt && prior.personId !== personId))) throw new ApiError(403, 'Zrušiť môžeš iba svoje vykonanie chores.');
+      if (!prior && entry.personId !== personId) throw new ApiError(403, 'Neplatný autor vykonania chores.');
+      completions.set(entry.id, prior?.undoneAt ? prior : entry);
+    }
+    return { ...task, ...(old?.choreCompletions || task.choreCompletions ? { choreCompletions: [...completions.values()].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 200) } : {}), ownerId: old?.ownerId ?? personId,
       updatedById: stableJson(task) === stableJson(old) ? old?.updatedById : personId,
       children: task.children.map(stamp) };
   };

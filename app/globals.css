@@ -2572,3 +2572,12 @@ select:focus {
 .gratitude-history summary { cursor: pointer; padding: 6px 0; color: var(--muted); }
 .gratitude-history-days { max-height: 300px; overflow-y: auto; margin-top: 8px; padding-right: 4px; }
 .gratitude-history h3 { font-size: 13px; margin: 10px 0 8px; }
+
+.chore-complete-button { display: inline-grid; place-items: center; padding: 0; width: 20px; min-height: 26px; margin-left: -2px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface, #fff); color: var(--foreground); cursor: pointer; font-size: 15px; font-weight: 800; }
+.chore-complete-button.completed-today { background: var(--accent); color: var(--button-ink, #07111f); }
+.chore-completion-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 11px; color: var(--muted); max-width: 100%; }
+.chore-completion-history summary { cursor: pointer; }
+.chore-completion-history ol { list-style: none; display: grid; gap: 7px; padding: 8px 0; margin: 0; max-height: 220px; overflow-y: auto; }
+.chore-completion-history li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 5px; border-bottom: 1px solid var(--line); }
+.chore-completion-history button { color: var(--foreground); background: var(--surface, #fff); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; cursor: pointer; font: inherit; }
+.chore-completion-history p { font-size: 11px; }

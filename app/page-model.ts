@@ -1,3 +1,4 @@
+import { gratitudeDay } from './gratitude';
 export type Person = {
   id: string;
   name: string;
@@ -5,7 +6,15 @@ export type Person = {
   avatarId: string;
 };
 
+export type ChoreCompletion = {
+  id: string;
+  personId: string;
+  completedAt: string;
+  undoneAt?: string;
+};
+
 export type Task = {
+  choreCompletions?: ChoreCompletion[];
   id: string;
   title: string;
   ownerId: string;
@@ -313,12 +322,22 @@ export function calculateProgress(task: Task) {
   };
 }
 
+export function choreDone(task: Task, day = gratitudeDay()) {
+  if (!task.choreCompletions) return task.done;
+  return task.choreCompletions.some((entry) => !entry.undoneAt &&
+    (task.choreCadence === 'occasional' || gratitudeDay(new Date(entry.completedAt)) === day));
+}
+
+export function choreView<T extends Task>(task: T, day: string): T {
+  return { ...task, done: choreDone(task, day), children: task.children.map((child) => choreView(child, day)) };
+}
+
 export function calculateChoreProgress(tasks: Task[], cadence: ChoreCadence) {
   const collect = (items: Task[]): Task[] => items.flatMap((task) => task.deletedAt ? [] : [task, ...collect(task.children)]);
   const tracked = collect(tasks).filter((task) => isCompletableTask(task) && (task.choreCadence ?? 'routine') === cadence);
   const totalWeight = tracked.reduce((sum, task) => sum + (task.choreWeight ?? 1), 0);
-  const doneWeight = tracked.reduce((sum, task) => sum + (task.done ? task.choreWeight ?? 1 : 0), 0);
-  return { done: tracked.filter((task) => task.done).length, total: tracked.length, totalWeight, doneWeight, percent: totalWeight ? Math.round(doneWeight / totalWeight * 100) : 0 };
+  const doneWeight = tracked.reduce((sum, task) => sum + (choreDone(task) ? task.choreWeight ?? 1 : 0), 0);
+  return { done: tracked.filter((task) => choreDone(task)).length, total: tracked.length, totalWeight, doneWeight, percent: totalWeight ? Math.round(doneWeight / totalWeight * 100) : 0 };
 }
 
 export function normalizeTaskKind(kind: Task['kind'] | undefined): TaskKind {

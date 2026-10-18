@@ -14,6 +14,7 @@ import {
   avatarOptions,
   calculateProgress,
   calculateChoreProgress,
+  choreView,
   clampImportance,
   collectCompletedItems,
   createId,
@@ -285,6 +286,13 @@ function splitLongDescription(description: string) {
 }
 
 export default function Home() {
+  const [choreDay, setChoreDay] = useState(() => gratitudeDay());
+  useEffect(() => {
+    const refresh = () => setChoreDay(gratitudeDay());
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
   const [activePersonId, setActivePersonId] = useState(defaultPeople[0].id);
@@ -319,8 +327,8 @@ export default function Home() {
   const boardSpaceLabel =
     boardSpaces.find((space) => space.id === boardSpaceId)?.label ?? 'Spoločné';
   const activeGoals = useMemo(
-    () => goals.filter((goal) => !goal.deletedAt).map(liveGoal),
-    [goals],
+    () => goals.filter((goal) => !goal.deletedAt).map(liveGoal).map((goal) => normalizeGoalCategory(goal.category) === 'chore' ? choreView(goal, choreDay) : goal),
+    [goals, choreDay],
   );
   const visibleGoals = useMemo(
     () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && enabledGoalCategories.some((category) => category.id === normalizeGoalCategory(goal.category))),
@@ -493,6 +501,14 @@ export default function Home() {
       return;
     }
 
+    const chore = goals.find((goal) => normalizeGoalCategory(goal.category) === 'chore' && allTasks(goal).some((item) => item.id === taskId));
+    if (task && chore) {
+      const completion = { id: createId(), personId: activePersonId, completedAt: new Date().toISOString() };
+      setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, done: false, updatedById: activePersonId,
+        choreCompletions: [completion, ...(item.choreCompletions ?? [])].slice(0, 200) })));
+      addActivity('vykonal(a) chore', task.title);
+      return;
+    }
     setGoals((current) =>
       updateTaskTree(current, taskId, (task) => ({
         ...task,
@@ -504,6 +520,16 @@ export default function Home() {
     if (task) {
       addActivity(task.done ? 'vrátil(a) späť' : 'označil(a) ako hotové', task.title);
     }
+  }
+
+  function undoChoreCompletion(taskId: string, completionId: string) {
+    const task = findTaskById(goals, taskId);
+    const entry = task?.choreCompletions?.find((item) => item.id === completionId);
+    if (!task || !entry || entry.personId !== activePersonId || entry.undoneAt) return;
+    const undoneAt = new Date().toISOString();
+    setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, updatedById: activePersonId,
+      choreCompletions: item.choreCompletions?.map((entry) => entry.id === completionId ? { ...entry, undoneAt } : entry) })));
+    addActivity('zrušil(a) vykonanie chore', task.title);
   }
 
   function changeTaskKind(taskId: string, kind: TaskKind) {
@@ -1257,7 +1283,7 @@ export default function Home() {
         </div>
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
-          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Percentá chores zohľadňujú náročnosť. Občasné chores sa počítajú samostatne v ich skupine.</p> : null}
+          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Bežné chores sa počítajú za dnešok podľa náročnosti. Vykonanie môžeš zaznamenať opakovane; občasné chores majú vlastný priebeh.</p> : null}
           <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
           {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
@@ -1355,6 +1381,7 @@ export default function Home() {
                     onRename={renameTask}
                     people={people}
                     toggleDone={toggleDone}
+                    undoChoreCompletion={undoChoreCompletion}
                     toggleExpanded={toggleExpanded}
                   />
                 ))}
@@ -1862,6 +1889,7 @@ type GoalPanelProps = {
   onRenameDescription: (goalId: string, description: string) => void;
   people: Person[];
   toggleDone: (taskId: string) => void;
+  undoChoreCompletion: (taskId: string, completionId: string) => void;
   toggleExpanded: (taskId: string) => void;
 };
 
@@ -1955,7 +1983,7 @@ function GoalPanel(props: GoalPanelProps) {
           </> : null}
         </div>
         <div className="progress-badge">
-          {category === 'chore' ? <><strong>Bežné: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span></> : <strong>{progress.percent}%</strong>}
+          {category === 'chore' ? <><strong>Dnes: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span></> : <strong>{progress.percent}%</strong>}
           <span>
             {progress.done}/{progress.total}
           </span>
@@ -2260,7 +2288,7 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
     const progress = calculateChoreProgress(props.tasks, cadence);
     if (!tasks.length && props.depth > 1) return null;
     return <section className="chore-task-group" key={cadence} aria-label={cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}>
-      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Často, podľa potreby' : 'Raz za dlhší čas'}</span><strong title="Podiel dokončenej práce podľa náročnosti">{progress.total ? `${progress.percent}% · ${progress.doneWeight}/${progress.totalWeight} bodov` : '—'}</strong></div>
+      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Dnešné vykonania · podľa potreby' : 'Raz za dlhší čas'}</span><strong title="Podiel dokončenej práce podľa náročnosti">{progress.total ? `${progress.percent}% · ${progress.doneWeight}/${progress.totalWeight} bodov` : '—'}</strong></div>
       {tasks.length ? renderTasks(tasks) : <p className="chore-group-empty">{cadence === 'routine' ? 'Podúlohu sem zaradíš výberom „Bežné“ v jej riadku.' : 'Podúlohu sem zaradíš výberom „Občasné“ v jej riadku.'}</p>}
     </section>;
   })}</>;
@@ -2271,6 +2299,9 @@ function TaskRow(props: TaskRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [splitDraft, setSplitDraft] = useState<string | null>(null);
   const titleChunks = (splitDraft ?? '').split('\n').map((chunk) => chunk.trim()).filter(Boolean);
+  const isChore = normalizeGoalCategory(props.goal.category) === 'chore';
+  const completions = (props.task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+  const completedLabel = (value: string) => new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
   const hasChildren = props.task.children.length > 0;
   const isCompletable = isCompletableTask(props.task);
   const suggestedTitleChunks = useMemo(
@@ -2310,7 +2341,9 @@ function TaskRow(props: TaskRowProps) {
         >
           <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
         </button>
-        {isCompletable ? (
+        {isCompletable && isChore ? (
+          <button type="button" className={`chore-complete-button${props.task.done ? ' completed-today' : ''}`} aria-label="Zaznamenať vykonanie podúlohy" title="Vykonané teraz — môžeš označiť opakovane" onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
+        ) : isCompletable ? (
           <label className="checkbox-only" aria-label="Označiť ako hotové">
             <input
               checked={props.task.done}
@@ -2384,6 +2417,17 @@ function TaskRow(props: TaskRowProps) {
             <input aria-label="Najbližší termín občasnej podúlohy" type="datetime-local" value={deadlineInput(props.task.dueAt)} onChange={(event) => props.onChangeDeadline(props.task.id, event.target.value)} />
           </label>
         ) : null}
+        {isChore && isCompletable ? <div className="chore-completion-info">
+          <span>{completions[0] ? `Naposledy: ${completedLabel(completions[0].completedAt)}` : 'Zatiaľ bez záznamu vykonania'}</span>
+          {completions.length ? <details className="chore-completion-history"><summary>História vykonaní ({completions.length})</summary>
+            <ol>{completions.map((entry) => <li key={entry.id}>
+              <time dateTime={entry.completedAt}>{new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.completedAt))}</time>
+              <span>{props.people.find((person) => person.id === entry.personId)?.name}</span>
+              {entry.personId === props.activePersonId ? <button type="button" onClick={() => props.undoChoreCompletion(props.task.id, entry.id)} title="Zrušiť omylom zaznamenané vykonanie">Zrušiť vykonanie</button> : null}
+            </li>)}</ol>
+            <p>Uchováva sa posledných 200 záznamov.</p>
+          </details> : null}
+        </div> : null}
         <ItemMeta
           createdById={props.task.ownerId}
           people={props.people}
