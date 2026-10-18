@@ -288,3 +288,42 @@ test('simultaneous gratitude entries merge without losing either person', () => 
   const a = clone(local), b = clone(local); a.gratitudeEntries[0].text = 'A'; b.gratitudeEntries[0].text = 'B';
   assert.equal(mergeStates(local, a, b).conflicts.length, 1);
 });
+
+const { choreDone, choreView } = require('../app/page-model.ts');
+const choreEntry = (id, personId = 'person-1', completedAt = '2026-10-17T22:30:00.000Z') => ({ id, personId, completedAt });
+test('repeatable chores reset routine progress by Bratislava day but retain history', () => {
+  const t = task('repeat', {done:false, choreWeight:3, choreCompletions:[choreEntry('one'),choreEntry('two')]});
+  assert.equal(choreDone(t,'2026-10-18'),true);
+  assert.equal(choreDone(t,'2026-10-19'),false);
+  const next = choreView(t,'2026-10-19');
+  assert.equal(next.done,false); assert.equal(next.choreCompletions.length,2);
+  assert.equal(choreDone({...t,choreCadence:'occasional'},'2026-10-19'),true);
+  assert.equal(choreDone({...t,choreCompletions:t.choreCompletions.map(e=>({...e,undoneAt:'2026-10-18T01:00:00Z'}))},'2026-10-18'),false);
+  assert.equal(choreDone(task('legacy',{done:true}),'2026-10-19'),true);
+});
+test('chore completion events validate actor, timestamps and duplicate IDs', () => {
+  const s=state(); s.goals[0].category='chore'; s.goals[0].children=[task('repeat',{choreCompletions:[choreEntry('one')]})];
+  assert.equal(isValidState(s),true);
+  for(const entries of [[choreEntry('one'),choreEntry('one')],[choreEntry('bad','person-3')],[choreEntry('bad','person-1','invalid')]]) {
+    const bad=clone(s);bad.goals[0].children[0].choreCompletions=entries;assert.equal(isValidState(bad),false);
+  }
+});
+test('simultaneous chore executions both survive merge and stay within history limit', () => {
+  const b=state();b.goals[0].children=[task('repeat',{choreCompletions:[]})];
+  const l=clone(b),r=clone(b);l.goals[0].children[0].choreCompletions=[choreEntry('local')];r.goals[0].children[0].choreCompletions=[choreEntry('remote','person-2')];
+  const m=mergeStates(b,l,r);assert.equal(m.conflicts.length,0);assert.equal(m.state.goals[0].children[0].choreCompletions.length,2);
+  b.goals[0].children[0].choreCompletions=Array.from({length:200},(_,i)=>choreEntry('old-'+i));
+  const x=clone(b),y=clone(b);x.goals[0].children[0].choreCompletions=[choreEntry('new-1','person-1','2026-10-18T10:00:00Z'),...b.goals[0].children[0].choreCompletions.slice(0,199)];y.goals[0].children[0].choreCompletions=[choreEntry('new-2','person-2','2026-10-18T10:00:00Z'),...b.goals[0].children[0].choreCompletions.slice(0,199)];
+  const limited=mergeStates(b,x,y).state;assert.equal(limited.goals[0].children[0].choreCompletions.length,200);assert.equal(isValidState(limited),true);assert.ok(limited.goals[0].children[0].choreCompletions.find(e=>e.id==='new-1'));assert.ok(limited.goals[0].children[0].choreCompletions.find(e=>e.id==='new-2'));
+});
+test('server preserves chore history for old clients and restricts undo to original actor', () => {
+  const b=state();b.goals[0].children=[task('repeat',{choreCompletions:[choreEntry('mine'),choreEntry('theirs','person-2')]})];
+  const n=clone(b);delete n.goals[0].children[0].choreCompletions;
+  assert.equal(authorizedState(b,n,'person-1').goals[0].children[0].choreCompletions.length,2);
+  const own=clone(b);own.goals[0].children[0].choreCompletions[0].undoneAt=new Date().toISOString();
+  assert.ok(authorizedState(b,own,'person-1').goals[0].children[0].choreCompletions.find(e=>e.id==='mine').undoneAt);
+  const peer=clone(b);peer.goals[0].children[0].choreCompletions[1].undoneAt=new Date().toISOString();
+  assert.throws(()=>authorizedState(b,peer,'person-1'),/svoje vykonanie/);
+  const forged=clone(b);forged.goals[0].children[0].choreCompletions.push(choreEntry('forged','person-2'));
+  assert.throws(()=>authorizedState(b,forged,'person-1'),/autor vykonania/);
+});
