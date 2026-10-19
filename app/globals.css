@@ -2614,3 +2614,8 @@ select:focus {
 .chore-schedule-copy span, .chore-date-note { font-size: 12px; color: var(--muted); }
 .chore-schedule-list .deadline-field { max-width: 100%; }
 .chore-schedule-list input { max-width: 100%; min-width: 0; }
+
+.completed-list { max-height: min(532px, 50vh); overflow-y: auto; scrollbar-gutter: stable; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line) var(--panel-soft); }
+.completed-list::-webkit-scrollbar { width: 10px; }
+.completed-list::-webkit-scrollbar-track { background: var(--panel-soft); border-radius: 999px; }
+.completed-list::-webkit-scrollbar-thumb { background: var(--line); border: 2px solid var(--panel-soft); border-radius: 999px; }
