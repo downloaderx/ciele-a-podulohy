@@ -1,5 +1,6 @@
 'use client';
 
+import { SatisfactionPoll, SatisfactionSummary } from './satisfaction-poll';
 import { GratitudePanel } from './gratitude-panel';
 import { gratitudeDay } from './gratitude';
 
@@ -393,6 +394,7 @@ export default function Home() {
         id: goal.id,
         categoryLabel: getCategoryLabel(normalizeGoalCategory(goal.category), boardSpaceId),
         isChore: normalizeGoalCategory(goal.category) === 'chore',
+        satisfaction: boardSpaceId === sharedSpaceId && normalizeGoalCategory(goal.category) === 'plan' ? goal : undefined,
         title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores (7 dní)` : goal.title,
         ...calculateProgress(goal),
       })),
@@ -767,6 +769,19 @@ export default function Home() {
     const task = findTaskById(goals, goalId);
     setGoals((current) => updateTaskTree(current, goalId, (item) => ({ ...item, deletedAt: undefined, updatedById: activePersonId })));
     if (task) addActivity('obnovil(a) položku z koša', task.title);
+  }
+
+  function rateGoalSatisfaction(goalId: string, score: number | null) {
+    if (score !== null && clampImportance(score) !== score) return;
+    const goal = goals.find((item) => item.id === goalId);
+    if (!goal || getGoalSpaceId(goal) !== sharedSpaceId || normalizeGoalCategory(goal.category) !== 'plan') return;
+    setGoals((current) => current.map((item) => item.id !== goalId ? item : { ...item,
+      satisfactionByPerson: score === null
+        ? Object.fromEntries(Object.entries(item.satisfactionByPerson ?? {}).filter(([id]) => id !== activePersonId))
+        : { ...item.satisfactionByPerson, [activePersonId]: score },
+      updatedById: activePersonId,
+    }));
+    addActivity(score === null ? 'zrušil(a) odpoveď spokojnosti' : 'ohodnotil(a) spokojnosť', goal.title);
   }
 
   function rateGoalImportance(goalId: string, personId: string, importance: number) {
@@ -1260,7 +1275,7 @@ export default function Home() {
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
           <div className="category-progress-summary">
-            {(['plan', 'chore'] as const).map((category) => {
+            {(['plan', 'chore'] as const).filter((category) => category !== 'plan' || boardSpaceId !== sharedSpaceId).map((category) => {
               const progress = categoryTotals[category];
               const label = getCategoryLabel(category, boardSpaceId);
               return <section className="category-progress-card" aria-label={`Priebeh: ${label}`} key={category}>
@@ -1283,7 +1298,7 @@ export default function Home() {
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Bežné chores sa počítajú za posledných 7 dní vrátane dneška, podľa náročnosti. Staršie označenia bez dátumu sa do obdobia nezapočítavajú. Vykonanie môžeš zaznamenať opakovane; občasné chores majú vlastný priebeh.</p> : null}
-          <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
+          <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />
           {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
             Nový plán v tabuľke {boardSpaceLabel}
@@ -1376,6 +1391,7 @@ export default function Home() {
                     onDelete={deleteTask}
                     onRateFeasibility={rateGoalFeasibility}
                     onRateImportance={rateGoalImportance}
+                    onRateSatisfaction={rateGoalSatisfaction}
                     onRenameDescription={updateGoalDescription}
                     onRename={renameTask}
                     people={people}
@@ -1405,7 +1421,7 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
@@ -1807,10 +1823,12 @@ function ProjectProgressStrip({
   goals,
   heading = 'Plány na očiach',
   subtitle,
+  people = [],
 }: {
-  goals: Array<{ id: string; title: string; done: number; total: number; percent: number }>;
+  goals: Array<{ id: string; title: string; done: number; total: number; percent: number; satisfaction?: Goal }>;
   heading?: string;
   subtitle?: string;
+  people?: Person[];
 }) {
   const [start, setStart] = useState(0);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
@@ -1858,9 +1876,9 @@ function ProjectProgressStrip({
             <div className="project-bar" key={goal.id}>
               <div className="project-bar-copy">
                 <span title={goal.title}>{goal.title}</span>
-                <strong>{goal.percent}% · {goal.done}/{goal.total}</strong>
+                {goal.satisfaction ? null : <strong>{goal.percent}% · {goal.done}/{goal.total}</strong>}
               </div>
-              <div className="meter mini" aria-hidden="true"><span style={{ width: goal.percent + '%' }} /></div>
+              {goal.satisfaction ? <SatisfactionSummary goal={goal.satisfaction} people={people} /> : <div className="meter mini" aria-hidden="true"><span style={{ width: goal.percent + '%' }} /></div>}
             </div>
           ))}
         </div>
@@ -1884,6 +1902,7 @@ type GoalPanelProps = {
   onDelete: (taskId: string) => void;
   onRateFeasibility: (goalId: string, personId: string, feasibility: number) => void;
   onRateImportance: (goalId: string, personId: string, importance: number) => void;
+  onRateSatisfaction: (goalId: string, score: number | null) => void;
   onRename: (taskId: string, title: string) => void;
   onRenameDescription: (goalId: string, description: string) => void;
   people: Person[];
@@ -1899,6 +1918,7 @@ function GoalPanel(props: GoalPanelProps) {
   const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
   const importanceByPerson = normalizeGoalImportance(props.goal, props.people);
   const category = normalizeGoalCategory(props.goal.category);
+  const isRelationship = props.boardSpaceId === sharedSpaceId && category === 'plan';
   const isRecurring = recurringCategoryIds.includes(category);
   const occasionalProgress = calculateChoreProgress(props.goal.children, 'occasional');
   const choreHistory = choreHistorySummary(props.goal.children.length ? props.goal.children : [props.goal]);
@@ -1982,7 +2002,8 @@ function GoalPanel(props: GoalPanelProps) {
           ) : null}
           </> : null}
         </div>
-        <div className="progress-badge">
+        <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
+          {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
           {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">7 dní: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span>
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
             {choreHistory.undatedCount ? <span title="Staršie označenia bez uloženého dátumu sa nezapočítavajú do posledných 7 dní">Bez dátumu: {choreHistory.undatedCount}</span> : null}
@@ -1990,6 +2011,7 @@ function GoalPanel(props: GoalPanelProps) {
           <span>
             {progress.done}/{progress.total}
           </span>
+          </>}
         </div>
         {expanded ? <button
           aria-label="Presunúť plán do koša"
@@ -2006,7 +2028,7 @@ function GoalPanel(props: GoalPanelProps) {
         <label className="deadline-field">Termín
           <input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} />
         </label>
-        {isCompletable ? (
+        {isCompletable && !isRelationship ? (
           <label className="check-row">
             <input
               checked={props.goal.done}
@@ -2016,7 +2038,7 @@ function GoalPanel(props: GoalPanelProps) {
             Plán označený ako hotový
           </label>
         ) : (
-          <span className="non-checkable-note">Bez checkboxu</span>
+          <span className="non-checkable-note">{isRelationship ? 'Téma alebo dohoda bez percentuálneho dokončenia' : 'Bez checkboxu'}</span>
         )}
         <ItemMeta
           createdById={props.goal.ownerId}
@@ -2074,9 +2096,9 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
       ) : null}
 
-      <div className="meter slim" aria-hidden="true">
+      {isRelationship ? <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} /> : <div className="meter slim" aria-hidden="true">
         <span style={{ width: `${progress.percent}%` }} />
-      </div>
+      </div>}
 
       <ImportancePanel
         activePersonId={props.activePersonId}
