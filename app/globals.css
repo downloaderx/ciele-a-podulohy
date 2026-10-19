@@ -2619,3 +2619,7 @@ select:focus {
 .completed-list::-webkit-scrollbar { width: 10px; }
 .completed-list::-webkit-scrollbar-track { background: var(--panel-soft); border-radius: 999px; }
 .completed-list::-webkit-scrollbar-thumb { background: var(--line); border: 2px solid var(--panel-soft); border-radius: 999px; }
+
+.completed-list > li:nth-child(3n + 1) { background: #f5f3f8; }
+.completed-list > li:nth-child(3n + 2) { background: #edf5f4; }
+.completed-list > li:nth-child(3n) { background: #eef2f8; }

@@ -66,3 +66,7 @@
 
 :root[data-theme]:not([data-theme="original"]) .summary-panel strong { color:var(--accent); text-shadow:none; }
 :root[data-theme="hearts"]:not([data-theme="original"]) body::before { background-image:url("/theme-hearts.svg"); }
+
+:root[data-theme]:not([data-theme="original"]) .completed-list > li:nth-child(3n + 1) { background: var(--history); }
+:root[data-theme]:not([data-theme="original"]) .completed-list > li:nth-child(3n + 2) { background: color-mix(in srgb, var(--history) 65%, var(--panel-soft) 35%); }
+:root[data-theme]:not([data-theme="original"]) .completed-list > li:nth-child(3n) { background: color-mix(in srgb, var(--history) 65%, var(--surface) 35%); }
