@@ -371,6 +371,16 @@ export function calculateCategoryProgress(goals: Goal[], category: 'plan' | 'cho
   return { done: tracked.filter(completed).length, total: tracked.length, totalWeight, doneWeight, percent: totalWeight ? Math.round(doneWeight / totalWeight * 100) : 0 };
 }
 
+export function occasionalChoreSchedule(goals: Goal[]) {
+  const collect = (tasks: Task[]): Task[] => tasks.flatMap((task) => task.deletedAt ? [] : [task, ...collect(task.children)]);
+  return goals.filter((goal) => !goal.deletedAt && normalizeGoalCategory(goal.category) === 'chore').flatMap((goal) =>
+    collect(goal.children).filter((task) => isCompletableTask(task) && task.choreCadence === 'occasional').map((task) => ({
+      goalId: goal.id, goalTitle: goal.title, taskId: task.id, title: task.title, dueAt: task.dueAt,
+      lastCompletedAt: (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).map((entry) => entry.completedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0],
+      undated: task.done && !task.choreCompletions,
+    }))).sort((a, b) => (a.dueAt ? Date.parse(a.dueAt) : Infinity) - (b.dueAt ? Date.parse(b.dueAt) : Infinity) || a.title.localeCompare(b.title, 'sk'));
+}
+
 export function normalizeTaskKind(kind: Task['kind'] | undefined): TaskKind {
   return kind && taskKinds.some((option) => option.id === kind) ? kind : 'todo';
 }
@@ -651,7 +661,7 @@ export function flattenChildren(task: Task): Task[] {
 
 export function collectCompletedItems(goals: Goal[]) {
   return goals.flatMap<CompletedItem>((goal) => {
-    const completedGoal = goal.done && isCompletableTask(goal)
+    const completedGoal = normalizeGoalCategory(goal.category) !== 'chore' && goal.done && isCompletableTask(goal)
       ? [{
           id: goal.id,
           ownerId: goal.ownerId,

@@ -391,3 +391,20 @@ test('simultaneous satisfaction responses merge independently without inventing 
   assert.deepEqual(merged.state.goals[0].satisfactionByPerson,{'person-1':2,'person-2':5});
   assert.equal(isValidState(merged.state),true);
 });
+
+const { occasionalChoreSchedule, collectCompletedItems } = require('../app/page-model.ts');
+test('occasional schedule tracks individual dates and preserves legacy project history', () => {
+  const g=goal('bathroom',{category:'chore',done:true,lastCompletedAt:'2020-01-01T12:00:00Z',recurrenceHistory:['2020-01-01T12:00:00Z'],children:[
+    task('routine'), task('late',{choreCadence:'occasional',dueAt:'2026-11-01T12:00:00Z',children:[task('nested',{choreCadence:'occasional',dueAt:'2026-10-25T12:00:00Z',choreCompletions:[choreEntry('valid','person-1','2026-10-19T12:00:00Z'),{...choreEntry('undone','person-1','2026-10-20T12:00:00Z'),undoneAt:'2026-10-20T13:00:00Z'}]})]}),
+    task('undated',{choreCadence:'occasional',done:true}),task('deleted',{choreCadence:'occasional',deletedAt:'2026-10-19T12:00:00Z',children:[task('hidden',{choreCadence:'occasional'})]})]});
+  const before=clone(g);const schedule=occasionalChoreSchedule([g,goal('other',{children:[task('ignored',{choreCadence:'occasional'})]})]);
+  assert.deepEqual(schedule.map(i=>i.taskId),['nested','late','undated']);
+  assert.equal(schedule[0].lastCompletedAt,'2026-10-19T12:00:00Z');
+  assert.equal(schedule[1].lastCompletedAt,undefined);assert.equal(schedule[2].undated,true);
+  assert.deepEqual(g,before);
+});
+test('whole chore projects are not listed as completed while actual completed tasks remain', () => {
+  const g=goal('chore',{category:'chore',done:true,children:[task('child',{done:true})]});
+  const completed=collectCompletedItems([g,goal('project',{done:true})]);
+  assert.equal(completed.some(i=>i.id==='chore'),false);assert.equal(completed.some(i=>i.id==='child'),true);assert.equal(completed.some(i=>i.id==='project'),true);
+});
