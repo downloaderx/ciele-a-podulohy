@@ -1920,7 +1920,6 @@ function GoalPanel(props: GoalPanelProps) {
   const category = normalizeGoalCategory(props.goal.category);
   const isRelationship = props.boardSpaceId === sharedSpaceId && category === 'plan';
   const isRecurring = recurringCategoryIds.includes(category);
-  const occasionalProgress = calculateChoreProgress(props.goal.children, 'occasional');
   const choreHistory = choreHistorySummary(props.goal.children.length ? props.goal.children : [props.goal]);
   const isCompletable = isCompletableTask(props.goal);
   const suggestedDescriptionChunks = useMemo(
@@ -2004,7 +2003,7 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
         <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
-          {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">7 dní: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span>
+          {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${progress.percent}%` : '—'}</strong><span>za posledných 7 dní</span>
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
             {choreHistory.undatedCount ? <span title="Staršie označenia bez uloženého dátumu sa nezapočítavajú do posledných 7 dní">Bez dátumu: {choreHistory.undatedCount}</span> : null}
           </> : <strong>{progress.percent}%</strong>}
