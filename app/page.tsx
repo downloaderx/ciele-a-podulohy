@@ -16,7 +16,6 @@ import {
   calculateProgress,
   calculateChoreProgress,
   calculateCategoryProgress,
-  occasionalChoreSchedule,
   choreView,
   choreHistorySummary,
   clampImportance,
@@ -1349,7 +1348,6 @@ export default function Home() {
       />
 
       <fieldset disabled={!canEditBoard} className="board-edit-controls">
-        <ChoreSchedulePanel goals={boardGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'chore')} onChangeDeadline={changeDeadline} />
         {recurringGoals.some((goal) => normalizeGoalCategory(goal.category) !== 'chore') ? <RecurringCalendarPanel
         boardSpaceId={boardSpaceId}
         goals={recurringGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'chore')}
@@ -1605,25 +1603,6 @@ function ActivityWheelPanel({ activitiesOpen, activities, onToggleActivities, on
     {activities.length > 0 ? <button className="activity-list-toggle" onClick={onToggleActivities} type="button">{activitiesOpen ? 'Skryť aktivity' : 'Ukázať aktivity'}</button> : null}
     {activitiesOpen ? <div className="activity-options">{activities.map((activity) => <span key={activity.id}>{activity.title}</span>)}</div> : null}
     {!spinning && selectedActivity ? <div className="activity-result" role="status"><span>Vybrané</span><strong>{selectedActivity.title}</strong><p>{selectedActivity.description}</p></div> : null}
-  </section>;
-}
-
-function ChoreSchedulePanel({ goals, onChangeDeadline }: { goals: Goal[]; onChangeDeadline: (taskId: string, value: string) => void }) {
-  const items = occasionalChoreSchedule(goals);
-  if (!goals.length) return null;
-  const dateLabel = (value: string) => new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <section className="special-panel chore-schedule" aria-label="Termíny občasných prác">
-    <div className="special-heading"><div><span className="label">Občasné chores</span><h2>Čo je kedy na rade</h2></div></div>
-    <p>Sleduj termíny jednotlivých prác. Vykonanie zaznamenáš pri podúlohe; celý projekt sa neoznačuje ako hotový.</p>
-    {items.length ? <ul className="chore-schedule-list">{items.map((item) => <li key={item.taskId}>
-      <div className="chore-schedule-copy"><strong>{item.title}</strong><span>{item.goalTitle}</span>
-        <span>{item.lastCompletedAt ? `Naposledy: ${dateLabel(item.lastCompletedAt)}` : item.undated ? 'Staršie vykonanie · dátum neznámy' : 'Zatiaľ bez záznamu vykonania'}</span>
-      </div>
-      <label className="deadline-field">Najbližší termín
-        <input aria-label={`Najbližší termín: ${item.title}`} type="datetime-local" value={deadlineInput(item.dueAt)} onChange={(event) => onChangeDeadline(item.taskId, event.target.value)} />
-        {!item.dueAt ? <span className="chore-date-note">Termín nie je nastavený</span> : <time dateTime={item.dueAt}>{dateLabel(item.dueAt)}</time>}
-      </label>
-    </li>)}</ul> : <p>Zatiaľ nemáte občasné práce. Podúlohu sem zaradíš výberom „Občasné“.</p>}
   </section>;
 }
 
