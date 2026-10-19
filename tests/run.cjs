@@ -216,14 +216,14 @@ test('chore grouping survives sync and rejects unknown groups', () => {
 
 test('chore effort weights progress independently of occasional chores', () => {
   const { calculateChoreProgress } = require('../app/page-model.ts');
-  const tasks = [task('small', {done:true}), task('medium', {choreWeight:3}), task('large', {choreWeight:5}), task('occasional', {choreCadence:'occasional',choreWeight:5}), task('rule',{kind:'rule',choreWeight:5}), task('deleted',{deletedAt:'2026-10-14T10:00:00.000Z',choreWeight:5})];
+  const tasks = [task('small', {done:true,choreCompletions:[{id:'dated-small',personId:'person-1',completedAt:new Date().toISOString()}]}), task('medium', {choreWeight:3}), task('large', {choreWeight:5}), task('occasional', {choreCadence:'occasional',choreWeight:5}), task('rule',{kind:'rule',choreWeight:5}), task('deleted',{deletedAt:'2026-10-14T10:00:00.000Z',choreWeight:5})];
   assert.equal(calculateChoreProgress(tasks,'routine').percent,11);
   assert.equal(calculateChoreProgress(tasks,'routine').totalWeight,9);
   assert.equal(calculateChoreProgress(tasks,'occasional').percent,0);
-  tasks[1].done=true; assert.equal(calculateChoreProgress(tasks,'routine').percent,44);
+  tasks[1].choreCompletions=[{id:'dated-medium',personId:'person-1',completedAt:new Date().toISOString()}]; assert.equal(calculateChoreProgress(tasks,'routine').percent,44);
   tasks[3].done=true; assert.equal(calculateChoreProgress(tasks,'occasional').percent,100);
   assert.equal(calculateChoreProgress(tasks,'routine').percent,44);
-  tasks[2].done=true; assert.equal(calculateChoreProgress(tasks,'routine').percent,100);
+  tasks[2].choreCompletions=[{id:'dated-large',personId:'person-1',completedAt:new Date().toISOString()}]; assert.equal(calculateChoreProgress(tasks,'routine').percent,100);
   assert.equal(calculateChoreProgress([],'routine').percent,0);
   const s=state(); s.goals[0].category='chore'; s.goals[0].children=[task('weighted',{choreWeight:3,children:[task('nested',{choreCadence:'occasional',choreWeight:5})]})];
   assert.equal(isValidState(s),true); s.goals[0].children[0].choreWeight=2; assert.equal(isValidState(s),false);
@@ -291,15 +291,18 @@ test('simultaneous gratitude entries merge without losing either person', () => 
 
 const { choreDone, choreView } = require('../app/page-model.ts');
 const choreEntry = (id, personId = 'person-1', completedAt = '2026-10-17T22:30:00.000Z') => ({ id, personId, completedAt });
-test('repeatable chores reset routine progress by Bratislava day but retain history', () => {
+test('repeatable chores use seven Bratislava calendar days and retain history', () => {
   const t = task('repeat', {done:false, choreWeight:3, choreCompletions:[choreEntry('one'),choreEntry('two')]});
   assert.equal(choreDone(t,'2026-10-18'),true);
-  assert.equal(choreDone(t,'2026-10-19'),false);
-  const next = choreView(t,'2026-10-19');
+  assert.equal(choreDone(t,'2026-10-19'),true);
+  assert.equal(choreDone(t,'2026-10-24'),true);
+  assert.equal(choreDone(t,'2026-10-17'),false);
+  assert.equal(choreDone(t,'2026-10-25'),false);
+  const next = choreView(t,'2026-10-25');
   assert.equal(next.done,false); assert.equal(next.choreCompletions.length,2);
   assert.equal(choreDone({...t,choreCadence:'occasional'},'2026-10-19'),true);
   assert.equal(choreDone({...t,choreCompletions:t.choreCompletions.map(e=>({...e,undoneAt:'2026-10-18T01:00:00Z'}))},'2026-10-18'),false);
-  assert.equal(choreDone(task('legacy',{done:true}),'2026-10-19'),true);
+  assert.equal(choreDone(task('legacy',{done:true}),'2026-10-19'),false);
 });
 test('chore completion events validate actor, timestamps and duplicate IDs', () => {
   const s=state(); s.goals[0].category='chore'; s.goals[0].children=[task('repeat',{choreCompletions:[choreEntry('one')]})];
@@ -337,9 +340,25 @@ test('relationship and chores summary progress stays independent', () => {
   assert.equal(relation.percent,50);assert.equal(relation.total,2);
   const chores=calculateCategoryProgress(goals,'chore','2026-10-18');
   assert.equal(chores.percent,75);assert.equal(chores.done,1);assert.equal(chores.total,2);
-  assert.equal(calculateCategoryProgress(goals,'chore','2026-10-19').percent,0);
-  chore.children[1].done=true;
+  assert.equal(calculateCategoryProgress(goals,'chore','2026-10-25').percent,0);
+  chore.children[1].choreCompletions=[choreEntry('more-work')];
   assert.equal(calculateCategoryProgress(goals,'chore','2026-10-18').percent,100);
   assert.deepEqual(calculateCategoryProgress(goals,'plan','2026-10-18'),relation);
   assert.equal(calculateCategoryProgress([],'plan').total,0);
+});
+
+const { choreHistorySummary } = require('../app/page-model.ts');
+test('undated legacy chores stay visible but never count toward a dated period', () => {
+  const legacy=task('legacy',{done:true});
+  const completed=task('dated',{choreCompletions:[choreEntry('older','person-1','2026-10-18T10:00:00Z'),{...choreEntry('undone','person-1','2026-10-19T10:00:00Z'),undoneAt:'2026-10-19T10:01:00Z'}]});
+  const summary=choreHistorySummary([legacy,completed,task('deleted',{done:true,deletedAt:'2026-10-18T12:00:00Z'})]);
+  assert.equal(summary.undatedCount,1);assert.equal(summary.lastCompletedAt,'2026-10-18T10:00:00Z');
+  const view=choreView(legacy,'2026-10-19');assert.equal(view.done,true);assert.equal(choreDone(view,'2026-10-19'),false);
+  assert.equal(calculateCategoryProgress([goal('g',{category:'chore',children:[legacy,completed]})],'chore','2026-10-19').done,1);
+});
+test('seven-day chore window uses calendar dates across daylight saving changes', () => {
+  const t=task('dst',{choreCompletions:[choreEntry('work','person-1','2026-10-24T22:30:00Z')]});
+  assert.equal(choreDone(t,'2026-10-24'),false);
+  assert.equal(choreDone(t,'2026-10-31'),true);
+  assert.equal(choreDone(t,'2026-11-01'),false);
 });
