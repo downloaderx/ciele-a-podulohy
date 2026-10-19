@@ -323,13 +323,30 @@ export function calculateProgress(task: Task) {
 }
 
 export function choreDone(task: Task, day = gratitudeDay()) {
-  if (!task.choreCompletions) return task.done;
-  return task.choreCompletions.some((entry) => !entry.undoneAt &&
-    (task.choreCadence === 'occasional' || gratitudeDay(new Date(entry.completedAt)) === day));
+  if (!task.choreCompletions) return task.choreCadence === 'occasional' && task.done;
+  const start = new Date(`${day}T12:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - 6);
+  const firstDay = start.toISOString().slice(0, 10);
+  return task.choreCompletions.some((entry) => {
+    if (entry.undoneAt) return false;
+    if (task.choreCadence === 'occasional') return true;
+    const completedDay = gratitudeDay(new Date(entry.completedAt));
+    return completedDay >= firstDay && completedDay <= day;
+  });
 }
 
 export function choreView<T extends Task>(task: T, day: string): T {
-  return { ...task, done: choreDone(task, day), children: task.children.map((child) => choreView(child, day)) };
+  return { ...task, done: task.choreCompletions ? choreDone(task, day) : task.done, children: task.children.map((child) => choreView(child, day)) };
+}
+
+export function choreHistorySummary(tasks: Task[]) {
+  const collect = (items: Task[]): Task[] => items.flatMap((task) => task.deletedAt ? [] : [task, ...collect(task.children)]);
+  const tracked = collect(tasks).filter(isCompletableTask);
+  const entries = tracked.flatMap((task) => task.choreCompletions ?? []).filter((entry) => !entry.undoneAt);
+  return {
+    lastCompletedAt: entries.map((entry) => entry.completedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0],
+    undatedCount: tracked.filter((task) => task.done && !task.choreCompletions).length,
+  };
 }
 
 export function calculateChoreProgress(tasks: Task[], cadence: ChoreCadence) {

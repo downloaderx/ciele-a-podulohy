@@ -16,6 +16,7 @@ import {
   calculateChoreProgress,
   calculateCategoryProgress,
   choreView,
+  choreHistorySummary,
   clampImportance,
   collectCompletedItems,
   createId,
@@ -392,7 +393,7 @@ export default function Home() {
         id: goal.id,
         categoryLabel: getCategoryLabel(normalizeGoalCategory(goal.category), boardSpaceId),
         isChore: normalizeGoalCategory(goal.category) === 'chore',
-        title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores` : goal.title,
+        title: normalizeGoalCategory(goal.category) === 'chore' ? `${goal.title} · bežné chores (7 dní)` : goal.title,
         ...calculateProgress(goal),
       })),
     [rankedActiveGoals, boardSpaceId],
@@ -1264,12 +1265,12 @@ export default function Home() {
               const label = getCategoryLabel(category, boardSpaceId);
               return <section className="category-progress-card" aria-label={`Priebeh: ${label}`} key={category}>
                 <h2>{label}</h2>
-                {category === 'chore' ? <span className="category-progress-context">Bežné chores · dnes</span> : null}
+                {category === 'chore' ? <span className="category-progress-context">Bežné chores · posledných 7 dní</span> : null}
                 <strong>{progress.total ? `${progress.percent}%` : '—'}</strong>
                 <div className="meter" aria-hidden="true"><span style={{ width: `${progress.percent}%` }} /></div>
                 <GrowthBranch percent={progress.percent} />
-                <p>{progress.total ? `Hotovo ${progress.done} z ${progress.total} ${category === 'chore' ? 'bežných prác dnes' : 'krokov v tejto kategórii'}.` : 'V tejto kategórii zatiaľ nie sú úlohy na dokončenie.'}</p>
-                {category === 'chore' ? <p className="category-progress-note">Percento zohľadňuje náročnosť. Občasné práce majú vlastný priebeh pri jednotlivých projektoch.</p> : null}
+                <p>{progress.total ? `Hotovo ${progress.done} z ${progress.total} ${category === 'chore' ? 'bežných prác za posledných 7 dní' : 'krokov v tejto kategórii'}.` : 'V tejto kategórii zatiaľ nie sú úlohy na dokončenie.'}</p>
+                {category === 'chore' ? <p className="category-progress-note">Percento zohľadňuje náročnosť a záznamy za posledných 7 dní vrátane dneška. Označenia bez dátumu sa nezapočítavajú. Občasné práce majú vlastný priebeh pri projektoch.</p> : null}
               </section>;
             })}
           </div>
@@ -1281,7 +1282,7 @@ export default function Home() {
         </div>
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
-          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Bežné chores sa počítajú za dnešok podľa náročnosti. Vykonanie môžeš zaznamenať opakovane; občasné chores majú vlastný priebeh.</p> : null}
+          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Bežné chores sa počítajú za posledných 7 dní vrátane dneška, podľa náročnosti. Staršie označenia bez dátumu sa do obdobia nezapočítavajú. Vykonanie môžeš zaznamenať opakovane; občasné chores majú vlastný priebeh.</p> : null}
           <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} />
           {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
@@ -1900,6 +1901,7 @@ function GoalPanel(props: GoalPanelProps) {
   const category = normalizeGoalCategory(props.goal.category);
   const isRecurring = recurringCategoryIds.includes(category);
   const occasionalProgress = calculateChoreProgress(props.goal.children, 'occasional');
+  const choreHistory = choreHistorySummary(props.goal.children.length ? props.goal.children : [props.goal]);
   const isCompletable = isCompletableTask(props.goal);
   const suggestedDescriptionChunks = useMemo(
     () => splitLongDescription(props.goal.description),
@@ -1981,7 +1983,10 @@ function GoalPanel(props: GoalPanelProps) {
           </> : null}
         </div>
         <div className="progress-badge">
-          {category === 'chore' ? <><strong>Dnes: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span></> : <strong>{progress.percent}%</strong>}
+          {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">7 dní: {progress.total ? `${progress.percent}%` : '—'}</strong><span>Občasné: {occasionalProgress.total ? `${occasionalProgress.percent}%` : '—'}</span>
+            {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
+            {choreHistory.undatedCount ? <span title="Staršie označenia bez uloženého dátumu sa nezapočítavajú do posledných 7 dní">Bez dátumu: {choreHistory.undatedCount}</span> : null}
+          </> : <strong>{progress.percent}%</strong>}
           <span>
             {progress.done}/{progress.total}
           </span>
@@ -2286,7 +2291,7 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
     const progress = calculateChoreProgress(props.tasks, cadence);
     if (!tasks.length && props.depth > 1) return null;
     return <section className="chore-task-group" key={cadence} aria-label={cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}>
-      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Dnešné vykonania · podľa potreby' : 'Raz za dlhší čas'}</span><strong title="Podiel dokončenej práce podľa náročnosti">{progress.total ? `${progress.percent}% · ${progress.doneWeight}/${progress.totalWeight} bodov` : '—'}</strong></div>
+      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</span><strong title="Podiel dokončenej práce podľa náročnosti">{progress.total ? `${progress.percent}% · ${progress.doneWeight}/${progress.totalWeight} bodov` : '—'}</strong></div>
       {tasks.length ? renderTasks(tasks) : <p className="chore-group-empty">{cadence === 'routine' ? 'Podúlohu sem zaradíš výberom „Bežné“ v jej riadku.' : 'Podúlohu sem zaradíš výberom „Občasné“ v jej riadku.'}</p>}
     </section>;
   })}</>;
@@ -2416,7 +2421,7 @@ function TaskRow(props: TaskRowProps) {
           </label>
         ) : null}
         {isChore && isCompletable ? <div className="chore-completion-info">
-          <span>{completions[0] ? `Naposledy: ${completedLabel(completions[0].completedAt)}` : 'Zatiaľ bez záznamu vykonania'}</span>
+          <span>{completions[0] ? `Naposledy: ${completedLabel(completions[0].completedAt)}` : props.task.done && !props.task.choreCompletions ? 'Staršie označenie hotovo · dátum neznámy' : 'Zatiaľ bez záznamu vykonania'}</span>
           {completions.length ? <details className="chore-completion-history"><summary>História vykonaní ({completions.length})</summary>
             <ol>{completions.map((entry) => <li key={entry.id}>
               <time dateTime={entry.completedAt}>{new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.completedAt))}</time>
