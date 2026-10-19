@@ -369,7 +369,7 @@ export default function Home() {
     chore: calculateCategoryProgress(boardGoals, 'chore', choreDay),
   }), [boardGoals, choreDay]);
   const completedItems = useMemo(
-    () => collectCompletedItems(boardGoals).slice(0, 10),
+    () => collectCompletedItems(boardGoals),
     [boardGoals],
   );
   const recurringGoals = useMemo(
@@ -1555,7 +1555,7 @@ function CompletedWorkPanel({
         <strong>{completedItems.length}</strong>
       </div>
       {completedItems.length > 0 ? (
-        <ol className="completed-list">
+        <ol className="completed-list" tabIndex={0} aria-label="Hotové veci – posúvateľný zoznam">
           {completedItems.map((item) => {
             const owner = people.find((person) => person.id === item.ownerId);
 
