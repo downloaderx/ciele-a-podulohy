@@ -35,6 +35,7 @@ export type ChoreCadence = 'routine' | 'occasional';
 export type ChoreWeight = 1 | 3 | 5;
 
 export type Goal = Task & {
+  satisfactionByPerson?: Record<string, number>;
   category?: GoalCategory;
   description: string;
   feasibilityByPerson?: Record<string, number>;

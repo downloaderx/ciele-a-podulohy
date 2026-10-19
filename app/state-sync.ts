@@ -42,6 +42,7 @@ export function isValidState(value: unknown): value is AppStateData {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
         (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'care'].includes(String(goal.category))) ||
         (goal.spaceId !== undefined && !['shared', ...personIds].includes(String(goal.spaceId))) ||
+        (goal.satisfactionByPerson !== undefined && !ratings(goal.satisfactionByPerson)) ||
         !ratings(goal.importanceByPerson) || (goal.feasibilityByPerson !== undefined && !ratings(goal.feasibilityByPerson)) ||
         !date(goal.lastCompletedAt) || !date(goal.recurrenceStartAt)) return false;
     if (goal.recurrenceHistory !== undefined && (!Array.isArray(goal.recurrenceHistory) || goal.recurrenceHistory.length > 20 || !goal.recurrenceHistory.every(date))) return false;

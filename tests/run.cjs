@@ -362,3 +362,32 @@ test('seven-day chore window uses calendar dates across daylight saving changes'
   assert.equal(choreDone(t,'2026-10-31'),true);
   assert.equal(choreDone(t,'2026-11-01'),false);
 });
+
+test('satisfaction is optional, validates 1–5 answers and survives export parsing', () => {
+  const s=state();assert.equal(s.goals[0].satisfactionByPerson,undefined);assert.equal(isValidState(s),true);
+  s.goals[0].satisfactionByPerson={'person-1':4};assert.equal(isValidState(s),true);
+  assert.equal(readTransferData({data:s}).goals[0].satisfactionByPerson['person-1'],4);
+  for(const value of [{'person-1':0},{'person-1':6},{'person-1':2.5},{'unknown':3},null]) {
+    const bad=clone(s);bad.goals[0].satisfactionByPerson=value;assert.equal(isValidState(bad),false);
+  }
+  s.goals[0].satisfactionByPerson={};assert.equal(isValidState(s),true);
+});
+test('server protects partner satisfaction, allows own changes/clearing and preserves old clients', () => {
+  const b=state();b.goals[0].satisfactionByPerson={'person-1':2,'person-2':4};
+  const n=clone(b);n.goals[0].satisfactionByPerson={'person-1':5,'person-2':1};
+  const saved=authorizedState(b,n,'person-1');
+  assert.deepEqual(saved.goals[0].satisfactionByPerson,{'person-1':5,'person-2':4});
+  assert.deepEqual(saved.goals[0].importanceByPerson,b.goals[0].importanceByPerson);
+  const cleared=clone(saved);cleared.goals[0].satisfactionByPerson={'person-2':4};
+  assert.deepEqual(authorizedState(saved,cleared,'person-1').goals[0].satisfactionByPerson,{'person-2':4});
+  const legacy=clone(b);delete legacy.goals[0].satisfactionByPerson;
+  assert.deepEqual(authorizedState(b,legacy,'person-1').goals[0].satisfactionByPerson,b.goals[0].satisfactionByPerson);
+  const forged=state();forged.goals[0].satisfactionByPerson={'person-2':5};
+  assert.deepEqual(authorizedState(state(),forged,'person-1').goals[0].satisfactionByPerson,{});
+});
+test('simultaneous satisfaction responses merge independently without inventing missing answers', () => {
+  const b=state(),l=state(),r=state();l.goals[0].satisfactionByPerson={'person-1':2};r.goals[0].satisfactionByPerson={'person-2':5};
+  const merged=mergeStates(b,l,r);assert.equal(merged.conflicts.length,0);
+  assert.deepEqual(merged.state.goals[0].satisfactionByPerson,{'person-1':2,'person-2':5});
+  assert.equal(isValidState(merged.state),true);
+});

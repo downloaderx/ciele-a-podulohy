@@ -53,7 +53,11 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   };
   const goals = (retainRemoved(previousVisible.goals, incoming.goals.filter((goal) => allowedSpace(goal.spaceId))) as Goal[]).map((goal) => {
     const old = previous.goals.find((item) => item.id === goal.id);
+    const satisfaction = goal.satisfactionByPerson ?? old?.satisfactionByPerson;
     return { ...goal, ...stamp(goal),
+      ...(satisfaction !== undefined ? { satisfactionByPerson: Object.fromEntries([
+        [personId, satisfaction[personId]], [otherId, old?.satisfactionByPerson?.[otherId]],
+      ].filter(([, score]) => score !== undefined)) } : {}),
       importanceByPerson: { ...goal.importanceByPerson, [otherId]: old?.importanceByPerson[otherId] ?? 2 },
       feasibilityByPerson: { ...goal.feasibilityByPerson, [otherId]: old?.feasibilityByPerson?.[otherId] ?? 3 },
     };
