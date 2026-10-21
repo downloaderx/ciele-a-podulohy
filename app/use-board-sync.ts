@@ -7,6 +7,7 @@ import { isValidState, mergeStates, visibleState, stableJson, type MergeConflict
 const empty = (personId = 'person-1'): AppStateData => ({ activePersonId: personId, people: defaultPeople, goals: [], activityLog: [], goalRankings: {} });
 const snapshot = (state: AppStateData) => stableJson({ ...state, activePersonId: '' });
 const cacheKey = (personId: string) => `acorns-state-${personId}`;
+const legacyMigrationKey = 'acorns-legacy-migrated';
 const fetchApi = (url: string, init: RequestInit = {}) => fetch(url, { ...init, cache: 'no-store', signal: AbortSignal.timeout(20000) });
 
 type ServerState = { data: AppStateData; revision: number };
@@ -58,9 +59,9 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
         if (!isValidState(cached.data) || !isValidState(cached.base)) throw new Error('Poškodená lokálna záloha');
         local = visibleState(cached.data, personId); baseline = visibleState(cached.base, personId);
       } else {
-        // One-time migration of the old cache, restricted to this account's spaces.
+        // The legacy board belongs to this browser, not to each selected profile.
         const goals = window.localStorage.getItem('ciele-goals');
-        if (goals) {
+        if (goals && !window.localStorage.getItem(legacyMigrationKey)) {
           const legacy = { activePersonId: personId, goals: JSON.parse(goals),
             people: JSON.parse(window.localStorage.getItem('ciele-people') ?? JSON.stringify(defaultPeople)),
             activityLog: JSON.parse(window.localStorage.getItem('ciele-activity-log') ?? '[]'),
@@ -81,7 +82,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       setStatus('Lokálna záloha je poškodená. Pôvodný obsah si môžete stiahnuť.');
     }
     latest.current = local; base.current = baseline;
-    replace(local); setAuthenticated(true); setLoaded(true);
+    replace(local); setStatus('Načítavam spoločnú tabuľu…');
     try {
       const response = await fetchApi('/api/state');
       if (!response.ok) throw new Error(await message(response));
@@ -89,6 +90,8 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       const remote = serverState(await response.json());
       if (generation.current !== currentGeneration) return;
       const merged = mergeStates(baseline, latest.current, remote.data);
+      // Keep the legacy source intact as a backup; import it only once per browser.
+      window.localStorage.setItem(legacyMigrationKey, '1');
       if (merged.conflicts.length) {
         conflictRef.current = { base: baseline, remote }; setConflicts(merged.conflicts);
         setStatus('Našli sa rozdielne úpravy. Vyberte verziu sporných polí.');
@@ -99,7 +102,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       persist();
     } catch (error) {
       if (generation.current === currentGeneration) setStatus(error instanceof Error ? error.message : 'Server je nedostupný. Zmeny zostávajú lokálne.');
-    } finally { if (generation.current === currentGeneration) initializing.current = false; }
+    } finally { if (generation.current === currentGeneration) { initializing.current = false; setAuthenticated(true); setLoaded(true); } }
   }, [persist, replace]);
 
   useEffect(() => {
@@ -195,8 +198,9 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     }
     const response = await fetchApi('/api/session', { method: 'DELETE' });
     if (!response.ok) { setStatus(await message(response)); return; }
-    generation.current++; const personId = identity.current; identity.current = null;
-    if (personId && !keepPending) window.localStorage.removeItem(cacheKey(personId));
+    // Retain the baseline so returning to a profile rebases against the server.
+    persist();
+    generation.current++; identity.current = null;
     conflictRef.current = null; setConflicts([]);
     replace(empty()); setAuthenticated(false); setStatus('');
   }

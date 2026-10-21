@@ -588,3 +588,16 @@ test('ranking insertions and removals merge safely but incompatible reorders sti
   assert.ok(mergeStates(b,l,r).conflicts.some(item=>item.path==='/goalRankings/person-1'));
   assert.deepEqual(mergeStates(b,l,r,{'/goalRankings/person-1':'remote'}).state.goalRankings['person-1'], ['a','c','b']);
 });
+
+
+test('switching profiles preserves every board and rebases an older clean cache to the server', () => {
+  const old = state(), remote = clone(old);
+  remote.goals.push(goal('new-shared', { children: [task('new-child')] }));
+  remote.goals[0].title = 'New server title';
+  for (const personId of ['person-1', 'person-2', 'person-1']) {
+    const result = mergeStates(visibleState(old, personId), visibleState(old, personId), visibleState(remote, personId));
+    assert.deepEqual(result.conflicts, []);
+    assert.deepEqual(result.state.goals, remote.goals);
+    assert.equal(result.state.activePersonId, personId);
+  }
+});
