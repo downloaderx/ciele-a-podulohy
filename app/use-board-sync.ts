@@ -1,5 +1,7 @@
 'use client';
 
+import { preserveLocalRecovery } from './local-recovery';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultPeople, type AppStateData } from './page-model';
 import { isValidState, mergeStates, mergeInitialBoard, visibleState, stableJson, type MergeConflict, type ConflictChoices } from './state-sync';
@@ -47,6 +49,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   }, []);
 
   const begin = useCallback(async (personId: string) => {
+    preserveLocalRecovery(window.localStorage);
     const currentGeneration = ++generation.current;
     initializing.current = true;
     identity.current = personId;

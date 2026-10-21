@@ -618,3 +618,26 @@ test('obsolete browser data only bootstraps an empty server and cannot resurrect
   const cached = clone(remote); cached.goals.push(goal('offline-new'));
   assert.ok(mergeInitialBoard(remote, cached, remote, false).state.goals.some(g => g.id === 'offline-new'));
 });
+
+
+test('recovery export retains both profile caches, old backups and malformed versions without including unrelated storage', () => {
+  const { collectLocalRecovery } = require('../app/local-recovery.ts');
+  const entries = new Map([['acorns-state-person-1', JSON.stringify({ data: state(), base: state() })], ['acorns-state-person-2', '{broken'], ['ciele-state-backups-person-1', '[{"data":{}}]'], ['acorns-recovery-person-2-123', 'old raw data'], ['ciele-goals', '[]'], ['access_token', 'secret'], ['other-app-data', 'private']]);
+  const storage = { length: entries.size, key: i => [...entries.keys()][i], getItem: key => entries.get(key) ?? null };
+  const result = collectLocalRecovery(storage);
+  assert.deepEqual(Object.keys(result).sort(), [...entries.keys()].filter(k => !['access_token', 'other-app-data'].includes(k)).sort());
+  assert.deepEqual(result['acorns-state-person-1'].data, state());
+  assert.equal(result['acorns-state-person-2'], '{broken');
+  assert.equal(result['acorns-recovery-person-2-123'], 'old raw data');
+});
+
+
+test('recovery keeps original versions of both profiles before synchronization and never overwrites them', () => {
+  const { preserveLocalRecovery } = require('../app/local-recovery.ts');
+  const entries = new Map([['acorns-state-person-1', 'first'], ['acorns-state-person-2', 'second']]);
+  const storage = { getItem: key => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value) };
+  preserveLocalRecovery(storage); entries.set('acorns-state-person-1', 'new'); preserveLocalRecovery(storage);
+  assert.equal(entries.get('acorns-recovery-person-1-0'), 'first');
+  assert.equal(entries.get('acorns-recovery-person-2-0'), 'second');
+  assert.doesNotThrow(() => preserveLocalRecovery({ getItem: () => { throw Error('blocked'); }, setItem: () => {} }));
+});
