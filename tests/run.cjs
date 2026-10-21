@@ -517,3 +517,50 @@ test('chore randomizers keep groups separate and skip deleted, non-actionable an
   assert.deepEqual(chorePickOptions([], 'routine'), []);
   assert.deepEqual(chores, before);
 });
+
+const { satisfactionSchedule } = require('../app/satisfaction-schedule.ts');
+test('relationship satisfaction appears every second Sunday for a full Bratislava calendar day', () => {
+  assert.deepEqual(satisfactionSchedule('2026-10-21'), { isOpen: false, nextDay: '2026-10-25' });
+  assert.deepEqual(satisfactionSchedule('2026-10-25'), { isOpen: true, nextDay: '2026-11-08' });
+  assert.equal(satisfactionSchedule('2026-11-01').isOpen, false);
+  assert.equal(satisfactionSchedule('2026-11-08').isOpen, true);
+  assert.equal(satisfactionSchedule('2026-10-11').isOpen, false);
+  const openAt = (timestamp) => satisfactionSchedule(gratitudeDay(new Date(timestamp))).isOpen;
+  assert.equal(openAt('2026-10-24T21:59:59Z'), false);
+  assert.equal(openAt('2026-10-24T22:00:00Z'), true);
+  assert.equal(openAt('2026-10-25T22:59:59Z'), true);
+  assert.equal(openAt('2026-10-25T23:00:00Z'), false);
+});
+test('dated satisfaction answers validate, protect peers, clear together and survive old clients', () => {
+  const day = gratitudeDay();
+  const base = state(); base.goals[0].satisfactionByPerson = { 'person-1': 3, 'person-2': 4 };
+  base.goals[0].satisfactionAnsweredOnByPerson = { 'person-1': '2026-10-11', 'person-2': '2026-10-11' };
+  assert.equal(isValidState(base), true);
+  for (const dates of [{ 'person-1': '2026-02-30' }, { intruder: day }, { 'person-1': 5 }]) { const invalid = clone(base); invalid.goals[0].satisfactionAnsweredOnByPerson = dates; assert.equal(isValidState(invalid), false); }
+  const missingScore = clone(base); delete missingScore.goals[0].satisfactionByPerson['person-1']; assert.equal(isValidState(missingScore), false);
+  const next = clone(base); next.goals[0].satisfactionByPerson['person-1'] = 5; next.goals[0].satisfactionAnsweredOnByPerson = { 'person-1': day, 'person-2': day };
+  const saved = authorizedState(base, next, 'person-1');
+  assert.deepEqual(saved.goals[0].satisfactionAnsweredOnByPerson, { 'person-1': day, 'person-2': '2026-10-11' });
+  const cleared = clone(saved); delete cleared.goals[0].satisfactionByPerson['person-1']; delete cleared.goals[0].satisfactionAnsweredOnByPerson['person-1'];
+  assert.deepEqual(authorizedState(saved, cleared, 'person-1').goals[0].satisfactionAnsweredOnByPerson, { 'person-2': '2026-10-11' });
+  const legacy = clone(saved); delete legacy.goals[0].satisfactionAnsweredOnByPerson;
+  assert.deepEqual(authorizedState(saved, legacy, 'person-1').goals[0].satisfactionAnsweredOnByPerson, saved.goals[0].satisfactionAnsweredOnByPerson);
+  const forged = clone(saved); forged.goals[0].satisfactionAnsweredOnByPerson['person-1'] = '2030-01-01';
+  assert.throws(() => authorizedState(saved, forged, 'person-1'), /Dátum hodnotenia/);
+  assert.equal(JSON.parse(JSON.stringify(saved)).goals[0].satisfactionAnsweredOnByPerson['person-1'], day);
+});
+require.extensions['.tsx'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
+test('satisfaction UI hides between check-ins and does not preselect previous-period answers', () => {
+  const { SatisfactionPoll, SatisfactionSummary } = require('../app/satisfaction-poll.tsx');
+  const { createElement } = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
+  const item = goal('relationship', { satisfactionByPerson: { 'person-1': 4 }, satisfactionAnsweredOnByPerson: { 'person-1': '2026-10-11' } });
+  const props = { goal: item, people: defaultPeople, activePersonId: 'person-1', onRate: () => {} };
+  assert.equal(renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-21' })), '');
+  const fresh = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-25' }));
+  assert.ok(fresh.includes('Ako si s týmto teraz spokojný/á?')); assert.equal(fresh.includes('aria-pressed="true"'), false); assert.ok(fresh.includes('Naposledy:'));
+  item.satisfactionAnsweredOnByPerson['person-1'] = '2026-10-25';
+  const answered = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-25' }));
+  assert.equal((answered.match(/aria-pressed="true"/g) || []).length, 1); assert.ok(answered.includes('Zrušiť moju dnešnú odpoveď'));
+  const summary = renderToStaticMarkup(createElement(SatisfactionSummary, { goal: item, people: defaultPeople }));
+  assert.match(summary, /datetime="2026-10-25"/i); assert.ok(summary.includes('4/5'));
+});

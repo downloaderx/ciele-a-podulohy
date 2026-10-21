@@ -54,7 +54,15 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   const goals = (retainRemoved(previousVisible.goals, incoming.goals.filter((goal) => allowedSpace(goal.spaceId))) as Goal[]).map((goal) => {
     const old = previous.goals.find((item) => item.id === goal.id);
     const satisfaction = goal.satisfactionByPerson ?? old?.satisfactionByPerson;
+    const requestedDay = goal.satisfactionAnsweredOnByPerson?.[personId];
+    const oldDay = old?.satisfactionAnsweredOnByPerson?.[personId];
+    const today = gratitudeDay();
+    if (requestedDay !== undefined && requestedDay !== oldDay && requestedDay !== today) throw new ApiError(403, 'Dátum hodnotenia spokojnosti sa zaznamenáva automaticky.');
+    const ownDay = satisfaction?.[personId] === undefined ? undefined
+      : satisfaction[personId] !== old?.satisfactionByPerson?.[personId] || requestedDay === today ? today : oldDay;
+    const answerDays = Object.fromEntries([[personId, ownDay], [otherId, old?.satisfactionAnsweredOnByPerson?.[otherId]]].filter(([, day]) => day !== undefined));
     return { ...goal, ...stamp(goal),
+      ...(Object.keys(answerDays).length || old?.satisfactionAnsweredOnByPerson !== undefined || goal.satisfactionAnsweredOnByPerson !== undefined ? { satisfactionAnsweredOnByPerson: answerDays } : {}),
       ...(satisfaction !== undefined ? { satisfactionByPerson: Object.fromEntries([
         [personId, satisfaction[personId]], [otherId, old?.satisfactionByPerson?.[otherId]],
       ].filter(([, score]) => score !== undefined)) } : {}),

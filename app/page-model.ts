@@ -37,6 +37,7 @@ export type ChoreWeight = 1 | 3 | 5;
 
 export type Goal = Task & {
   satisfactionByPerson?: Record<string, number>;
+  satisfactionAnsweredOnByPerson?: Record<string, string>;
   category?: GoalCategory;
   description: string;
   feasibilityByPerson?: Record<string, number>;

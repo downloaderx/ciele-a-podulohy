@@ -44,6 +44,7 @@ export function isValidState(value: unknown): value is AppStateData {
         (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'care'].includes(String(goal.category))) ||
         (goal.spaceId !== undefined && !['shared', ...personIds].includes(String(goal.spaceId))) ||
         (goal.satisfactionByPerson !== undefined && !ratings(goal.satisfactionByPerson)) ||
+        (goal.satisfactionAnsweredOnByPerson !== undefined && (!record(goal.satisfactionAnsweredOnByPerson) || !Object.entries(goal.satisfactionAnsweredOnByPerson).every(([id, day]) => personIds.includes(id) && validGratitudeDay(day) && record(goal.satisfactionByPerson) && goal.satisfactionByPerson[id] !== undefined))) ||
         !ratings(goal.importanceByPerson) || (goal.feasibilityByPerson !== undefined && !ratings(goal.feasibilityByPerson)) ||
         !date(goal.lastCompletedAt) || !date(goal.recurrenceStartAt)) return false;
     if (goal.recurrenceHistory !== undefined && (!Array.isArray(goal.recurrenceHistory) || goal.recurrenceHistory.length > 20 || !goal.recurrenceHistory.every(date))) return false;

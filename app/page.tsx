@@ -1,5 +1,6 @@
 'use client';
 
+import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
 import type { ChoreReveal } from './chore-randomizer-model';
 import { SatisfactionPoll, SatisfactionSummary } from './satisfaction-poll';
@@ -798,13 +799,16 @@ export default function Home() {
   }
 
   function rateGoalSatisfaction(goalId: string, score: number | null) {
-    if (score !== null && clampImportance(score) !== score) return;
+    if (!satisfactionSchedule().isOpen || (score !== null && clampImportance(score) !== score)) return;
     const goal = goals.find((item) => item.id === goalId);
     if (!goal || getGoalSpaceId(goal) !== sharedSpaceId || normalizeGoalCategory(goal.category) !== 'plan') return;
     setGoals((current) => current.map((item) => item.id !== goalId ? item : { ...item,
       satisfactionByPerson: score === null
         ? Object.fromEntries(Object.entries(item.satisfactionByPerson ?? {}).filter(([id]) => id !== activePersonId))
         : { ...item.satisfactionByPerson, [activePersonId]: score },
+      satisfactionAnsweredOnByPerson: score === null
+        ? Object.fromEntries(Object.entries(item.satisfactionAnsweredOnByPerson ?? {}).filter(([id]) => id !== activePersonId))
+        : { ...item.satisfactionAnsweredOnByPerson, [activePersonId]: gratitudeDay() },
       updatedById: activePersonId,
     }));
     addActivity(score === null ? 'zrušil(a) odpoveď spokojnosti' : 'ohodnotil(a) spokojnosť', goal.title);
@@ -1400,6 +1404,7 @@ export default function Home() {
                 <h2>{getCategoryLabel(category.id, boardSpaceId)}</h2>
                 <span>{category.goals.length}</span>
               </div>
+              {boardSpaceId === sharedSpaceId && category.id === 'plan' && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. Dobrovoľnú otázku nájdeš po rozbalení jednotlivých cieľov.</p> : null}
               <div className="board-category-list">
                 {category.goals.map((goal) => (
                   <GoalPanel
@@ -1450,7 +1455,7 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', satisfactionAnsweredOnByPerson: 'dátum hodnotenia spokojnosti', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
