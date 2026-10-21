@@ -342,8 +342,15 @@ export function choreAttention(task: Task, now = new Date()): string | undefined
   const completions = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime());
   if (task.choreCadence === 'occasional') {
     const due = task.dueAt ? Date.parse(task.dueAt) : NaN;
-    if (!Number.isFinite(due) || due >= now.getTime()) return undefined;
-    return completions.some((entry) => Date.parse(entry.completedAt) >= due) ? undefined : 'Po nastavenom termíne · čaká na vykonanie';
+    if (Number.isFinite(due)) {
+      if (due >= now.getTime()) return undefined;
+      return completions.some((entry) => Date.parse(entry.completedAt) >= due) ? undefined : 'Po nastavenom termíne · čaká na vykonanie';
+    }
+    const latest = completions.map((entry) => entry.completedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+    if (!latest) return task.done && !task.choreCompletions ? 'Dátum posledného vykonania nie je známy · skontroluj, či je práca na rade' : 'Zatiaľ bez záznamu vykonania · skontroluj, či je práca na rade';
+    const cutoff = new Date(`${gratitudeDay(now)}T12:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - 30);
+    return gratitudeDay(new Date(latest)) <= cutoff.toISOString().slice(0, 10) ? 'Bez vykonania aspoň 30 dní · skontroluj, či je práca na rade' : undefined;
   }
   return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Bez záznamu vykonania za posledných 7 dní';
 }
