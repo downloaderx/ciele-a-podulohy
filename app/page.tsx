@@ -2351,7 +2351,7 @@ function ChoreAttentionSummary({ tasks }: { tasks: Task[] }) {
   if (!routine && !occasional) return null;
   return <div className="chore-attention-groups">
     {occasional ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="occasional" reason="Občasné práce bez záznamu alebo nevykonané v nastavenom intervale" /> Občasné na kontrolu: {occasional}</span> : null}
-    {routine ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="routine" reason="Bežné práce bez záznamu vykonania za posledných 7 dní" /> Bežné na pripomenutie: {routine}</span> : null}
+    {routine ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="routine" reason="Pripomenutie bežných prác" /> Bežné na pripomenutie: {routine}</span> : null}
   </div>;
 }
 
