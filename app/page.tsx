@@ -2010,7 +2010,7 @@ function GoalPanel(props: GoalPanelProps) {
         </div>
         <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
-          {category === 'chore' ? <>{attentionCount ? <span className="chore-attention-summary"><ChoreAttentionBadge reason="Bežné práce bez vykonania za posledných 7 dní alebo občasné práce po termíne" /> {attentionCount} prác potrebuje pozornosť</span> : null}<strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
+          {category === 'chore' ? <>{attentionCount ? <span className="chore-attention-summary"><ChoreAttentionBadge reason="Bežné práce bez vykonania za posledných 7 dní alebo občasné práce po termíne" /> Práce na pripomenutie: {attentionCount}</span> : null}<strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
             <span>{occasionalProgress.total ? `Občasné: ${occasionalProgress.total} prác` : 'Občasné: žiadne položky'}</span>
             {occasionalProgress.total ? <span>podľa jednotlivých termínov</span> : null}
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
@@ -2299,7 +2299,7 @@ function ReadOnlyGoal({ goal, people }: { goal: Goal; people: Person[] }) {
   const progress = calculateProgress(goal);
   return <article className="goal-panel readonly-goal"><details>
     <summary><h3>{goal.title}</h3><span>{normalizeGoalCategory(goal.category) === 'chore' ? 'Priebežná starostlivosť' : `${progress.percent}%`}</span></summary>
-    {normalizeGoalCategory(goal.category) === 'chore' && choreAttentionCount(goal.children) ? <p className="chore-attention-summary"><ChoreAttentionBadge reason="Niektoré práce potrebujú pozornosť" /> {choreAttentionCount(goal.children)} prác potrebuje pozornosť</p> : null}
+    {normalizeGoalCategory(goal.category) === 'chore' && choreAttentionCount(goal.children) ? <p className="chore-attention-summary"><ChoreAttentionBadge reason="Niektoré práce potrebujú pozornosť" /> Práce na pripomenutie: {choreAttentionCount(goal.children)}</p> : null}
     <p>{goal.description}</p>
     {normalizeGoalCategory(goal.category) !== 'chore' ? <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p> : null}
     <ReadOnlyTasks tasks={goal.children} isChore={normalizeGoalCategory(goal.category) === 'chore'} />
