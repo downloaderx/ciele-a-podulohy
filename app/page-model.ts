@@ -365,7 +365,7 @@ export function choreAttention(task: Task, now = new Date()): string | undefined
     return days >= interval ? `${choreElapsedLabel(task, now)} · nastavené opakovanie každých ${interval} dní` : undefined;
   }
   const completions = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime());
-  return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Bez záznamu vykonania za posledných 7 dní';
+  return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Pripomenutie bežnej práce';
 }
 
 export function choreAttentionCount(tasks: Task[], now = new Date(), cadence?: ChoreCadence): number {
