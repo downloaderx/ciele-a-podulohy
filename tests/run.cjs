@@ -564,3 +564,27 @@ test('satisfaction UI hides between check-ins and does not preselect previous-pe
   const summary = renderToStaticMarkup(createElement(SatisfactionSummary, { goal: item, people: defaultPeople }));
   assert.match(summary, /datetime="2026-10-25"/i); assert.ok(summary.includes('4/5'));
 });
+
+test('conflict choices can retain different versions of separate fields without losing independent changes', () => {
+  const b = state(), l = clone(b), r = clone(b);
+  l.goals[0].title = 'Local title'; r.goals[0].title = 'Server title';
+  l.goals[0].recurrenceDays = 7; r.goals[0].recurrenceDays = 3;
+  r.goals[0].description = 'Independent server note';
+  const result = mergeStates(b, l, r, { '/goals/shared/title': 'local', '/goals/shared/recurrenceDays': 'remote' });
+  assert.equal(result.conflicts.length, 2);
+  assert.equal(result.state.goals[0].title, 'Local title');
+  assert.equal(result.state.goals[0].recurrenceDays, 3);
+  assert.equal(result.state.goals[0].description, 'Independent server note');
+});
+test('ranking insertions and removals merge safely but incompatible reorders still need a choice', () => {
+  const b = state(); b.goalRankings['person-1'] = ['a','b','c'];
+  const l = clone(b), r = clone(b); l.goalRankings['person-1'] = ['local-new','a','b','c']; r.goalRankings['person-1'] = ['a','server-new','b','c'];
+  const merged = mergeStates(b,l,r); assert.equal(merged.conflicts.length,0);
+  assert.deepEqual(merged.state.goalRankings['person-1'], ['local-new','a','server-new','b','c']);
+  assert.deepEqual(mergeStates(b,r,l).state.goalRankings['person-1'], merged.state.goalRankings['person-1']);
+  l.goalRankings['person-1'] = ['a','c']; r.goalRankings['person-1'] = ['a','b','c','d'];
+  assert.deepEqual(mergeStates(b,l,r).state.goalRankings['person-1'], ['a','c','d']);
+  l.goalRankings['person-1'] = ['b','a','c']; r.goalRankings['person-1'] = ['a','c','b'];
+  assert.ok(mergeStates(b,l,r).conflicts.some(item=>item.path==='/goalRankings/person-1'));
+  assert.deepEqual(mergeStates(b,l,r,{'/goalRankings/person-1':'remote'}).state.goalRankings['person-1'], ['a','c','b']);
+});

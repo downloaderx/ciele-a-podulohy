@@ -1,5 +1,6 @@
 'use client';
 
+import { SyncConflictPanel } from './sync-conflict-panel';
 import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
 import type { ChoreReveal } from './chore-randomizer-model';
@@ -1057,14 +1058,12 @@ export default function Home() {
         {sync.recovery ? <button type="button" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť poškodenú zálohu</button> : null}
         {reminders.message ? <span>{reminders.message}</span> : null}
       </section>
-      {sync.conflicts.length > 0 ? <section className="sync-conflicts" role="alert">
-        <h2>Rozdielne úpravy tej istej položky</h2>
-        <p>Nezávislé zmeny sa zlúčia. Pri poliach nižšie vyberte, ktorú verziu zachovať. Pred výberom si môžete stiahnuť obe verzie.</p>
-        <ul>{sync.conflicts.map((conflict) => <li key={conflict.path}><strong>{conflictLabel(conflict.path, state)}</strong><br />Toto zariadenie: {conflictValue(conflict.local)}<br />Server: {conflictValue(conflict.remote)}</li>)}</ul>
-        <button type="button" onClick={() => downloadJson(JSON.stringify({ local: state, conflicts: sync.conflicts }, null, 2), 'foxies-rozdielne-upravy.json')}>Stiahnuť verzie</button>
-        <button type="button" onClick={() => sync.resolve('local')}>Zachovať moje sporné polia</button>
-        <button type="button" onClick={() => sync.resolve('remote')}>Zachovať serverové sporné polia</button>
-      </section> : null}
+      {sync.conflicts.length > 0 ? <SyncConflictPanel conflicts={sync.conflicts}
+        labelFor={(path) => conflictLabel(path, state)}
+        valueFor={(value) => conflictValue(value, [...state.goals, ...(sync.conflictVersions()?.server.goals ?? [])])}
+        onResolve={sync.resolve}
+        onDownload={() => downloadJson(JSON.stringify(sync.conflictVersions(), null, 2), 'foxies-rozdielne-upravy.json')}
+      /> : null}
       <section className="topbar" aria-label="Prehľad tímu">
         <div className="brand-lockup">
           <div className="fox-pair" aria-hidden="true">
@@ -1454,12 +1453,13 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', satisfactionAnsweredOnByPerson: 'dátum hodnotenia spokojnosti', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', tone: 'farba profilu', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', satisfactionAnsweredOnByPerson: 'dátum hodnotenia spokojnosti', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
 
-function conflictValue(value: unknown): string {
+function conflictValue(value: unknown, goals: Goal[] = []): string {
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value.map((id) => goals.find((goal) => goal.id === id)?.title ?? `Nový cieľ (${id.slice(-6)})`).join(' → ');
   if (value === undefined) return 'bez hodnoty / odstránené';
   if (typeof value === 'boolean') return value ? 'áno' : 'nie';
   if (value && typeof value === 'object' && 'title' in value) return `${String(value.title)}${'deletedAt' in value && value.deletedAt ? ' (v koši)' : ''}`;
