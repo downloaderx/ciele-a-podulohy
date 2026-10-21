@@ -2623,3 +2623,9 @@ select:focus {
 .completed-list > li:nth-child(3n + 1) { background: #f5f3f8; }
 .completed-list > li:nth-child(3n + 2) { background: #edf5f4; }
 .completed-list > li:nth-child(3n) { background: #eef2f8; }
+
+.chore-attention { display: inline-flex; flex: 0 0 22px; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #fff0c2; border: 1px solid #b98a21; color: #684500; font-size: 15px; font-weight: 800; cursor: help; text-decoration: none; }
+.chore-attention-summary { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.has-chore-attention { display: flex; align-items: center; gap: 7px; }
+.has-chore-attention .task-title { min-width: 0; flex: 1; }
+:root[data-theme="dark"] .chore-attention { background: #4c3f23; border-color: #d8b765; color: #ffe3a1; }

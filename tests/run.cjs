@@ -408,3 +408,26 @@ test('whole chore projects are not listed as completed while actual completed ta
   const completed=collectCompletedItems([g,goal('project',{done:true})]);
   assert.equal(completed.some(i=>i.id==='chore'),false);assert.equal(completed.some(i=>i.id==='child'),true);assert.equal(completed.some(i=>i.id==='project'),true);
 });
+
+const { choreAttention, choreAttentionCount } = require('../app/page-model.ts');
+test('chore attention respects the Bratislava seven-day window, undo and future events', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const doneAt = (completedAt, extra = {}) => ({ id: 'run', personId: 'person-1', completedAt, ...extra });
+  assert.equal(choreAttention(task('recent', { choreCompletions: [doneAt('2026-10-15T12:00:00Z')] }), now), undefined);
+  assert.ok(choreAttention(task('old', { choreCompletions: [doneAt('2026-10-14T12:00:00Z')] }), now));
+  assert.equal(choreAttention(task('boundary', { choreCompletions: [doneAt('2026-10-14T22:30:00Z')] }), now), undefined);
+  assert.ok(choreAttention(task('undo', { choreCompletions: [doneAt('2026-10-21T10:00:00Z', { undoneAt: '2026-10-21T11:00:00Z' })] }), now));
+  assert.ok(choreAttention(task('future', { choreCompletions: [doneAt('2026-10-21T15:00:00Z')] }), now));
+  assert.ok(choreAttention(task('legacy', { done: true }), now));
+  assert.equal(choreAttention(task('rule', { kind: 'rule' }), now), undefined);
+});
+test('occasional attention needs a passed deadline with no execution since that deadline', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const occasional = task('occasional', { choreCadence: 'occasional', dueAt: '2026-10-20T12:00:00Z' });
+  assert.ok(choreAttention(occasional, now));
+  assert.equal(choreAttention({ ...occasional, dueAt: undefined }, now), undefined);
+  assert.equal(choreAttention({ ...occasional, dueAt: '2026-10-22T12:00:00Z' }, now), undefined);
+  assert.equal(choreAttention({ ...occasional, choreCompletions: [{ id: 'done', personId: 'person-1', completedAt: '2026-10-21T10:00:00Z' }] }, now), undefined);
+  assert.ok(choreAttention({ ...occasional, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-19T10:00:00Z' }] }, now));
+  assert.equal(choreAttentionCount([task('deleted', { deletedAt: '2026-10-20T12:00:00Z', children: [task('hidden')] }), task('topic', { kind: 'topic', children: [occasional] })], now), 1);
+});

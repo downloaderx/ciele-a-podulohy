@@ -336,6 +336,22 @@ export function choreDone(task: Task, day = gratitudeDay()) {
   });
 }
 
+// Keep reminders aligned with the same Bratislava calendar window as chore progress.
+export function choreAttention(task: Task, now = new Date()): string | undefined {
+  if (task.deletedAt || !isCompletableTask(task)) return undefined;
+  const completions = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime());
+  if (task.choreCadence === 'occasional') {
+    const due = task.dueAt ? Date.parse(task.dueAt) : NaN;
+    if (!Number.isFinite(due) || due >= now.getTime()) return undefined;
+    return completions.some((entry) => Date.parse(entry.completedAt) >= due) ? undefined : 'Po nastavenom termíne · čaká na vykonanie';
+  }
+  return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Bez záznamu vykonania za posledných 7 dní';
+}
+
+export function choreAttentionCount(tasks: Task[], now = new Date()): number {
+  return tasks.reduce((count, task) => task.deletedAt ? count : count + (choreAttention(task, now) ? 1 : 0) + choreAttentionCount(task.children, now), 0);
+}
+
 export function choreView<T extends Task>(task: T, day: string): T {
   return { ...task, done: task.choreCompletions ? choreDone(task, day) : task.done, children: task.children.map((child) => choreView(child, day)) };
 }
