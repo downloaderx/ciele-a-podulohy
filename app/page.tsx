@@ -20,6 +20,8 @@ import {
   choreHistorySummary,
   choreAttention,
   choreAttentionCount,
+  getChoreIntervalDays,
+  choreElapsedLabel,
   clampImportance,
   collectCompletedItems,
   createId,
@@ -551,6 +553,14 @@ export default function Home() {
     if (!task || (task.choreWeight ?? 1) === choreWeight) return;
     setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, choreWeight, updatedById: activePersonId })));
     addActivity('zmenil(a) náročnosť chores', task.title);
+  }
+
+  function changeChoreInterval(taskId: string, value: string) {
+    const interval = Number(value);
+    const task = findTaskById(goals, taskId);
+    if (!task || !Number.isInteger(interval) || interval < 1 || interval > 3650 || getChoreIntervalDays(task) === interval) return;
+    setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, choreIntervalDays: interval, updatedById: activePersonId })));
+    addActivity('zmenil(a) interval chores', `${task.title} · každých ${interval} dní`);
   }
 
   function changeChoreCadence(taskId: string, choreCadence: ChoreCadence) {
@@ -1299,7 +1309,7 @@ export default function Home() {
         </div>
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
-          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Body bežných prác zohľadňujú náročnosť druhov prác vykonaných za posledných 7 dní. Každý druh sa do súhrnu započíta raz; opakované vykonania zostávajú v histórii. Občasné práce sa sledujú podľa vlastných termínov.</p> : null}
+          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Body bežných prác zohľadňujú náročnosť druhov prác vykonaných za posledných 7 dní. Každý druh sa do súhrnu započíta raz; opakované vykonania zostávajú v histórii. Občasné práce sa sledujú podľa nastavených intervalov.</p> : null}
           <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />
           {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
           <label>
@@ -1388,6 +1398,7 @@ export default function Home() {
                     onChangeTaskKind={changeTaskKind}
                     onChangeChoreCadence={changeChoreCadence}
                     onChangeChoreWeight={changeChoreWeight}
+                    onChangeChoreInterval={changeChoreInterval}
                     onChangeDeadline={changeDeadline}
                     onCompleteRecurring={completeRecurringGoalToday}
                     onDelete={deleteTask}
@@ -1423,7 +1434,7 @@ function conflictLabel(path: string, state: AppStateData) {
   const parts = path.split('/');
   const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
   const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
+  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
   const field = [...parts].reverse().find((part) => names[part]);
   return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
 }
@@ -1901,6 +1912,7 @@ type GoalPanelProps = {
   onChangeTaskKind: (taskId: string, kind: TaskKind) => void;
   onChangeChoreCadence: (taskId: string, cadence: ChoreCadence) => void;
   onChangeChoreWeight: (taskId: string, weight: ChoreWeight) => void;
+  onChangeChoreInterval: (taskId: string, value: string) => void;
   onChangeDeadline: (taskId: string, value: string) => void;
   onCompleteRecurring: (goalId: string) => void;
   onDelete: (taskId: string) => void;
@@ -2011,7 +2023,7 @@ function GoalPanel(props: GoalPanelProps) {
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
           {category === 'chore' ? <><ChoreAttentionSummary tasks={props.goal.children.length ? props.goal.children : [props.goal]} /><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
             <span>{occasionalProgress.total ? `Občasné: ${occasionalProgress.total} prác` : 'Občasné: žiadne položky'}</span>
-            {occasionalProgress.total ? <span>podľa jednotlivých termínov</span> : null}
+            {occasionalProgress.total ? <span>podľa nastavených intervalov</span> : null}
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
             {choreHistory.undatedCount ? <span title="Staršie označenia bez uloženého dátumu sa nezapočítavajú do posledných 7 dní">Bez dátumu: {choreHistory.undatedCount}</span> : null}
           </> : <strong>{progress.percent}%</strong>}
@@ -2319,7 +2331,7 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
     const progress = calculateChoreProgress(props.tasks, cadence);
     if (!tasks.length && props.depth > 1) return null;
     return <section className="chore-task-group" key={cadence} aria-label={cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}>
-      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</span><strong title={cadence === 'routine' ? 'Váha druhov prác vykonaných za posledných 7 dní' : 'Občasné práce sa sledujú podľa dátumov, nie ako dokončenie celého projektu'}>{progress.total ? cadence === 'routine' ? `${progress.doneWeight}/${progress.totalWeight} bodov · ${progress.done}/${progress.total} prác` : `${progress.total} prác · podľa termínov` : '—'}</strong></div>
+      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</span><strong title={cadence === 'routine' ? 'Váha druhov prác vykonaných za posledných 7 dní' : 'Občasné práce sa pripomínajú podľa intervalu od posledného vykonania'}>{progress.total ? cadence === 'routine' ? `${progress.doneWeight}/${progress.totalWeight} bodov · ${progress.done}/${progress.total} prác` : `${progress.total} prác · podľa intervalov` : '—'}</strong></div>
       {tasks.length ? renderTasks(tasks) : <p className="chore-group-empty">{cadence === 'routine' ? 'Podúlohu sem zaradíš výberom „Bežné“ v jej riadku.' : 'Podúlohu sem zaradíš výberom „Občasné“ v jej riadku.'}</p>}
     </section>;
   })}</>;
@@ -2336,7 +2348,7 @@ function ChoreAttentionSummary({ tasks }: { tasks: Task[] }) {
   const occasional = choreAttentionCount(tasks, now, 'occasional');
   if (!routine && !occasional) return null;
   return <div className="chore-attention-groups">
-    {occasional ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="occasional" reason="Občasné práce po termíne, bez záznamu alebo bez vykonania aspoň 30 dní" /> Občasné na kontrolu: {occasional}</span> : null}
+    {occasional ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="occasional" reason="Občasné práce bez záznamu alebo nevykonané v nastavenom intervale" /> Občasné na kontrolu: {occasional}</span> : null}
     {routine ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="routine" reason="Bežné práce bez záznamu vykonania za posledných 7 dní" /> Bežné na pripomenutie: {routine}</span> : null}
   </div>;
 }
@@ -2462,12 +2474,12 @@ function TaskRow(props: TaskRowProps) {
           </label>
         ) : null}
         {normalizeGoalCategory(props.goal.category) === 'chore' && props.task.choreCadence === 'occasional' ? (
-          <label className="deadline-field">Najbližší termín
-            <input aria-label="Najbližší termín občasnej podúlohy" type="datetime-local" value={deadlineInput(props.task.dueAt)} onChange={(event) => props.onChangeDeadline(props.task.id, event.target.value)} />
+          <label className="chore-interval-field">Opakovať každých
+            <EditableInput aria-label="Interval občasnej práce v dňoch" type="number" min={1} max={3650} step={1} value={String(getChoreIntervalDays(props.task))} onCommit={(value) => props.onChangeChoreInterval(props.task.id, value)} onKeyDown={saveInputOnEnter} /> dní
           </label>
         ) : null}
         {isChore && isCompletable ? <div className="chore-completion-info">
-          <span>{completions[0] ? `Naposledy: ${completedLabel(completions[0].completedAt)}` : props.task.done && !props.task.choreCompletions ? 'Staršie označenie hotovo · dátum neznámy' : 'Zatiaľ bez záznamu vykonania'}</span>
+          <span className="chore-elapsed" title={completions[0] ? `Naposledy: ${completedLabel(completions[0].completedAt)}` : undefined}>{choreElapsedLabel(props.task)}</span>
           {completions.length ? <details className="chore-completion-history"><summary>História vykonaní ({completions.length})</summary>
             <ol>{completions.map((entry) => <li key={entry.id}>
               <time dateTime={entry.completedAt}>{new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.completedAt))}</time>

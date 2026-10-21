@@ -2633,3 +2633,7 @@ select:focus {
 .chore-attention-groups { display: grid; gap: 5px; }
 .chore-attention.chore-reminder { background: #e9f2ff; border-color: #8baed6; color: #315f91; font-size: 20px; }
 :root[data-theme="dark"] .chore-attention.chore-reminder { background: #263d57; border-color: #779dc5; color: #b7d7ff; }
+
+.chore-interval-field { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--muted); }
+.chore-interval-field input { width: 76px; min-width: 0; padding: 5px 7px; }
+.chore-elapsed { font-weight: 600; }

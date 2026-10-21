@@ -421,14 +421,14 @@ test('chore attention respects the Bratislava seven-day window, undo and future 
   assert.ok(choreAttention(task('legacy', { done: true }), now));
   assert.equal(choreAttention(task('rule', { kind: 'rule' }), now), undefined);
 });
-test('occasional attention needs a passed deadline with no execution since that deadline', () => {
+test('occasional reminders use repetition intervals rather than old absolute deadlines', () => {
   const now = new Date('2026-10-21T12:00:00Z');
   const occasional = task('occasional', { choreCadence: 'occasional', dueAt: '2026-10-20T12:00:00Z' });
   assert.ok(choreAttention(occasional, now));
   assert.match(choreAttention({ ...occasional, dueAt: undefined }, now), /bez záznamu/);
-  assert.equal(choreAttention({ ...occasional, dueAt: '2026-10-22T12:00:00Z' }, now), undefined);
+  assert.match(choreAttention({ ...occasional, dueAt: '2026-10-22T12:00:00Z' }, now), /bez záznamu/);
   assert.equal(choreAttention({ ...occasional, choreCompletions: [{ id: 'done', personId: 'person-1', completedAt: '2026-10-21T10:00:00Z' }] }, now), undefined);
-  assert.ok(choreAttention({ ...occasional, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-19T10:00:00Z' }] }, now));
+  assert.equal(choreAttention({ ...occasional, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-19T10:00:00Z' }] }, now), undefined);
   assert.equal(choreAttentionCount([task('deleted', { deletedAt: '2026-10-20T12:00:00Z', children: [task('hidden')] }), task('topic', { kind: 'topic', children: [occasional] })], now), 1);
 });
 
@@ -450,6 +450,38 @@ test('undated occasional chores show reminders for missing history or thirty cal
   assert.match(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-21T12:00:00Z')] }, now), /30 dní/);
   assert.equal(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-21T22:30:00Z')] }, now), undefined);
   assert.match(choreAttention({ ...occasional, choreCompletions: [entry('2026-10-20T12:00:00Z', { undoneAt: '2026-10-21T10:00:00Z' })] }, now), /bez záznamu/);
-  assert.equal(choreAttention({ ...occasional, dueAt: '2026-11-01T12:00:00Z' }, now), undefined);
+  assert.match(choreAttention({ ...occasional, dueAt: '2026-11-01T12:00:00Z' }, now), /bez záznamu/);
   assert.equal(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-01T12:00:00Z'), { ...entry('2026-10-20T12:00:00Z'), id: 'recent' }] }, now), undefined);
+});
+
+const { choreElapsedDays, choreElapsedLabel, getChoreIntervalDays } = require('../app/page-model.ts');
+test('elapsed chore time and custom intervals use actual executions and Bratislava calendar days', () => {
+  const now = new Date('2026-10-26T12:00:00Z');
+  const item = task('occasional', { choreCadence: 'occasional', choreIntervalDays: 14, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-12T12:00:00Z' }] });
+  assert.equal(choreElapsedDays(item, now), 14);
+  assert.equal(choreElapsedLabel(item, now), 'Nerobené 14 dní');
+  assert.ok(choreAttention(item, now));
+  assert.equal(choreAttention({ ...item, choreIntervalDays: 15 }, now), undefined);
+  assert.equal(getChoreIntervalDays(task('default')), 30);
+  const dst = { ...item, choreCompletions: [{ id: 'dst', personId: 'person-1', completedAt: '2026-10-24T22:30:00Z' }] };
+  assert.equal(choreElapsedDays(dst, now), 1);
+  assert.equal(choreElapsedLabel(dst, now), 'Nerobené 1 deň');
+  const today = { ...item, choreCompletions: [{ id: 'today', personId: 'person-1', completedAt: '2026-10-26T10:00:00Z' }] };
+  assert.equal(choreElapsedLabel(today, now), 'Vykonané dnes');
+  assert.equal(choreAttention(today, now), undefined);
+  assert.equal(choreElapsedDays({ ...item, choreCompletions: [{ ...item.choreCompletions[0], undoneAt: now.toISOString() }] }, now), undefined);
+  assert.equal(choreElapsedDays({ ...item, choreCompletions: [{ ...item.choreCompletions[0], completedAt: '2026-10-27T12:00:00Z' }] }, now), undefined);
+});
+test('chore intervals validate, merge and persist while older clients cannot erase them', () => {
+  const base = state(); base.goals[0].category = 'chore'; base.goals[0].children = [task('occasional', { choreCadence: 'occasional', choreIntervalDays: 14 })];
+  assert.equal(isValidState(base), true);
+  for (const value of [0, -1, 1.5, 3651, '14', null]) { const invalid = clone(base); invalid.goals[0].children[0].choreIntervalDays = value; assert.equal(isValidState(invalid), false); }
+  const local = clone(base), remote = clone(base); local.goals[0].children[0].choreIntervalDays = 21; remote.goals[0].children[0].title = 'Changed remotely';
+  const merged = mergeStates(base, local, remote); assert.equal(merged.conflicts.length, 0);
+  const saved = authorizedState(base, merged.state, 'person-1');
+  assert.equal(saved.goals[0].children[0].choreIntervalDays, 21);
+  assert.equal(saved.goals[0].children[0].title, 'Changed remotely');
+  const oldClient = clone(saved); delete oldClient.goals[0].children[0].choreIntervalDays;
+  assert.equal(authorizedState(saved, oldClient, 'person-1').goals[0].children[0].choreIntervalDays, 21);
+  assert.equal(JSON.parse(JSON.stringify(saved)).goals[0].children[0].choreIntervalDays, 21);
 });

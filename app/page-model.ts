@@ -27,6 +27,7 @@ export type Task = {
   kind?: TaskKind;
   choreCadence?: ChoreCadence;
   choreWeight?: ChoreWeight;
+  choreIntervalDays?: number;
 };
 
 export type BoardSpaceId = 'shared' | string;
@@ -336,22 +337,34 @@ export function choreDone(task: Task, day = gratitudeDay()) {
   });
 }
 
-// Keep reminders aligned with the same Bratislava calendar window as chore progress.
+export function getChoreIntervalDays(task: Task): number {
+  return Number.isInteger(task.choreIntervalDays) && task.choreIntervalDays! >= 1 && task.choreIntervalDays! <= 3650 ? task.choreIntervalDays! : 30;
+}
+
+export function choreElapsedDays(task: Task, now = new Date()): number | undefined {
+  const latest = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime())
+    .map((entry) => entry.completedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+  if (!latest) return undefined;
+  return Math.round((Date.parse(gratitudeDay(now)) - Date.parse(gratitudeDay(new Date(latest)))) / 86400000);
+}
+
+export function choreElapsedLabel(task: Task, now = new Date()): string {
+  const days = choreElapsedDays(task, now);
+  if (days === undefined) return task.done && !task.choreCompletions ? 'Posledné vykonanie: dátum neznámy' : 'Zatiaľ bez záznamu vykonania';
+  if (days === 0) return 'Vykonané dnes';
+  return `Nerobené ${days} ${days === 1 ? 'deň' : days < 5 ? 'dni' : 'dní'}`;
+}
+
+// Reminder intervals and elapsed time use Bratislava calendar days, including DST changes.
 export function choreAttention(task: Task, now = new Date()): string | undefined {
   if (task.deletedAt || !isCompletableTask(task)) return undefined;
-  const completions = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime());
   if (task.choreCadence === 'occasional') {
-    const due = task.dueAt ? Date.parse(task.dueAt) : NaN;
-    if (Number.isFinite(due)) {
-      if (due >= now.getTime()) return undefined;
-      return completions.some((entry) => Date.parse(entry.completedAt) >= due) ? undefined : 'Po nastavenom termíne · čaká na vykonanie';
-    }
-    const latest = completions.map((entry) => entry.completedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
-    if (!latest) return task.done && !task.choreCompletions ? 'Dátum posledného vykonania nie je známy · skontroluj, či je práca na rade' : 'Zatiaľ bez záznamu vykonania · skontroluj, či je práca na rade';
-    const cutoff = new Date(`${gratitudeDay(now)}T12:00:00Z`);
-    cutoff.setUTCDate(cutoff.getUTCDate() - 30);
-    return gratitudeDay(new Date(latest)) <= cutoff.toISOString().slice(0, 10) ? 'Bez vykonania aspoň 30 dní · skontroluj, či je práca na rade' : undefined;
+    const days = choreElapsedDays(task, now);
+    if (days === undefined) return task.done && !task.choreCompletions ? 'Dátum posledného vykonania nie je známy · skontroluj, či je práca na rade' : 'Zatiaľ bez záznamu vykonania · skontroluj, či je práca na rade';
+    const interval = getChoreIntervalDays(task);
+    return days >= interval ? `${choreElapsedLabel(task, now)} · nastavené opakovanie každých ${interval} dní` : undefined;
   }
+  const completions = (task.choreCompletions ?? []).filter((entry) => !entry.undoneAt && Date.parse(entry.completedAt) <= now.getTime());
   return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Bez záznamu vykonania za posledných 7 dní';
 }
 

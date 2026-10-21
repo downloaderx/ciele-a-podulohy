@@ -47,7 +47,7 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
       if (!prior && entry.personId !== personId) throw new ApiError(403, 'Neplatný autor vykonania chores.');
       completions.set(entry.id, prior?.undoneAt ? prior : entry);
     }
-    return { ...task, ...(old?.choreCompletions || task.choreCompletions ? { choreCompletions: [...completions.values()].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 200) } : {}), ownerId: old?.ownerId ?? personId,
+    return { ...task, ...((task.choreIntervalDays ?? old?.choreIntervalDays) !== undefined ? { choreIntervalDays: task.choreIntervalDays ?? old?.choreIntervalDays } : {}), ...(old?.choreCompletions || task.choreCompletions ? { choreCompletions: [...completions.values()].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 200) } : {}), ownerId: old?.ownerId ?? personId,
       updatedById: stableJson(task) === stableJson(old) ? old?.updatedById : personId,
       children: task.children.map(stamp) };
   };
