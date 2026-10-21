@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint app next.config.ts vite.config.ts",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node tests/run.cjs"
+    "test": "node tests/run.cjs && node tests/board-sync.cjs"
   },
   "dependencies": {
     "next": "16.2.6",
