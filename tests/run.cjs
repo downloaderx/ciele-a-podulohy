@@ -425,7 +425,7 @@ test('occasional attention needs a passed deadline with no execution since that 
   const now = new Date('2026-10-21T12:00:00Z');
   const occasional = task('occasional', { choreCadence: 'occasional', dueAt: '2026-10-20T12:00:00Z' });
   assert.ok(choreAttention(occasional, now));
-  assert.equal(choreAttention({ ...occasional, dueAt: undefined }, now), undefined);
+  assert.match(choreAttention({ ...occasional, dueAt: undefined }, now), /bez záznamu/);
   assert.equal(choreAttention({ ...occasional, dueAt: '2026-10-22T12:00:00Z' }, now), undefined);
   assert.equal(choreAttention({ ...occasional, choreCompletions: [{ id: 'done', personId: 'person-1', completedAt: '2026-10-21T10:00:00Z' }] }, now), undefined);
   assert.ok(choreAttention({ ...occasional, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-19T10:00:00Z' }] }, now));
@@ -438,4 +438,18 @@ test('chore reminder counts stay separate for routine and occasional nested work
   assert.equal(choreAttentionCount(tasks, now, 'routine'), 2);
   assert.equal(choreAttentionCount(tasks, now, 'occasional'), 1);
   assert.equal(choreAttentionCount(tasks, now), 3);
+});
+
+test('undated occasional chores show reminders for missing history or thirty calendar days without execution', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const occasional = task('occasional', { choreCadence: 'occasional' });
+  const entry = (completedAt, extra = {}) => ({ id: 'run', personId: 'person-1', completedAt, ...extra });
+  assert.match(choreAttention(occasional, now), /bez záznamu/);
+  assert.match(choreAttention({ ...occasional, done: true }, now), /nie je známy/);
+  assert.equal(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-22T12:00:00Z')] }, now), undefined);
+  assert.match(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-21T12:00:00Z')] }, now), /30 dní/);
+  assert.equal(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-21T22:30:00Z')] }, now), undefined);
+  assert.match(choreAttention({ ...occasional, choreCompletions: [entry('2026-10-20T12:00:00Z', { undoneAt: '2026-10-21T10:00:00Z' })] }, now), /bez záznamu/);
+  assert.equal(choreAttention({ ...occasional, dueAt: '2026-11-01T12:00:00Z' }, now), undefined);
+  assert.equal(choreAttention({ ...occasional, choreCompletions: [entry('2026-09-01T12:00:00Z'), { ...entry('2026-10-20T12:00:00Z'), id: 'recent' }] }, now), undefined);
 });
