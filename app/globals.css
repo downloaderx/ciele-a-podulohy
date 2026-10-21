@@ -2654,3 +2654,7 @@ select:focus {
 .task-branch:focus { outline: none; }
 .task-branch:focus > .task-row { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 600px) { .chore-randomizer-grid { grid-template-columns: 1fr; } }
+
+.satisfaction-summary time,.satisfaction-summary small { color: var(--muted); font-size: 10px; margin-left: 5px; font-weight: 400; }
+.satisfaction-day-note { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--foreground); background: var(--panel-soft); font-size: 13px; }
+.satisfaction-previous { color: var(--muted); font-size: 12px; }
