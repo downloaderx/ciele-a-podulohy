@@ -24,6 +24,7 @@ export function isValidState(value: unknown): value is AppStateData {
         typeof task.done !== 'boolean' || typeof task.expanded !== 'boolean' ||
         (task.kind !== undefined && !['todo', 'rule', 'topic'].includes(String(task.kind))) ||
         (task.choreCadence !== undefined && !['routine', 'occasional'].includes(String(task.choreCadence))) ||
+        (task.choreIntervalDays !== undefined && (typeof task.choreIntervalDays !== 'number' || !Number.isInteger(task.choreIntervalDays) || task.choreIntervalDays < 1 || task.choreIntervalDays > 3650)) ||
         (task.choreWeight !== undefined && ![1, 3, 5].includes(task.choreWeight as number)) ||
         !date(task.dueAt) || !date(task.deletedAt) || !Array.isArray(task.children)) return false;
     if (task.choreCompletions !== undefined) {
