@@ -1328,7 +1328,6 @@ export default function Home() {
         </div>
         {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
-          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Body bežných prác zohľadňujú náročnosť druhov prác vykonaných za posledných 7 dní. Každý druh sa do súhrnu započíta raz; opakované vykonania zostávajú v histórii. Občasné práce sa sledujú podľa nastavených intervalov.</p> : null}
           <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <ChoreRandomizer key={boardSpaceId + activePersonId} goals={boardGoals} onOpen={setChoreReveal} /> : null}
           <label>
