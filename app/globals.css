@@ -1901,8 +1901,8 @@ select:focus {
 
 .description-tooltip-wrap:hover .description-tooltip,
 .description-tooltip-wrap:focus-within .description-tooltip,
-.task-title-tooltip-wrap:hover .task-title-tooltip,
-.task-title-tooltip-wrap:focus-within .task-title-tooltip {
+.task-title:hover ~ .task-title-tooltip,
+.task-title:focus-visible ~ .task-title-tooltip {
   opacity: 1;
   transform: translateY(0);
 }
@@ -2637,3 +2637,5 @@ select:focus {
 .chore-interval-field { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--muted); }
 .chore-interval-field input { width: 76px; min-width: 0; padding: 5px 7px; }
 .chore-elapsed { font-weight: 600; }
+
+.task-title-tooltip-wrap:has(.chore-attention:hover) .task-title-tooltip { opacity: 0; transform: translateY(-3px); }
