@@ -2639,3 +2639,18 @@ select:focus {
 .chore-elapsed { font-weight: 600; }
 
 .task-title-tooltip-wrap:has(.chore-attention:hover) .task-title-tooltip { opacity: 0; transform: translateY(-3px); }
+
+.chore-randomizer-heading h3 { margin: 3px 0; font-size: 18px; }
+.chore-randomizer-heading p { margin: 0; font-size: 12px; color: var(--muted); }
+.chore-randomizer-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.chore-pick-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); }
+.chore-pick-card h4 { margin: 0 0 10px; }
+.chore-pick-card > button { width: 100%; }
+.chore-pick-card button:disabled { opacity: .5; cursor: default; }
+.chore-pick-result { display: grid; gap: 6px; margin-top: 12px; overflow-wrap: anywhere; }
+.chore-pick-result strong { color: var(--foreground); font-size: 14px; }
+.chore-pick-result span,.chore-pick-result p { font-size: 12px; color: var(--muted); margin: 0; }
+.chore-pick-open { justify-self: start; font-size: 12px; }
+.task-branch:focus { outline: none; }
+.task-branch:focus > .task-row { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 600px) { .chore-randomizer-grid { grid-template-columns: 1fr; } }

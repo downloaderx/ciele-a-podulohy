@@ -501,3 +501,19 @@ test('daily chore appearance expires at Bratislava midnight without losing seven
   assert.equal(choreElapsedDays(task('legacy', { done: true }), new Date('2026-10-22T12:00:00Z')), undefined);
   assert.equal(choreElapsedDays({ ...item, choreCadence: 'occasional' }, new Date('2026-10-21T21:59:59Z')), 0);
 });
+
+const { choreRandomizerItems, chorePickOptions } = require('../app/chore-randomizer-model.ts');
+test('chore randomizers keep groups separate and skip deleted, non-actionable and today-completed tasks', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const chores = goal('chore-project', { category: 'chore', children: [task('group', { kind: 'topic', children: [task('nested-routine'), task('nested-occasional', { choreCadence: 'occasional' })] }), task('today', { choreCompletions: [{ id: 'run', personId: 'person-1', completedAt: '2026-10-21T10:00:00Z' }] }), task('yesterday', { choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-20T10:00:00Z' }] }), task('deleted-parent', { deletedAt: now.toISOString(), children: [task('hidden')] }), task('rule', { kind: 'rule' })] });
+  const before = clone(chores);
+  const items = choreRandomizerItems([chores, goal('unrelated', { children: [task('not-a-chore')] }), goal('deleted-project', { category: 'chore', deletedAt: now.toISOString(), children: [task('hidden-project')] })], now);
+  assert.deepEqual(chorePickOptions(items, 'routine').map(item=>item.task.id), ['nested-routine', 'yesterday']);
+  assert.deepEqual(chorePickOptions(items, 'occasional').map(item=>item.task.id), ['nested-occasional']);
+  assert.deepEqual(items.find(item=>item.task.id==='nested-routine').path, ['chore-project','group','nested-routine']);
+  assert.equal(items.find(item=>item.task.id==='nested-routine').goalTitle, 'chore-project');
+  assert.deepEqual(chorePickOptions(items, 'routine', 'nested-routine').map(item=>item.task.id), ['yesterday']);
+  assert.equal(chorePickOptions(items, 'occasional', 'nested-occasional').length, 1);
+  assert.deepEqual(chorePickOptions([], 'routine'), []);
+  assert.deepEqual(chores, before);
+});

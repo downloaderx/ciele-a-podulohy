@@ -1,5 +1,7 @@
 'use client';
 
+import { ChoreRandomizer } from './chore-randomizer';
+import type { ChoreReveal } from './chore-randomizer-model';
 import { SatisfactionPoll, SatisfactionSummary } from './satisfaction-poll';
 import { GratitudePanel } from './gratitude-panel';
 import { gratitudeDay } from './gratitude';
@@ -293,6 +295,16 @@ function splitLongDescription(description: string) {
 }
 
 export default function Home() {
+  const [choreReveal, setChoreReveal] = useState<ChoreReveal | null>(null);
+  useEffect(() => {
+    if (!choreReveal) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById('task-' + choreReveal.taskId);
+      target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [choreReveal]);
   const [choreDay, setChoreDay] = useState(() => gratitudeDay());
   useEffect(() => {
     const refresh = () => setChoreDay(gratitudeDay());
@@ -1277,6 +1289,7 @@ export default function Home() {
             key={space.id}
             onClick={() => {
               setRandomActivityId(null);
+              setChoreReveal(null);
               setBoardSpaceId(space.id);
             }}
             type="button"
@@ -1313,7 +1326,7 @@ export default function Home() {
         <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
           {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <p className="chore-progress-note">Body bežných prác zohľadňujú náročnosť druhov prác vykonaných za posledných 7 dní. Každý druh sa do súhrnu započíta raz; opakované vykonania zostávajú v histórii. Občasné práce sa sledujú podľa nastavených intervalov.</p> : null}
           <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />
-          {goalSnapshots.some((goal) => goal.isChore) ? <ProjectProgressStrip key={boardSpaceId + '-chores-' + goalSnapshots.filter((goal) => goal.isChore).map((goal) => goal.id).join(',')} heading="Chores" goals={goalSnapshots.filter((goal) => goal.isChore)} /> : null}
+          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <ChoreRandomizer key={boardSpaceId + activePersonId} goals={boardGoals} onOpen={setChoreReveal} /> : null}
           <label>
             Nový plán v tabuľke {boardSpaceLabel}
             <input
@@ -1391,6 +1404,7 @@ export default function Home() {
                 {category.goals.map((goal) => (
                   <GoalPanel
                     activePersonId={activePersonId}
+                    revealChore={choreReveal}
                     goal={goal}
                     key={goal.id}
                     boardSpaceId={boardSpaceId}
@@ -1905,6 +1919,7 @@ function ProjectProgressStrip({
 }
 
 type GoalPanelProps = {
+  revealChore?: ChoreReveal | null;
   activePersonId: string;
   boardSpaceId: BoardSpaceId;
   goal: Goal;
@@ -1930,7 +1945,9 @@ type GoalPanelProps = {
 };
 
 function GoalPanel(props: GoalPanelProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [manuallyExpanded, setExpanded] = useState(false);
+  const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
+  const expanded = manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
   const [descriptionChunks, setDescriptionChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.goal);
   const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
@@ -1962,7 +1979,7 @@ function GoalPanel(props: GoalPanelProps) {
           aria-expanded={expanded}
           title={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
           className="icon-button"
-          onClick={() => setExpanded((current) => !current)}
+          onClick={() => { setExpanded(!expanded); setDismissedReveal(props.revealChore ?? null); }}
           type="button"
         >
           {expanded ? '▾' : '▸'}
@@ -2357,7 +2374,9 @@ function ChoreAttentionSummary({ tasks }: { tasks: Task[] }) {
 
 function TaskRow(props: TaskRowProps) {
   const [adding, setAdding] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [manuallyExpanded, setExpanded] = useState(false);
+  const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
+  const expanded = manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.task.id));
   const [splitDraft, setSplitDraft] = useState<string | null>(null);
   const titleChunks = (splitDraft ?? '').split('\n').map((chunk) => chunk.trim()).filter(Boolean);
   const isChore = normalizeGoalCategory(props.goal.category) === 'chore';
@@ -2387,7 +2406,7 @@ function TaskRow(props: TaskRowProps) {
   }
 
   return (
-    <div className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
+    <div id={`task-${props.task.id}`} tabIndex={-1} className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
       <div className={[
         'task-row',
         (isChore ? doneToday : props.task.done) ? 'done' : '',
@@ -2399,7 +2418,7 @@ function TaskRow(props: TaskRowProps) {
           title={hasChildren ? `${expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
           className={`icon-button compact${hasChildren && !expanded ? ' has-hidden-subtasks' : ''}`}
           disabled={!hasChildren}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => { setExpanded(!expanded); setDismissedReveal(props.revealChore ?? null); }}
           type="button"
         >
           <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
