@@ -431,3 +431,11 @@ test('occasional attention needs a passed deadline with no execution since that 
   assert.ok(choreAttention({ ...occasional, choreCompletions: [{ id: 'old', personId: 'person-1', completedAt: '2026-10-19T10:00:00Z' }] }, now));
   assert.equal(choreAttentionCount([task('deleted', { deletedAt: '2026-10-20T12:00:00Z', children: [task('hidden')] }), task('topic', { kind: 'topic', children: [occasional] })], now), 1);
 });
+
+test('chore reminder counts stay separate for routine and occasional nested work', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const tasks = [task('routine'), task('group', { kind: 'topic', children: [task('late', { choreCadence: 'occasional', dueAt: '2026-10-20T12:00:00Z' }), task('routine-child')] })];
+  assert.equal(choreAttentionCount(tasks, now, 'routine'), 2);
+  assert.equal(choreAttentionCount(tasks, now, 'occasional'), 1);
+  assert.equal(choreAttentionCount(tasks, now), 3);
+});
