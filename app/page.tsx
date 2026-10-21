@@ -1,5 +1,7 @@
 'use client';
 
+import { collectLocalRecovery } from './local-recovery';
+
 import { SyncConflictPanel } from './sync-conflict-panel';
 import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
@@ -991,6 +993,10 @@ export default function Home() {
     setTransferMessage('Záloha je stiahnutá ako JSON súbor.');
   }
 
+  function exportRecovery() {
+    downloadJson(JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), current: state, localVersions: collectLocalRecovery(window.localStorage) }, null, 2), 'foxies-zachranne-verzie-' + new Date().toISOString().slice(0, 10) + '.json');
+  }
+
   function importData(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTransferMessage('');
@@ -1223,6 +1229,7 @@ export default function Home() {
             {settingsOpen ? (
               <div className="settings-popover">
                 <ThemePicker />
+                <button onClick={exportRecovery} type="button">Stiahnuť všetky lokálne verzie</button>
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
                 </button>
