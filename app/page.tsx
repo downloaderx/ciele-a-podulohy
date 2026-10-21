@@ -329,6 +329,7 @@ export default function Home() {
   const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [backupsOpen, setBackupsOpen] = useState(false);
+  const [conflictsOpen, setConflictsOpen] = useState(false);
   const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -1064,13 +1065,14 @@ export default function Home() {
         <button type="button" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
         <button type="button" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
         <button type="button" onClick={() => void sync.logout().catch(() => setTransferMessage('Odhlásenie zlyhalo. Skúste znova.'))}>{sync.mode === 'profiles' ? 'Zmeniť líštičku' : 'Odhlásiť sa'}</button>
+        {sync.conflicts.length > 0 ? <button type="button" onClick={() => setConflictsOpen(true)}>Vyriešiť rozdiely ({sync.conflicts.length})</button> : null}
         {sync.recovery ? <button type="button" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť poškodenú zálohu</button> : null}
         {reminders.message ? <span>{reminders.message}</span> : null}
       </section>
-      {sync.conflicts.length > 0 ? <SyncConflictPanel conflicts={sync.conflicts}
+      {sync.conflicts.length > 0 ? <SyncConflictPanel open={conflictsOpen} onClose={() => setConflictsOpen(false)} conflicts={sync.conflicts}
         labelFor={(path) => conflictLabel(path, state)}
         valueFor={(value) => conflictValue(value, [...state.goals, ...(sync.conflictVersions()?.server.goals ?? [])])}
-        onResolve={sync.resolve}
+        onResolve={(choices) => { sync.resolve(choices); setConflictsOpen(false); }}
         onDownload={() => downloadJson(JSON.stringify(sync.conflictVersions(), null, 2), 'foxies-rozdielne-upravy.json')}
       /> : null}
       <section className="topbar" aria-label="Prehľad tímu">
