@@ -601,3 +601,20 @@ test('switching profiles preserves every board and rebases an older clean cache 
     assert.equal(result.state.activePersonId, personId);
   }
 });
+
+
+test('obsolete browser data only bootstraps an empty server and cannot resurrect stale projects on profile changes', () => {
+  const { mergeInitialBoard } = require('../app/state-sync.ts');
+  const empty = { ...state(), goals: [], goalRankings: {} };
+  const legacy = state(), remote = state();
+  legacy.goals.push(goal('old-demo')); legacy.goals[0].title = 'Old name';
+  remote.goals[0].title = 'New server name';
+  for (const id of ['person-1', 'person-2']) {
+    const merged = mergeInitialBoard(empty, visibleState(legacy, id), remote, true);
+    assert.deepEqual(merged.state.goals, remote.goals); assert.deepEqual(merged.conflicts, []);
+    assert.equal(merged.state.activePersonId, id);
+  }
+  assert.deepEqual(mergeInitialBoard(empty, legacy, empty, true).state.goals, legacy.goals);
+  const cached = clone(remote); cached.goals.push(goal('offline-new'));
+  assert.ok(mergeInitialBoard(remote, cached, remote, false).state.goals.some(g => g.id === 'offline-new'));
+});

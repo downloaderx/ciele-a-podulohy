@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultPeople, type AppStateData } from './page-model';
-import { isValidState, mergeStates, visibleState, stableJson, type MergeConflict, type ConflictChoices } from './state-sync';
+import { isValidState, mergeStates, mergeInitialBoard, visibleState, stableJson, type MergeConflict, type ConflictChoices } from './state-sync';
 
 const empty = (personId = 'person-1'): AppStateData => ({ activePersonId: personId, people: defaultPeople, goals: [], activityLog: [], goalRankings: {} });
 const snapshot = (state: AppStateData) => stableJson({ ...state, activePersonId: '' });
@@ -52,6 +52,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     identity.current = personId;
     conflictRef.current = null; setConflicts([]); revision.current = null;
     let local = empty(personId), baseline = empty(personId);
+    let legacyOnly = false;
     try {
       const raw = window.localStorage.getItem(cacheKey(personId));
       if (raw) {
@@ -67,7 +68,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
             activityLog: JSON.parse(window.localStorage.getItem('ciele-activity-log') ?? '[]'),
             goalRankings: JSON.parse(window.localStorage.getItem('ciele-goal-rankings') ?? '{}') };
           if (!isValidState(legacy)) throw new Error('Poškodené staršie dáta');
-          local = visibleState(legacy, personId);
+          local = visibleState(legacy, personId); legacyOnly = true;
           // Import only this person's new audit entries; preserve goals without impersonating a partner.
           local.activityLog = local.activityLog.filter((item) => item.actorId === personId);
         }
@@ -89,7 +90,9 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (generation.current !== currentGeneration) return;
       const remote = serverState(await response.json());
       if (generation.current !== currentGeneration) return;
-      const merged = mergeStates(baseline, latest.current, remote.data);
+      // An established server board must never be repopulated by the obsolete pre-sync cache.
+      // That untouched cache remains available for explicit recovery.
+      const merged = mergeInitialBoard(baseline, latest.current, remote.data, legacyOnly);
       // Keep the legacy source intact as a backup; import it only once per browser.
       window.localStorage.setItem(legacyMigrationKey, '1');
       if (merged.conflicts.length) {

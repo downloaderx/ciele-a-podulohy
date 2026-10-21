@@ -164,3 +164,10 @@ export function liveGoal(goal: Goal): Goal {
   const children = (tasks: Task[]): Task[] => tasks.filter((task) => !task.deletedAt).map((task) => ({ ...task, children: children(task.children) }));
   return { ...goal, children: children(goal.children) };
 }
+
+// Pre-sync browser data can bootstrap an empty server, never replace an established board.
+export function mergeInitialBoard(base: AppStateData, local: AppStateData, remote: AppStateData, legacyOnly: boolean) {
+  return legacyOnly && remote.goals.length > 0
+    ? { state: visibleState(remote, local.activePersonId), conflicts: [] as MergeConflict[] }
+    : mergeStates(base, local, remote);
+}
