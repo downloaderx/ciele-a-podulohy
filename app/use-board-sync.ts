@@ -37,7 +37,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   const busy = useRef(false);
   const initializing = useRef(false);
   const generation = useRef(0);
-  const conflictRef = useRef<{ base: AppStateData; remote: ServerState } | null>(null);
+  const conflictRef = useRef<{ base: AppStateData; remote: ServerState; localAtConflict: AppStateData } | null>(null);
   const syncRef = useRef<() => Promise<void>>(async () => {});
 
   const replace = useCallback((data: AppStateData) => { latest.current = data; apply(data); }, [apply]);
@@ -99,7 +99,8 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       // Keep the legacy source intact as a backup; import it only once per browser.
       window.localStorage.setItem(legacyMigrationKey, '1');
       if (merged.conflicts.length) {
-        conflictRef.current = { base: baseline, remote }; setConflicts(merged.conflicts);
+        conflictRef.current = { base: baseline, remote, localAtConflict: latest.current };
+        replace(merged.state); setConflicts(merged.conflicts);
         setStatus('Našli sa rozdielne úpravy. Vyberte verziu sporných polí.');
       } else {
         base.current = remote.data; revision.current = remote.revision; replace(merged.state);
@@ -142,7 +143,8 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (generation.current !== currentGeneration) return;
       const merged = mergeStates(base.current, latest.current, remote.data);
       if (merged.conflicts.length) {
-        conflictRef.current = { base: base.current, remote }; setConflicts(merged.conflicts);
+        conflictRef.current = { base: base.current, remote, localAtConflict: latest.current };
+        replace(merged.state); persist(); setConflicts(merged.conflicts);
         setStatus('Rovnaké pole bolo upravené na viacerých zariadeniach. Vyberte verziu.'); return;
       }
       base.current = remote.data; revision.current = remote.revision;
@@ -158,7 +160,8 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       // Edits made while the request was running are rebased, never discarded.
       const rebased = mergeStates(sent, latest.current, acknowledged.data);
       if (rebased.conflicts.length) {
-        conflictRef.current = { base: sent, remote: acknowledged }; setConflicts(rebased.conflicts);
+        conflictRef.current = { base: sent, remote: acknowledged, localAtConflict: latest.current };
+        replace(rebased.state); persist(); setConflicts(rebased.conflicts);
         setStatus('Server upravil sporné polia. Vyberte verziu.'); return;
       }
       base.current = acknowledged.data; revision.current = acknowledged.revision; replace(rebased.state); persist();
@@ -226,7 +229,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   }
   function conflictVersions() {
     const pending = conflictRef.current;
-    return pending ? { local: latest.current, server: pending.remote.data, base: pending.base, serverRevision: pending.remote.revision, conflicts } : null;
+    return pending ? { local: latest.current, localAtConflict: pending.localAtConflict, server: pending.remote.data, base: pending.base, serverRevision: pending.remote.revision, conflicts } : null;
   }
   return { loaded, authenticated, mode, status, conflicts, recovery, login, chooseProfile, logout, resolve, conflictVersions, retry: synchronize };
 }

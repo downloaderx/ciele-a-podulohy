@@ -11,7 +11,7 @@ export function SyncConflictPanel({ conflicts, labelFor, valueFor, onResolve, on
   const selected = conflicts.filter((conflict) => choices[conflict.path]).length;
   return <section className="sync-conflicts" role="alert" aria-label="Riešenie rozdielnych úprav">
     <h2>Rozdielne úpravy tej istej položky</h2>
-    <p>Nezávislé zmeny sa zlúčia. Pri každom spornom poli vyber, ktorú verziu zachovať. Nič sa neprepíše, kým výber neuložíš.</p>
+    <p>Nesporné položky a úpravy už vidíš na tabuli. Pri každom spornom poli vyber, ktorú verziu zachovať. Sporné polia sa uložia až po potvrdení výberu.</p>
     <div className="sync-conflict-fields">{conflicts.map((conflict) => <fieldset key={conflict.path}>
       <legend>{labelFor(conflict.path)}</legend>
       {(['local', 'remote'] as const).map((side) => <label key={side}>
