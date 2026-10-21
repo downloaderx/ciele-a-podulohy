@@ -22,6 +22,7 @@ import {
   choreAttentionCount,
   getChoreIntervalDays,
   choreElapsedLabel,
+  choreElapsedDays,
   clampImportance,
   collectCompletedItems,
   createId,
@@ -297,7 +298,8 @@ export default function Home() {
     const refresh = () => setChoreDay(gratitudeDay());
     const timer = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, []);
   const [goals, setGoals] = useState<Goal[]>(starterGoals);
   const [people, setPeople] = useState<Person[]>(defaultPeople);
@@ -2301,7 +2303,7 @@ function AvatarFox({ person, size = 'small' }: { person: Person; size?: 'small' 
 function ReadOnlyTasks({ tasks, isChore = false }: { tasks: Task[]; isChore?: boolean }) {
   return <div className="nested">{tasks.map((task) => <div className="task-branch" key={task.id}>
     <details>
-      <summary className="task-row readonly-task-row"><span aria-hidden="true">{task.done ? '✓' : '•'}</span><span>{isChore && choreAttention(task) ? <ChoreAttentionBadge reason={choreAttention(task)!} cadence={task.choreCadence} /> : null} {task.title}</span></summary>
+      <summary className="task-row readonly-task-row"><span aria-hidden="true">{(isChore ? choreElapsedDays(task) === 0 : task.done) ? '✓' : '•'}</span><span>{isChore && choreAttention(task) ? <ChoreAttentionBadge reason={choreAttention(task)!} cadence={task.choreCadence} /> : null} {task.title}</span></summary>
       {task.children.length ? <ReadOnlyTasks tasks={task.children} isChore={isChore} /> : null}
     </details>
   </div>)}</div>;
@@ -2360,6 +2362,7 @@ function TaskRow(props: TaskRowProps) {
   const titleChunks = (splitDraft ?? '').split('\n').map((chunk) => chunk.trim()).filter(Boolean);
   const isChore = normalizeGoalCategory(props.goal.category) === 'chore';
   const attention = isChore ? choreAttention(props.task) : undefined;
+  const doneToday = isChore && choreElapsedDays(props.task) === 0;
   const completions = (props.task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   const completedLabel = (value: string) => new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
   const hasChildren = props.task.children.length > 0;
@@ -2387,7 +2390,7 @@ function TaskRow(props: TaskRowProps) {
     <div className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
       <div className={[
         'task-row',
-        props.task.done && !(isChore && props.task.choreCadence === 'occasional') ? 'done' : '',
+        (isChore ? doneToday : props.task.done) ? 'done' : '',
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
         <button
@@ -2402,7 +2405,7 @@ function TaskRow(props: TaskRowProps) {
           <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
         </button>
         {isCompletable && isChore ? (
-          <button type="button" className={`chore-complete-button${props.task.done && props.task.choreCadence !== 'occasional' ? ' completed-today' : ''}`} aria-label="Zaznamenať vykonanie podúlohy" title="Vykonané teraz — môžeš označiť opakovane" onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
+          <button type="button" className={`chore-complete-button${doneToday ? ' completed-today' : ''}`} aria-label="Zaznamenať vykonanie podúlohy" title={doneToday ? 'Dnes už vykonané — kliknutím zaznamenáš ďalšie vykonanie' : 'Vykonané teraz — môžeš označiť opakovane'} onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
         ) : isCompletable ? (
           <label className="checkbox-only" aria-label="Označiť ako hotové">
             <input

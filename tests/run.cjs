@@ -485,3 +485,19 @@ test('chore intervals validate, merge and persist while older clients cannot era
   assert.equal(authorizedState(saved, oldClient, 'person-1').goals[0].children[0].choreIntervalDays, 21);
   assert.equal(JSON.parse(JSON.stringify(saved)).goals[0].children[0].choreIntervalDays, 21);
 });
+
+test('daily chore appearance expires at Bratislava midnight without losing seven-day progress or history', () => {
+  const { choreDone } = require('../app/page-model.ts');
+  const item = task('daily', { choreCompletions: [{ id: 'run', personId: 'person-1', completedAt: '2026-10-21T21:30:00Z' }] });
+  const original = clone(item);
+  assert.equal(choreElapsedDays(item, new Date('2026-10-21T21:59:59Z')), 0);
+  assert.equal(choreElapsedDays(item, new Date('2026-10-21T22:00:00Z')), 1);
+  assert.equal(choreDone(item, '2026-10-22'), true);
+  assert.deepEqual(item, original);
+  const repeated = { ...item, choreCompletions: [...item.choreCompletions, { id: 'again', personId: 'person-1', completedAt: '2026-10-22T10:00:00Z' }] };
+  assert.equal(choreElapsedDays(repeated, new Date('2026-10-22T10:01:00Z')), 0);
+  repeated.choreCompletions[1].undoneAt = '2026-10-22T10:02:00Z';
+  assert.equal(choreElapsedDays(repeated, new Date('2026-10-22T10:03:00Z')), 1);
+  assert.equal(choreElapsedDays(task('legacy', { done: true }), new Date('2026-10-22T12:00:00Z')), undefined);
+  assert.equal(choreElapsedDays({ ...item, choreCadence: 'occasional' }, new Date('2026-10-21T21:59:59Z')), 0);
+});
