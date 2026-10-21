@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultPeople, type AppStateData } from './page-model';
-import { isValidState, mergeStates, visibleState, stableJson, type MergeConflict } from './state-sync';
+import { isValidState, mergeStates, visibleState, stableJson, type MergeConflict, type ConflictChoices } from './state-sync';
 
 const empty = (personId = 'person-1'): AppStateData => ({ activePersonId: personId, people: defaultPeople, goals: [], activityLog: [], goalRankings: {} });
 const snapshot = (state: AppStateData) => stableJson({ ...state, activePersonId: '' });
@@ -32,6 +32,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   const revision = useRef<number | null>(null);
   const identity = useRef<string | null>(null);
   const busy = useRef(false);
+  const initializing = useRef(false);
   const generation = useRef(0);
   const conflictRef = useRef<{ base: AppStateData; remote: ServerState } | null>(null);
   const syncRef = useRef<() => Promise<void>>(async () => {});
@@ -46,6 +47,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
 
   const begin = useCallback(async (personId: string) => {
     const currentGeneration = ++generation.current;
+    initializing.current = true;
     identity.current = personId;
     conflictRef.current = null; setConflicts([]); revision.current = null;
     let local = empty(personId), baseline = empty(personId);
@@ -85,7 +87,8 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (!response.ok) throw new Error(await message(response));
       if (generation.current !== currentGeneration) return;
       const remote = serverState(await response.json());
-      const merged = mergeStates(baseline, local, remote.data);
+      if (generation.current !== currentGeneration) return;
+      const merged = mergeStates(baseline, latest.current, remote.data);
       if (merged.conflicts.length) {
         conflictRef.current = { base: baseline, remote }; setConflicts(merged.conflicts);
         setStatus('Našli sa rozdielne úpravy. Vyberte verziu sporných polí.');
@@ -96,7 +99,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       persist();
     } catch (error) {
       if (generation.current === currentGeneration) setStatus(error instanceof Error ? error.message : 'Server je nedostupný. Zmeny zostávajú lokálne.');
-    }
+    } finally { if (generation.current === currentGeneration) initializing.current = false; }
   }, [persist, replace]);
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   }, [begin]);
 
   const synchronize = useCallback(async () => {
-    if (busy.current || !identity.current || conflictRef.current) return;
+    if (busy.current || initializing.current || !identity.current || conflictRef.current) return;
     busy.current = true;
     const currentGeneration = generation.current;
     try {
@@ -197,13 +200,23 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     conflictRef.current = null; setConflicts([]);
     replace(empty()); setAuthenticated(false); setStatus('');
   }
-  function resolve(prefer: 'local' | 'remote') {
+  function resolve(prefer: 'local' | 'remote' | ConflictChoices) {
     const pending = conflictRef.current;
     if (!pending) return;
+    if (typeof prefer !== 'string' && conflicts.some((conflict) => !prefer[conflict.path])) return;
     const merged = mergeStates(pending.base, latest.current, pending.remote.data, prefer);
+    if (typeof prefer !== 'string' && merged.conflicts.some((conflict) => !prefer[conflict.path])) {
+      setConflicts(merged.conflicts);
+      setStatus('Pribudlo ďalšie sporné pole. Vyberte jeho verziu pred uložením.');
+      return;
+    }
     base.current = pending.remote.data; revision.current = pending.remote.revision;
     conflictRef.current = null; setConflicts([]); replace(merged.state); persist();
     setStatus('Sporné polia vyriešené. Ukladám zmeny…');
   }
-  return { loaded, authenticated, mode, status, conflicts, recovery, login, chooseProfile, logout, resolve, retry: synchronize };
+  function conflictVersions() {
+    const pending = conflictRef.current;
+    return pending ? { local: latest.current, server: pending.remote.data, base: pending.base, serverRevision: pending.remote.revision, conflicts } : null;
+  }
+  return { loaded, authenticated, mode, status, conflicts, recovery, login, chooseProfile, logout, resolve, conflictVersions, retry: synchronize };
 }

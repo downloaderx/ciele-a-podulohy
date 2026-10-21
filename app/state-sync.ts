@@ -90,17 +90,47 @@ export function stableJson(value: unknown): string | undefined {
 }
 const same = (a: unknown, b: unknown) => stableJson(a) === stableJson(b);
 
+export type ConflictPreference = 'local' | 'remote';
+export type ConflictChoices = Record<string, ConflictPreference>;
+
+// Insertions and removals can merge safely when both sides agree on shared IDs' order.
+function mergeRanking(base: string[], local: string[], remote: string[]): string[] | undefined {
+  const ls = new Set(local), rs = new Set(remote);
+  const removed = new Set(base.filter((id) => !ls.has(id) || !rs.has(id)));
+  const l = local.filter((id) => !removed.has(id)), r = remote.filter((id) => !removed.has(id));
+  const shared = new Set(l.filter((id) => rs.has(id)));
+  if (!same(l.filter((id) => shared.has(id)), r.filter((id) => shared.has(id)))) return undefined;
+  const nodes = [...new Set([...l, ...r])];
+  if (nodes.length > 10000) return undefined;
+  const edges = new Map(nodes.map((id) => [id, new Set<string>()]));
+  const degree = new Map(nodes.map((id) => [id, 0]));
+  for (const list of [l, r]) for (let i = 1; i < list.length; i++) {
+    if (!edges.get(list[i - 1])!.has(list[i])) { edges.get(list[i - 1])!.add(list[i]); degree.set(list[i], degree.get(list[i])! + 1); }
+  }
+  const ready = nodes.filter((id) => degree.get(id) === 0).sort(); const result: string[] = [];
+  while (ready.length) {
+    const id = ready.shift()!; result.push(id);
+    for (const next of edges.get(id)!) { degree.set(next, degree.get(next)! - 1); if (degree.get(next) === 0) { ready.push(next); ready.sort(); } }
+  }
+  return result.length === nodes.length ? result : undefined;
+}
+
 // Merge changes against the last acknowledged server version, by field and item ID.
 // Conflicting edits require an explicit choice before another write is attempted.
-export function mergeStates(base: AppStateData, local: AppStateData, remote: AppStateData, prefer: 'local' | 'remote' = 'local') {
+export function mergeStates(base: AppStateData, local: AppStateData, remote: AppStateData, prefer: ConflictPreference | ConflictChoices = 'local') {
   const conflicts: MergeConflict[] = [];
+  const choice = (path: string) => typeof prefer === 'string' ? prefer : prefer[path] ?? 'local';
   function merge(b: unknown, l: unknown, r: unknown, path: string): unknown {
     if (same(l, b)) return r;
     if (same(r, b) || same(l, r)) return l;
     if (record(b) && record(l) && record(r) && typeof b.id === 'string' &&
         ((l.deletedAt !== b.deletedAt && !same(r, b)) || (r.deletedAt !== b.deletedAt && !same(l, b)))) {
       conflicts.push({ path, local: l, remote: r });
-      return prefer === 'local' ? l : r;
+      return choice(path) === 'local' ? l : r;
+    }
+    if (path.startsWith('/goalRankings/') && Array.isArray(l) && Array.isArray(r) && [...l, ...r].every((id) => typeof id === 'string')) {
+      const ranking = mergeRanking(Array.isArray(b) ? b : [], l, r);
+      if (ranking) return ranking;
     }
     if (Array.isArray(l) && Array.isArray(r) && [...l, ...r].every((item) => record(item) && string(item.id))) {
       const byId = (items: unknown) => new Map((Array.isArray(items) ? items : []).map((item) => [(item as { id: string }).id, item]));
@@ -119,7 +149,7 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
     }
     if (path.endsWith('/lastCompletedAt') && typeof l === 'string' && typeof r === 'string') return Date.parse(l) > Date.parse(r) ? l : r;
     if (!['/expanded', '/activePersonId', '/updatedById'].some((field) => path.endsWith(field))) conflicts.push({ path, local: l, remote: r });
-    return prefer === 'local' ? l : r;
+    return choice(path) === 'local' ? l : r;
   }
   const state = merge(base, local, remote, '') as AppStateData;
   state.activePersonId = local.activePersonId;
