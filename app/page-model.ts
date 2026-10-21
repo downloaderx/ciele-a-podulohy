@@ -348,8 +348,8 @@ export function choreAttention(task: Task, now = new Date()): string | undefined
   return choreDone({ ...task, choreCompletions: completions }, gratitudeDay(now)) ? undefined : 'Bez záznamu vykonania za posledných 7 dní';
 }
 
-export function choreAttentionCount(tasks: Task[], now = new Date()): number {
-  return tasks.reduce((count, task) => task.deletedAt ? count : count + (choreAttention(task, now) ? 1 : 0) + choreAttentionCount(task.children, now), 0);
+export function choreAttentionCount(tasks: Task[], now = new Date(), cadence?: ChoreCadence): number {
+  return tasks.reduce((count, task) => task.deletedAt ? count : count + ((!cadence || (task.choreCadence ?? 'routine') === cadence) && choreAttention(task, now) ? 1 : 0) + choreAttentionCount(task.children, now, cadence), 0);
 }
 
 export function choreView<T extends Task>(task: T, day: string): T {

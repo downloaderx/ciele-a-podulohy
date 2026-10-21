@@ -2629,3 +2629,7 @@ select:focus {
 .has-chore-attention { display: flex; align-items: center; gap: 7px; }
 .has-chore-attention .task-title { min-width: 0; flex: 1; }
 :root[data-theme="dark"] .chore-attention { background: #4c3f23; border-color: #d8b765; color: #ffe3a1; }
+
+.chore-attention-groups { display: grid; gap: 5px; }
+.chore-attention.chore-reminder { background: #e9f2ff; border-color: #8baed6; color: #315f91; font-size: 20px; }
+:root[data-theme="dark"] .chore-attention.chore-reminder { background: #263d57; border-color: #779dc5; color: #b7d7ff; }
