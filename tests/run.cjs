@@ -661,3 +661,102 @@ test('conflict preview includes remote-only projects and chore settings while re
     assert.deepEqual(resolved.state.goals[0].children, remote.goals[0].children);
   }
 });
+
+test('acknowledged board cache is shared across profiles, validates data and cannot regress to an older server revision', () => {
+  const { readAcknowledgedBoard, rememberAcknowledgedBoard } = require('../app/acknowledged-cache.ts');
+  const values = new Map(), storage = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) };
+  rememberAcknowledgedBoard(storage, { data: state(), revision: 20 });
+  const old = state(); old.goals = [];
+  rememberAcknowledgedBoard(storage, { data: old, revision: 19 });
+  assert.equal(readAcknowledgedBoard(storage).data.goals.length, 3);
+  assert.equal(readAcknowledgedBoard(storage).revision, 20);
+  values.set('acorns-acknowledged-board', '{broken'); assert.equal(readAcknowledgedBoard(storage), null);
+  values.set('acorns-acknowledged-board', JSON.stringify({ data: state(), revision: -1 })); assert.equal(readAcknowledgedBoard(storage), null);
+});
+
+test('local checkpoints are bounded, daily, exportable and preserve the current version before a profile change', () => {
+  const { archiveLocalVersion, collectLocalRecovery } = require('../app/local-recovery.ts');
+  const values = new Map(), storage = { get length() { return values.size; }, key: i => [...values.keys()][i], getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) };
+  const day = Date.parse('2026-10-01T12:00:00Z');
+  for (let i = 0; i < 20; i++) {
+    values.set('acorns-state-person-1', JSON.stringify({ version: i })); archiveLocalVersion(storage, 'person-1', day + i * 86400000);
+  }
+  assert.equal(JSON.parse(values.get('acorns-history-person-1')).length, 12);
+  assert.equal(JSON.parse(values.get('acorns-daily-person-1')).length, 7);
+  values.set('acorns-state-person-1', 'latest pending edit');
+  archiveLocalVersion(storage, 'person-1', day + 19 * 86400000 + 1000, true);
+  assert.equal(JSON.parse(values.get('acorns-history-person-1'))[0].raw, 'latest pending edit');
+  const exported = collectLocalRecovery(storage);
+  assert.ok(exported['acorns-history-person-1']); assert.ok(exported['acorns-daily-person-1']);
+});
+
+test('server history preserves the exact pre-write board, blocks saves on backup failure and exposes authenticated downloads', async () => {
+  process.env.APP_AUTH_MODE = 'profiles';
+  process.env.SUPABASE_URL = 'https://example.invalid'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service';
+  const originalFetch = global.fetch;
+  let stored = { data: state(), revision: 7 }, backupFailure = false, saveFailure = false, writes = 0;
+  const history = new Map();
+  global.fetch = async (rawUrl, init = {}) => {
+    const url = new URL(rawUrl), method = init.method ?? 'GET';
+    if (url.pathname === '/rest/v1/app_state') {
+      if (method === 'POST') {
+        if (backupFailure) return Response.json({ error: 'backup unavailable' }, { status: 503 });
+        assert.equal(init.headers.Prefer, 'resolution=ignore-duplicates,return=minimal');
+        const entry = JSON.parse(init.body);
+        if (!history.has(entry.id)) history.set(entry.id, { ...entry, updated_at: '2026-10-21T21:00:00Z' });
+        return new Response(null, { status: 201 });
+      }
+      const id = url.searchParams.get('id');
+      if (id === 'eq.main') return Response.json([clone(stored)]);
+      if (id === 'like.main:backup:%') return Response.json([...history.values()].filter(v => v.id.startsWith('main:backup:')).sort((a, b) => b.revision - a.revision).map(({ revision, updated_at }) => ({ revision, updated_at })));
+      return Response.json(history.has(id?.slice(3)) ? [clone(history.get(id.slice(3)))] : []);
+    }
+    if (url.pathname === '/rest/v1/rpc/save_app_state') {
+      writes++; if (saveFailure) return Response.json({}, { status: 503 });
+      const body = JSON.parse(init.body); if (body.p_expected_revision !== stored.revision) return Response.json({ ok: false });
+      stored = { data: body.p_data, revision: stored.revision + 1 }; return Response.json({ ok: true, revision: stored.revision });
+    }
+    throw Error('Unexpected backup request ' + url);
+  };
+  try {
+    const route = require('../app/api/state/route.ts'), backups = require('../app/api/backups/route.ts');
+    const request = (data, revision = 7) => new Request('https://foxies.test/api/state', { method: 'PUT', headers: { origin: 'https://foxies.test' }, body: JSON.stringify({ data, revision }) });
+    jar.clear(); assert.equal((await backups.GET(new Request('https://foxies.test/api/backups'))).status, 401);
+    jar.set('acorns-profile', 'person-1');
+    assert.equal((await route.GET(new Request('https://foxies.test/api/state', { headers: { 'x-acorns-person-id': 'person-2' } }))).status, 409);
+    assert.equal((await route.PUT(new Request('https://foxies.test/api/state', { method: 'PUT', headers: { origin: 'https://foxies.test', 'x-acorns-person-id': 'person-2' }, body: JSON.stringify({ data: state(), revision: 7 }) }))).status, 409);
+    assert.equal(writes, 0); assert.equal(history.size, 0);
+    assert.equal((await backups.POST(new Request('https://foxies.test/api/backups', { method: 'POST', headers: { origin: 'https://attacker.test' } }))).status, 403);
+    const original = clone(stored.data), changed = clone(original); changed.goals[0].title = 'New bathroom';
+    backupFailure = true; assert.equal((await route.PUT(request(changed))).status, 503); assert.equal(writes, 0); assert.deepEqual(stored.data, original);
+    backupFailure = false; saveFailure = true; assert.equal((await route.PUT(request(changed))).status, 503); assert.deepEqual(history.get('main:backup:7').data, original); assert.equal(stored.revision, 7);
+    saveFailure = false; assert.equal((await route.PUT(request(changed))).status, 200); assert.equal(stored.revision, 8);
+    assert.deepEqual(history.get('main:backup:7').data, original);
+    const list = await (await backups.GET(new Request('https://foxies.test/api/backups'))).json(); assert.deepEqual(list.backups.map(b => b.revision), [7]);
+    jar.set('acorns-profile', 'person-2');
+    const download = await (await backups.GET(new Request('https://foxies.test/api/backups?revision=7'))).json();
+    assert.equal(download.data.activePersonId, 'person-2'); assert.deepEqual(download.data.goals, original.goals); assert.equal(stored.data.goals[0].title, 'New bathroom');
+    assert.deepEqual(readTransferData(download).goals, original.goals);
+    assert.equal((await backups.GET(new Request('https://foxies.test/api/backups?revision=main'))).status, 400);
+    assert.equal((await backups.GET(new Request('https://foxies.test/api/backups?revision=999'))).status, 404);
+    const post = () => backups.POST(new Request('https://foxies.test/api/backups', { method: 'POST', headers: { origin: 'https://foxies.test' } }));
+    assert.equal((await post()).status, 200); assert.ok(history.has('main:backup:8')); const saved = clone(history.get('main:backup:8'));
+    assert.equal((await post()).status, 200); assert.deepEqual(history.get('main:backup:8'), saved);
+    const beforeConflict = writes; assert.equal((await route.PUT(request(changed, 7))).status, 409); assert.equal(writes, beforeConflict);
+  } finally { global.fetch = originalFetch; process.env.APP_AUTH_MODE = 'supabase'; jar.clear(); }
+});
+
+test('large local histories respect the storage budget and checkpoint the previous live copy', () => {
+  const { archiveLocalVersion } = require('../app/local-recovery.ts');
+  const values = new Map(), storage = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) };
+  const now = Date.parse('2026-10-21T12:00:00Z');
+  for (let i = 0; i < 20; i++) {
+    values.set('acorns-state-person-1', 'version-' + i + 'x'.repeat(100000)); archiveLocalVersion(storage, 'person-1', now + i * 86400000);
+  }
+  assert.ok(JSON.parse(values.get('acorns-history-person-1')).reduce((n, v) => n + v.raw.length, 0) <= 300000);
+  assert.ok(JSON.parse(values.get('acorns-daily-person-1')).reduce((n, v) => n + v.raw.length, 0) <= 200000);
+  values.set('acorns-state-person-1', 'new live data');
+  archiveLocalVersion(storage, 'person-1', now + 20 * 86400000, true, 'previous live data');
+  assert.equal(JSON.parse(values.get('acorns-history-person-1'))[0].raw, 'previous live data');
+  assert.equal(values.get('acorns-state-person-1'), 'new live data');
+});

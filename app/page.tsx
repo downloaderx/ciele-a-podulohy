@@ -1,5 +1,6 @@
 'use client';
 
+import { BackupPanel } from './backup-panel';
 import { collectLocalRecovery } from './local-recovery';
 
 import { SyncConflictPanel } from './sync-conflict-panel';
@@ -327,6 +328,7 @@ export default function Home() {
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [backupsOpen, setBackupsOpen] = useState(false);
   const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -1055,7 +1057,8 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" aria-busy={sync.transitioning}>
+      <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
       <section className="sync-status" role="status" aria-live="polite">
         <span>{sync.status}</span>
         <button type="button" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
@@ -1229,6 +1232,7 @@ export default function Home() {
             {settingsOpen ? (
               <div className="settings-popover">
                 <ThemePicker />
+                <button type="button" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
                 <button onClick={exportRecovery} type="button">Stiahnuť všetky lokálne verzie</button>
                 <button onClick={openTransferModal} type="button">
                   Prenos dát
@@ -1243,6 +1247,7 @@ export default function Home() {
         </div>
       </section>
 
+      {backupsOpen ? <BackupPanel onClose={() => setBackupsOpen(false)} /> : null}
       {transferModalOpen ? (
         <div className="modal-backdrop" role="presentation">
           <section
@@ -1446,6 +1451,7 @@ export default function Home() {
           <p className="empty-board">Prvý plán si nájde miesto hneď tu.</p>
         )}
       </section>
+      </fieldset>
     </main>
   );
 }

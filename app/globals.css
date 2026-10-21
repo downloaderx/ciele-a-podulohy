@@ -2668,3 +2668,9 @@ select:focus {
 .sync-conflict-value { display: block; overflow-wrap: anywhere; font-size: 13px; margin-top: 4px; }
 .sync-conflict-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .sync-conflict-actions button:disabled { opacity: .5; cursor: default; }
+
+.sync-transition-guard { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+.backup-history-list { display: grid; gap: 10px; max-height: 50vh; overflow-y: auto; margin: 16px 0; }
+.backup-history-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--line, #97c4df); border-radius: 10px; }
+.backup-history-row span { display: grid; gap: 4px; }
+@media (max-width: 540px) { .backup-history-row { align-items: stretch; flex-direction: column; } }

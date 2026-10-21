@@ -4,6 +4,11 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+export function checkExpectedProfile(request: Request | undefined, personId: string) {
+  const expected = request?.headers.get('x-acorns-person-id');
+  if (expected && expected !== personId) throw new ApiError(409, 'V inom okne sa zmenila líštička. Vyber profil znova; rozpracované zmeny zostávajú lokálne.');
+}
+
 export function authMode(): 'profiles' | 'supabase' {
   const mode = process.env.APP_AUTH_MODE ?? 'profiles';
   if (mode !== 'profiles' && mode !== 'supabase') throw new ApiError(503, 'Neplatné nastavenie režimu prihlásenia.');
