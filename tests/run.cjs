@@ -641,3 +641,23 @@ test('recovery keeps original versions of both profiles before synchronization a
   assert.equal(entries.get('acorns-recovery-person-2-0'), 'second');
   assert.doesNotThrow(() => preserveLocalRecovery({ getItem: () => { throw Error('blocked'); }, setItem: () => {} }));
 });
+
+
+test('conflict preview includes remote-only projects and chore settings while retaining disputed local fields for later choice', () => {
+  const { mergeInitialBoard } = require('../app/state-sync.ts');
+  const base = { ...state(), goals: [], goalRankings: {} }, local = state(), remote = clone(local);
+  local.goals[0].title = 'Old bathroom'; remote.goals[0].title = 'Bathroom';
+  remote.goals[0].children = [task('new-chore', { choreCadence: 'occasional', choreIntervalDays: 90, choreWeight: 5 })];
+  remote.goals.push(goal('new-project', { category: 'chore', children: [task('nested-work')] }));
+  const preview = mergeInitialBoard(base, local, remote, false);
+  assert.equal(preview.conflicts.length, 1);
+  assert.equal(preview.state.goals.length, 4);
+  assert.deepEqual(preview.state.goals[0].children, remote.goals[0].children);
+  assert.equal(preview.state.goals[0].title, 'Old bathroom');
+  for (const choice of ['local', 'remote']) {
+    const resolved = mergeStates(base, preview.state, remote, { '/goals/shared/title': choice });
+    assert.equal(resolved.state.goals[0].title, choice === 'local' ? 'Old bathroom' : 'Bathroom');
+    assert.equal(resolved.state.goals.length, 4);
+    assert.deepEqual(resolved.state.goals[0].children, remote.goals[0].children);
+  }
+});
