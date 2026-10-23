@@ -2684,13 +2684,13 @@ select:focus {
   display: flex; align-items: flex-end; gap: 9px; z-index: 1000; pointer-events: none;
 }
 .completion-bubble {
-  display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%;
+  position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.85);
-  background: radial-gradient(circle at 28% 22%, #ffffffed, #fff7d4b8 48%, #e5d8ffb3 80%);
+  background-image: url('/golden-bunny.png'), radial-gradient(circle at 28% 22%, #ffffffed, #fff7d4b8 48%, #e5d8ffb3 80%);
+  background-size: 88% 88%, 100% 100%; background-position: center; background-repeat: no-repeat;
   box-shadow: inset -3px -4px 8px #b29bd94a, 0 5px 16px #3e285d26;
   opacity: 0; animation: completion-bubble-rise 2.45s ease-out both;
 }
-.completion-bubble img { width: 92%; height: 92%; object-fit: contain; }
 .completion-bubble-1 { width: 68px; height: 68px; margin-bottom: 18px; animation-delay: .16s; }
 .completion-bubble-2 { width: 96px; height: 96px; margin-bottom: 42px; animation-delay: .32s; }
 @keyframes completion-bubble-rise {

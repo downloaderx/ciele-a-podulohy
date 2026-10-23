@@ -1064,7 +1064,7 @@ export default function Home() {
 
   return (
     <main className="app-shell" aria-busy={sync.transitioning}>
-      <Image src="/golden-bunny.png" alt="" width={128} height={128} sizes="96px" preload hidden />
+      <Image src="/golden-bunny.png" alt="" width={128} height={128} unoptimized preload hidden />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
       <section className="sync-status" role="status" aria-live="polite">
