@@ -516,15 +516,15 @@ export default function Home() {
 
   function toggleDone(taskId: string) {
     const task = findTaskById(goals, taskId);
+    const chore = goals.find((goal) => normalizeGoalCategory(goal.category) === 'chore' && allTasks(goal).some((item) => item.id === taskId));
 
-    if (task && (!isCompletableTask(task) || goals.some((goal) => goal.id === taskId && normalizeGoalCategory(goal.category) === 'chore'))) {
+    if (task && ((!chore && !isCompletableTask(task)) || goals.some((goal) => goal.id === taskId && normalizeGoalCategory(goal.category) === 'chore'))) {
       return;
     }
 
-    const chore = goals.find((goal) => normalizeGoalCategory(goal.category) === 'chore' && allTasks(goal).some((item) => item.id === taskId));
     if (task && chore) {
       const completion = { id: createId(), personId: activePersonId, completedAt: new Date().toISOString() };
-      setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, done: false, updatedById: activePersonId,
+      setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, kind: 'todo', done: false, updatedById: activePersonId,
         choreCompletions: [completion, ...(item.choreCompletions ?? [])].slice(0, 200) })));
       addActivity('vykonal(a) chore', task.title);
       return;
@@ -1072,7 +1072,7 @@ export default function Home() {
       {sync.conflicts.length > 0 ? <SyncConflictPanel open={conflictsOpen} onClose={() => setConflictsOpen(false)} conflicts={sync.conflicts}
         labelFor={(path) => conflictLabel(path, state)}
         valueFor={(value) => conflictValue(value, [...state.goals, ...(sync.conflictVersions()?.server.goals ?? [])])}
-        onResolve={(choices) => { sync.resolve(choices); setConflictsOpen(false); }}
+        onResolve={(choices) => { if (sync.resolve(choices)) setConflictsOpen(false); }}
         onDownload={() => downloadJson(JSON.stringify(sync.conflictVersions(), null, 2), 'foxies-rozdielne-upravy.json')}
       /> : null}
       <section className="topbar" aria-label="Prehľad tímu">
@@ -2100,7 +2100,7 @@ function GoalPanel(props: GoalPanelProps) {
           people={props.people}
           updatedById={props.goal.updatedById}
         />
-        <label className="category-select kind-select">
+        {category !== 'chore' && <label className="category-select kind-select">
           Typ
           <select
             onChange={(event) => props.onChangeTaskKind(props.goal.id, event.target.value as TaskKind)}
@@ -2113,6 +2113,7 @@ function GoalPanel(props: GoalPanelProps) {
             ))}
           </select>
         </label>
+        }
         <label className="category-select">
           Kategória
           <select
@@ -2484,7 +2485,7 @@ function TaskRow(props: TaskRowProps) {
           >
             <span aria-hidden="true">✂</span>
           </button>
-        <label className="task-kind-select">
+        {!isChore && <label className="task-kind-select">
           <span>Typ</span>
           <select
             aria-label="Typ podúlohy"
@@ -2498,6 +2499,7 @@ function TaskRow(props: TaskRowProps) {
             ))}
           </select>
         </label>
+        }
         {normalizeGoalCategory(props.goal.category) === 'chore' ? (
           <label className="task-kind-select">
             <span>Chores</span>

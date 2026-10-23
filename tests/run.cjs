@@ -290,6 +290,15 @@ test('simultaneous gratitude entries merge without losing either person', () => 
 });
 
 const { choreDone, choreView } = require('../app/page-model.ts');
+test('chores expose legacy rules and topics as tasks at every depth without changing stored content', () => {
+  const original = goal('chores', { category: 'chore', kind: 'topic', children: [task('old-rule', { kind: 'rule', children: [task('old-topic', { kind: 'topic' })] })] });
+  const view = choreView(original, '2026-10-23');
+  assert.equal(view.children[0].kind, 'todo');
+  assert.equal(view.children[0].children[0].kind, 'todo');
+  assert.equal(view.children[0].title, original.children[0].title);
+  assert.equal(original.children[0].kind, 'rule');
+  assert.equal(original.children[0].children[0].kind, 'topic');
+});
 const choreEntry = (id, personId = 'person-1', completedAt = '2026-10-17T22:30:00.000Z') => ({ id, personId, completedAt });
 test('repeatable chores use seven Bratislava calendar days and retain history', () => {
   const t = task('repeat', {done:false, choreWeight:3, choreCompletions:[choreEntry('one'),choreEntry('two')]});

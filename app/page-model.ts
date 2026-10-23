@@ -374,7 +374,7 @@ export function choreAttentionCount(tasks: Task[], now = new Date(), cadence?: C
 }
 
 export function choreView<T extends Task>(task: T, day: string): T {
-  return { ...task, done: task.choreCompletions ? choreDone(task, day) : task.done, children: task.children.map((child) => choreView(child, day)) };
+  return { ...task, kind: 'todo', done: task.choreCompletions ? choreDone(task, day) : task.done, children: task.children.map((child) => choreView(child, day)) };
 }
 
 export function choreHistorySummary(tasks: Task[]) {
