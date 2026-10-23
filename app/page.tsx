@@ -1,6 +1,7 @@
 'use client';
 
 import { BackupPanel } from './backup-panel';
+import { CompletionBubbles } from './completion-bubbles';
 import { collectLocalRecovery } from './local-recovery';
 
 import { SyncConflictPanel } from './sync-conflict-panel';
@@ -330,6 +331,8 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [conflictsOpen, setConflictsOpen] = useState(false);
+  const [completionBurst, setCompletionBurst] = useState(0);
+  const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -523,12 +526,14 @@ export default function Home() {
     }
 
     if (task && chore) {
+      setCompletionBurst((current) => current + 1);
       const completion = { id: createId(), personId: activePersonId, completedAt: new Date().toISOString() };
       setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, kind: 'todo', done: false, updatedById: activePersonId,
         choreCompletions: [completion, ...(item.choreCompletions ?? [])].slice(0, 200) })));
       addActivity('vykonal(a) chore', task.title);
       return;
     }
+    if (task && !task.done) setCompletionBurst((current) => current + 1);
     setGoals((current) =>
       updateTaskTree(current, taskId, (task) => ({
         ...task,
@@ -1059,6 +1064,8 @@ export default function Home() {
 
   return (
     <main className="app-shell" aria-busy={sync.transitioning}>
+      <Image src="/golden-bunny.png" alt="" width={128} height={128} sizes="96px" preload hidden />
+      {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
       <section className="sync-status" role="status" aria-live="polite">
         <span>{sync.status}</span>
