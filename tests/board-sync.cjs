@@ -201,3 +201,21 @@ test('a cookie change between reading and writing cannot attribute a save to the
     assert.equal(JSON.parse(h.entries.get('acorns-state-person-1')).data.goals[0].title, 'Pending original profile title');
   } finally { await h.close(); }
 });
+
+test('the final conflict choice starts saving immediately and does not return after retries or profile switches', async () => {
+  const local = state(), remote = state(), base = { ...state(), goals: [] };
+  local.goals[0].title = 'My bathroom'; remote.goals[0].title = 'Server bathroom';
+  local.goals[0].description = 'My note'; remote.goals[0].description = 'Server note';
+  const h = harness({ remote, cache: { 'acorns-state-person-1': JSON.stringify({ data: local, base }) } });
+  try {
+    await h.ready(); assert.equal(h.api.conflicts.length, 2);
+    assert.equal(h.api.resolve({ '/goals/chores/title': 'local' }), false);
+    await tick(); assert.equal(h.api.conflicts.length, 2); assert.equal(h.server.events.some(e => e.method === 'PUT'), false);
+    assert.equal(h.api.resolve({ '/goals/chores/title': 'local', '/goals/chores/description': 'remote' }), true);
+    await until(() => h.api.conflicts.length === 0 && h.api.status === 'Všetky zmeny sú uložené.', 'choices automatically saved');
+    assert.equal(h.server.data.goals[0].title, 'My bathroom'); assert.equal(h.server.data.goals[0].description, 'Server note');
+    await h.api.retry(); await tick(); assert.equal(h.api.conflicts.length, 0);
+    await h.api.chooseProfile('person-2'); await h.api.chooseProfile('person-1'); await tick();
+    assert.equal(h.api.conflicts.length, 0); assert.equal(h.data.goals[0].title, 'My bathroom');
+  } finally { await h.close(); }
+});

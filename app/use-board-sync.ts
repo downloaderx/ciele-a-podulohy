@@ -281,19 +281,21 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       replace(empty()); setAuthenticated(false); setStatus('');
     } finally { transitionRef.current = false; setTransitioning(false); }
   }
-  function resolve(prefer: 'local' | 'remote' | ConflictChoices) {
+  function resolve(prefer: 'local' | 'remote' | ConflictChoices): boolean {
     const pending = conflictRef.current;
-    if (!pending) return;
-    if (typeof prefer !== 'string' && conflicts.some((conflict) => !prefer[conflict.path])) return;
+    if (!pending) return true;
+    if (typeof prefer !== 'string' && conflicts.some((conflict) => !prefer[conflict.path])) return false;
     const merged = mergeStates(pending.base, latest.current, pending.remote.data, prefer);
     if (typeof prefer !== 'string' && merged.conflicts.some((conflict) => !prefer[conflict.path])) {
       setConflicts(merged.conflicts);
       setStatus('Pribudlo ďalšie sporné pole. Vyberte jeho verziu pred uložením.');
-      return;
+      return false;
     }
     base.current = pending.remote.data; revision.current = pending.remote.revision;
     conflictRef.current = null; setConflicts([]); replace(merged.state); persist();
     setStatus('Sporné polia vyriešené. Ukladám zmeny…');
+    void syncRef.current();
+    return true;
   }
   function conflictVersions() {
     const pending = conflictRef.current;
