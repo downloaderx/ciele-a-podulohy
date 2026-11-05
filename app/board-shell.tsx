@@ -1881,7 +1881,6 @@ function GoalPanel(props: GoalPanelProps) {
   const category = normalizeGoalCategory(props.goal.category);
   const isRelationship = props.boardSpaceId === sharedSpaceId && category === 'plan';
   const isRecurring = category !== 'chore' && recurringCategoryIds.includes(category);
-  const routineProgress = calculateChoreProgress(props.goal.children.length ? props.goal.children : [props.goal], 'routine');
   const occasionalProgress = calculateChoreProgress(props.goal.children, 'occasional');
   const choreHistory = choreHistorySummary(props.goal.children.length ? props.goal.children : [props.goal]);
   const isCompletable = isCompletableTask(props.goal);
@@ -1965,9 +1964,9 @@ function GoalPanel(props: GoalPanelProps) {
           </> : null}
         </div>
         {props.workspace && <button type="button" className="area-settings-toggle" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>Nastavenia oblasti</button>}
-        <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
+        {!(props.workspace && category === 'chore') && <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
-          {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
+          {category === 'chore' ? <><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
             <span>{occasionalProgress.total ? `Občasné: ${occasionalProgress.total} prác` : 'Občasné: žiadne položky'}</span>
             {occasionalProgress.total ? <span>podľa nastavených intervalov</span> : null}
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
@@ -1975,7 +1974,7 @@ function GoalPanel(props: GoalPanelProps) {
           </> : <strong>{progress.percent}%</strong>}
           {category !== 'chore' ? <span>{progress.done}/{progress.total}</span> : null}
           </>}
-        </div>
+        </div>}
         {expanded ? <button
           aria-label="Presunúť plán do koša"
           className="icon-button danger"
