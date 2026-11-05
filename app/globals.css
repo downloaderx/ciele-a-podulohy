@@ -2685,10 +2685,8 @@ select:focus {
 }
 .completion-bubble {
   position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,.85);
-  background-image: url('/golden-bunny.png'), radial-gradient(circle at 28% 22%, #ffffffed, #fff7d4b8 48%, #e5d8ffb3 80%);
-  background-size: 88% 88%, 100% 100%; background-position: center; background-repeat: no-repeat;
-  box-shadow: inset -3px -4px 8px #b29bd94a, 0 5px 16px #3e285d26;
+  background: url('/completion-bunny-bubble.svg') center / contain no-repeat;
+  filter: drop-shadow(0 5px 8px #3e285d26);
   opacity: 0; animation: completion-bubble-rise 2.45s ease-out both;
 }
 .completion-bubble-1 { width: 68px; height: 68px; margin-bottom: 18px; animation-delay: .16s; }
@@ -2704,3 +2702,10 @@ select:focus {
   .completion-bubble { animation: completion-bubble-fade 1.8s ease-out both; }
   @keyframes completion-bubble-fade { 0%, 100% { opacity: 0; } 15%, 80% { opacity: 1; } }
 }
+
+.board-section-nav { display: flex; flex-wrap: wrap; gap: 10px; max-width: 1180px; margin: 22px auto 14px; }
+.board-section-nav a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 20px; border: 1px solid var(--line); border-radius: 12px; color: var(--foreground); background: var(--panel); font-weight: 700; text-decoration: none; }
+.board-section-nav a[aria-current="page"] { background: var(--accent); color: var(--accent-text, #07111f); border-color: var(--accent); }
+.board-section-nav a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.board-section-title { max-width: 1180px; margin: 0 auto 14px; font-size: 24px; font-weight: 700; }
+@media (max-width: 540px) { .board-section-nav a { flex: 1; padding: 10px 12px; } }
