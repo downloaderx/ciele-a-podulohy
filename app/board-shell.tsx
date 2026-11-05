@@ -7,6 +7,8 @@ import { collectLocalRecovery } from './local-recovery';
 import { SyncConflictPanel } from './sync-conflict-panel';
 import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
+import { ChoresWorkspace } from './chores-workspace';
+import { splitPantry } from './chores-workspace-model';
 import type { ChoreReveal } from './chore-randomizer-model';
 import { SatisfactionPoll, SatisfactionSummary } from './satisfaction-poll';
 import { GratitudePanel } from './gratitude-panel';
@@ -486,6 +488,7 @@ export default function Home() {
     setNewGoalTitle('');
     setNewGoalDescription('');
     setNewGoalCategory('plan');
+    return goalId;
   }
 
   function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo', choreCadence?: ChoreCadence, choreWeight?: ChoreWeight) {
@@ -1046,9 +1049,40 @@ export default function Home() {
     }
   }
 
+  function renderGoalPanel(goal: Goal) {
+    return (<GoalPanel workspace={isChoresPage}
+                    activePersonId={activePersonId}
+                    revealChore={choreReveal}
+                    goal={goal}
+                    key={goal.id}
+                    boardSpaceId={boardSpaceId}
+                    onAddSubtask={addSubtask}
+                    onChangeCategory={changeGoalCategory}
+                    onChangeRecurrence={changeGoalRecurrence}
+                    onChangeTaskKind={changeTaskKind}
+                    onChangeChoreCadence={changeChoreCadence}
+                    onChangeChoreWeight={changeChoreWeight}
+                    onChangeChoreInterval={changeChoreInterval}
+                    onChangeDeadline={changeDeadline}
+                    onCompleteRecurring={completeRecurringGoalToday}
+                    onDelete={deleteTask}
+                    onRateFeasibility={rateGoalFeasibility}
+                    onRateImportance={rateGoalImportance}
+                    onRateSatisfaction={rateGoalSatisfaction}
+                    onRenameDescription={updateGoalDescription}
+                    onRename={renameTask}
+                    people={people}
+                    toggleDone={toggleDone}
+                    undoChoreCompletion={undoChoreCompletion}
+                    toggleExpanded={toggleExpanded}
+                  />);
+  }
+
+  const choreTitles = new Set(goals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && goal.category === 'chore').flatMap((goal) => allTasks(goal).map((task) => task.title)));
   const recentActivity = activityLog
     .filter((item) => (item.spaceId ?? sharedSpaceId) === boardSpaceId)
-    .slice(0, 12);
+    .filter((item) => !isChoresPage || item.action.toLowerCase().includes('chore') || choreTitles.has(item.target) || [...choreTitles].some((title) => item.target.endsWith(' → ' + title)))
+    .slice(0, isChoresPage ? 80 : 12);
 
   if (!loaded) {
     return null;
@@ -1067,7 +1101,7 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell" aria-busy={sync.transitioning}>
+    <main className={`app-shell${isChoresPage ? ' chores-shell' : ''}`} aria-busy={sync.transitioning}>
       <link rel="preload" as="image" href="/completion-bunny-bubble.svg" />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
@@ -1332,6 +1366,27 @@ export default function Home() {
         ))}
       </section>
 
+      {isChoresPage ? <ChoresWorkspace
+        key={boardSpaceId + ':' + activePersonId}
+        goals={boardGoals}
+        storageKey={'foxies-chores-menu:' + activePersonId + ':' + boardSpaceId}
+        canEdit={canEditBoard}
+        renderGoal={renderGoalPanel}
+        onReveal={setChoreReveal}
+        onSplitPantry={(sourceId) => {
+          if (!canEditBoard) return;
+          const id = createId();
+          setGoals((current) => splitPantry(current, sourceId, id, activePersonId));
+          addActivity('oddelil(a) oblasť chores', 'Špajza');
+        }}
+        changes={recentActivity.length ? <RecentActivityPanel activityLog={recentActivity} people={people} /> : <p>Zatiaľ bez zmien.</p>}
+        completed={<CompletedWorkPanel completedItems={completedItems} people={people} />}
+        addForm={(onCreated) => <form className="new-goal" onSubmit={(event) => { const id = addGoal(event); if (id) onCreated(id); }}>
+          <label>Názov oblasti<input required value={newGoalTitle} onChange={(event) => setNewGoalTitle(event.target.value)} placeholder="Napr. Špajza" /></label>
+          <label>Poznámka (voliteľná)<input value={newGoalDescription} onChange={(event) => setNewGoalDescription(event.target.value)} /></label>
+          <button type="submit">Pridať oblasť</button>
+        </form>}
+      /> : <>
       <section className="summary-grid" aria-label="Celkový stav">
         <div className="summary-panel">
           <div className="category-progress-summary">
@@ -1434,34 +1489,7 @@ export default function Home() {
               </div>
               {boardSpaceId === sharedSpaceId && category.id === 'plan' && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. Dobrovoľnú otázku nájdeš po rozbalení jednotlivých cieľov.</p> : null}
               <div className="board-category-list">
-                {category.goals.map((goal) => (
-                  <GoalPanel
-                    activePersonId={activePersonId}
-                    revealChore={choreReveal}
-                    goal={goal}
-                    key={goal.id}
-                    boardSpaceId={boardSpaceId}
-                    onAddSubtask={addSubtask}
-                    onChangeCategory={changeGoalCategory}
-                    onChangeRecurrence={changeGoalRecurrence}
-                    onChangeTaskKind={changeTaskKind}
-                    onChangeChoreCadence={changeChoreCadence}
-                    onChangeChoreWeight={changeChoreWeight}
-                    onChangeChoreInterval={changeChoreInterval}
-                    onChangeDeadline={changeDeadline}
-                    onCompleteRecurring={completeRecurringGoalToday}
-                    onDelete={deleteTask}
-                    onRateFeasibility={rateGoalFeasibility}
-                    onRateImportance={rateGoalImportance}
-                    onRateSatisfaction={rateGoalSatisfaction}
-                    onRenameDescription={updateGoalDescription}
-                    onRename={renameTask}
-                    people={people}
-                    toggleDone={toggleDone}
-                    undoChoreCompletion={undoChoreCompletion}
-                    toggleExpanded={toggleExpanded}
-                  />
-                ))}
+                {category.goals.map(renderGoalPanel)}
               </div>
             </section>
           ))
@@ -1469,6 +1497,7 @@ export default function Home() {
           <p className="empty-board">{isChoresPage ? 'Pridaj prvý chore projekt, napríklad Kuchyňa alebo Pranie.' : 'Prvý vzťahový cieľ si nájde miesto hneď tu.'}</p>
         )}
       </section>
+      </>}
       </fieldset>
     </main>
   );
@@ -1954,6 +1983,7 @@ function ProjectProgressStrip({
 }
 
 type GoalPanelProps = {
+  workspace?: boolean;
   revealChore?: ChoreReveal | null;
   activePersonId: string;
   boardSpaceId: BoardSpaceId;
@@ -1980,9 +2010,10 @@ type GoalPanelProps = {
 };
 
 function GoalPanel(props: GoalPanelProps) {
+  const [areaSettingsOpen, setAreaSettingsOpen] = useState(false);
   const [manuallyExpanded, setExpanded] = useState(false);
   const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
-  const expanded = manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
+  const expanded = props.workspace || manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
   const [descriptionChunks, setDescriptionChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.goal);
   const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
@@ -2007,9 +2038,9 @@ function GoalPanel(props: GoalPanelProps) {
   if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} />;
 
   return (
-    <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}`}>
+    <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}${props.workspace ? ' workspace-goal' : ''}${areaSettingsOpen ? ' area-settings-open' : ''}`}>
       <div className="goal-header">
-        <button
+        {!props.workspace && <button
           aria-label={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
           aria-expanded={expanded}
           title={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
@@ -2018,7 +2049,7 @@ function GoalPanel(props: GoalPanelProps) {
           type="button"
         >
           {expanded ? '▾' : '▸'}
-        </button>
+        </button>}
         <div className="goal-title-block">
           <EditableInput
             aria-label="Názov cieľa"
@@ -2073,6 +2104,7 @@ function GoalPanel(props: GoalPanelProps) {
           ) : null}
           </> : null}
         </div>
+        {props.workspace && <button type="button" className="area-settings-toggle" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>Nastavenia oblasti</button>}
         <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
           {category === 'chore' ? <><ChoreAttentionSummary tasks={props.goal.children.length ? props.goal.children : [props.goal]} /><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
@@ -2409,6 +2441,7 @@ function ChoreAttentionSummary({ tasks }: { tasks: Task[] }) {
 }
 
 function TaskRow(props: TaskRowProps) {
+  const [taskSettingsOpen, setTaskSettingsOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [manuallyExpanded, setExpanded] = useState(false);
   const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
@@ -2445,6 +2478,8 @@ function TaskRow(props: TaskRowProps) {
     <div id={`task-${props.task.id}`} tabIndex={-1} className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
       <div className={[
         'task-row',
+        props.workspace ? 'workspace-task' : '',
+        taskSettingsOpen ? 'task-settings-open' : '',
         (isChore ? doneToday : props.task.done) ? 'done' : '',
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
@@ -2488,6 +2523,7 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
+        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`Upraviť prácu: ${props.task.title}`} aria-expanded={taskSettingsOpen} onClick={() => setTaskSettingsOpen((open) => !open)}>Upraviť</button>}
         <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
