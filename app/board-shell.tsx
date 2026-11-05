@@ -350,7 +350,8 @@ export default function Home() {
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [completionBurst, setCompletionBurst] = useState(0);
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
-  const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const boardSpaceId = isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -1225,7 +1226,7 @@ export default function Home() {
         <Link href="/chores" aria-current={isChoresPage ? 'page' : undefined}>Chores</Link>
       </nav>
       <h2 className="board-section-title">{isChoresPage ? 'Chores' : 'Vzťahové ciele'}</h2>
-      <section className="board-space-switcher" aria-label="Výber tabule">
+      {!isChoresPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1241,7 +1242,7 @@ export default function Home() {
             {space.label}
           </button>
         ))}
-      </section>
+      </section>}
 
       {isChoresPage ? <ChoresWorkspace
         key={boardSpaceId + ':' + activePersonId}
