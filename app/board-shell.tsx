@@ -29,7 +29,6 @@ import {
   choreView,
   choreHistorySummary,
   choreAttention,
-  choreAttentionCount,
   getChoreIntervalDays,
   choreElapsedLabel,
   choreElapsedDays,
@@ -1968,7 +1967,7 @@ function GoalPanel(props: GoalPanelProps) {
         {props.workspace && <button type="button" className="area-settings-toggle" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>Nastavenia oblasti</button>}
         <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
-          {category === 'chore' ? <><ChoreAttentionSummary tasks={props.goal.children.length ? props.goal.children : [props.goal]} /><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
+          {category === 'chore' ? <><strong title="Bežné práce vykonané za posledných 7 dní vrátane dneška">Bežné: {progress.total ? `${routineProgress.doneWeight}/${routineProgress.totalWeight} bodov` : '—'}</strong><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
             <span>{occasionalProgress.total ? `Občasné: ${occasionalProgress.total} prác` : 'Občasné: žiadne položky'}</span>
             {occasionalProgress.total ? <span>podľa nastavených intervalov</span> : null}
             {choreHistory.lastCompletedAt ? <span>Naposledy: {new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium' }).format(new Date(choreHistory.lastCompletedAt))}</span> : null}
@@ -2258,7 +2257,6 @@ function ReadOnlyGoal({ goal, people }: { goal: Goal; people: Person[] }) {
   const progress = calculateProgress(goal);
   return <article className="goal-panel readonly-goal"><details>
     <summary><h3>{goal.title}</h3><span>{normalizeGoalCategory(goal.category) === 'chore' ? 'Priebežná starostlivosť' : `${progress.percent}%`}</span></summary>
-    {normalizeGoalCategory(goal.category) === 'chore' ? <ChoreAttentionSummary tasks={goal.children.length ? goal.children : [goal]} /> : null}
     <p>{goal.description}</p>
     {normalizeGoalCategory(goal.category) !== 'chore' ? <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p> : null}
     <ReadOnlyTasks tasks={goal.children} isChore={normalizeGoalCategory(goal.category) === 'chore'} />
@@ -2288,17 +2286,6 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
 function ChoreAttentionBadge({ reason, cadence = 'routine' }: { reason: string; cadence?: ChoreCadence }) {
   const routine = cadence === 'routine';
   return <span className={`chore-attention${routine ? ' chore-reminder' : ''}`} role="img" aria-label={reason} title={reason}>{routine ? '↻' : '!'}</span>;
-}
-
-function ChoreAttentionSummary({ tasks }: { tasks: Task[] }) {
-  const now = new Date();
-  const routine = choreAttentionCount(tasks, now, 'routine');
-  const occasional = choreAttentionCount(tasks, now, 'occasional');
-  if (!routine && !occasional) return null;
-  return <div className="chore-attention-groups">
-    {occasional ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="occasional" reason="Občasné práce bez záznamu alebo nevykonané v nastavenom intervale" /> Občasné na kontrolu: {occasional}</span> : null}
-    {routine ? <span className="chore-attention-summary"><ChoreAttentionBadge cadence="routine" reason="Pripomenutie bežných prác" /> Bežné na pripomenutie: {routine}</span> : null}
-  </div>;
 }
 
 function TaskRow(props: TaskRowProps) {
