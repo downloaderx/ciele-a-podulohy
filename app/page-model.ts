@@ -21,6 +21,7 @@ export type Task = {
   updatedById?: string;
   dueAt?: string;
   deletedAt?: string;
+  purgedAt?: string;
   done: boolean;
   expanded: boolean;
   children: Task[];

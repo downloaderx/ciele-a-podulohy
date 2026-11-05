@@ -1,3 +1,4 @@
+import { purgeTask } from './trash';
 import { gratitudeDay } from './gratitude';
 import { normalizeGoals } from './page-model';
 import { ApiError } from './server-storage';
@@ -45,6 +46,11 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   previousVisible.goals.forEach(index);
   const stamp = (task: Task): Task => {
     const old = previousTasks.get(task.id);
+    if (old?.purgedAt) return purgeTask(old, old.purgedAt);
+    if (task.purgedAt) {
+      if (!old?.deletedAt) throw new ApiError(403, 'Natrvalo odstrániť možno iba položku v koši.');
+      return { ...purgeTask(old, new Date().toISOString()), updatedById: personId };
+    }
     const completions = new Map((old?.choreCompletions ?? []).map((entry) => [entry.id, entry]));
     for (const entry of task.choreCompletions ?? []) {
       const prior = completions.get(entry.id);
@@ -59,6 +65,8 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   };
   const goals = (retainRemoved(previousVisible.goals, incoming.goals.filter((goal) => allowedSpace(goal.spaceId))) as Goal[]).map((goal) => {
     const old = previous.goals.find((item) => item.id === goal.id);
+    const stamped = stamp(goal) as Goal;
+    if (stamped.purgedAt) return stamped;
     const satisfaction = goal.satisfactionByPerson ?? old?.satisfactionByPerson;
     const requestedDay = goal.satisfactionAnsweredOnByPerson?.[personId];
     const oldDay = old?.satisfactionAnsweredOnByPerson?.[personId];
@@ -67,7 +75,7 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
     const ownDay = satisfaction?.[personId] === undefined ? undefined
       : satisfaction[personId] !== old?.satisfactionByPerson?.[personId] || requestedDay === today ? today : oldDay;
     const answerDays = Object.fromEntries([[personId, ownDay], [otherId, old?.satisfactionAnsweredOnByPerson?.[otherId]]].filter(([, day]) => day !== undefined));
-    return { ...goal, ...stamp(goal),
+    return { ...goal, ...stamped,
       ...(Object.keys(answerDays).length || old?.satisfactionAnsweredOnByPerson !== undefined || goal.satisfactionAnsweredOnByPerson !== undefined ? { satisfactionAnsweredOnByPerson: answerDays } : {}),
       ...(satisfaction !== undefined ? { satisfactionByPerson: Object.fromEntries([
         [personId, satisfaction[personId]], [otherId, old?.satisfactionByPerson?.[otherId]],
