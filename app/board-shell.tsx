@@ -2,7 +2,6 @@
 
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
-import { collectLocalRecovery } from './local-recovery';
 
 import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
@@ -355,6 +354,9 @@ export default function Home() {
   const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [readingBackup, setReadingBackup] = useState(false);
+  const backupReadId = useRef(0);
   const [transferMessage, setTransferMessage] = useState('');
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [randomActivityId, setRandomActivityId] = useState<string | null>(null);
@@ -981,6 +983,7 @@ export default function Home() {
   }
 
   function openTransferModal() {
+    backupReadId.current++; setImportFileName(''); setReadingBackup(false);
     setSettingsOpen(false);
     setTransferMessage('');
     setImportText('');
@@ -988,6 +991,7 @@ export default function Home() {
   }
 
   function closeTransferModal() {
+    backupReadId.current++; setImportFileName(''); setReadingBackup(false);
     setTransferModalOpen(false);
     setTransferMessage('');
     setImportText('');
@@ -995,21 +999,26 @@ export default function Home() {
 
   function exportData() {
     const payload = createTransferPayload();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-
-    link.href = url;
-    link.download = `little-acorns-foxies-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadJson(JSON.stringify(payload, null, 2), `little-acorns-foxies-${new Date().toISOString().slice(0, 10)}.json`);
     setTransferMessage('Záloha je stiahnutá ako JSON súbor.');
   }
 
-  function exportRecovery() {
-    downloadJson(JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), current: state, localVersions: collectLocalRecovery(window.localStorage) }, null, 2), 'foxies-zachranne-verzie-' + new Date().toISOString().slice(0, 10) + '.json');
+  async function chooseBackupFile(file: File | undefined) {
+    const readId = ++backupReadId.current;
+    setImportText(''); setImportFileName(''); setTransferMessage('');
+    if (!file) { setReadingBackup(false); return; }
+    if (file.size > 8 * 1024 * 1024) { setReadingBackup(false); setTransferMessage('Súbor je príliš veľký. Vyber súbor so zálohou údajov tejto aplikácie.'); return; }
+    setReadingBackup(true);
+    try {
+      const text = await file.text();
+      const parsed: unknown = JSON.parse(text);
+      const data = readTransferData(parsed);
+      if (!data || !isValidState(data)) throw new Error('Tento súbor nie je platná záloha z tejto aplikácie.');
+      if (readId !== backupReadId.current) return;
+      setImportText(text); setImportFileName(file.name);
+    } catch (error) {
+      if (readId === backupReadId.current) setTransferMessage(error instanceof Error ? error.message : 'Zálohu sa nepodarilo načítať.');
+    } finally { if (readId === backupReadId.current) setReadingBackup(false); }
   }
 
   function importData(event: FormEvent<HTMLFormElement>) {
@@ -1039,11 +1048,13 @@ export default function Home() {
       setGoals(importedGoals);
       setPeople(importedPeople);
       setActivityLog(scoped.activityLog.filter((item) => item.actorId === activePersonId));
+      setGratitudeEntries(scoped.gratitudeEntries ?? []);
       setGoalRankings(importedGoalRankings);
       setActivePersonId(importedActivePersonId);
 
       setImportText('');
-      setTransferMessage('Dáta sú importované. Táto verzia appky ich už vidí.');
+      setImportFileName('');
+      setTransferMessage('Údaje zo zálohy sú obnovené.');
     } catch {
       setTransferMessage('JSON sa nepodarilo prečítať. Skontroluj, či je celý skopírovaný.');
     }
@@ -1077,6 +1088,11 @@ export default function Home() {
                     toggleExpanded={toggleExpanded}
                   />);
   }
+
+  const restorePreview = useMemo(() => {
+    try { const data = readTransferData(JSON.parse(importText)); return data && isValidState(data) ? data : null; }
+    catch { return null; }
+  }, [importText]);
 
   const choreTitles = new Set(goals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && goal.category === 'chore').flatMap((goal) => allTasks(goal).map((task) => task.title)));
   const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
@@ -1155,11 +1171,9 @@ export default function Home() {
             <button type="button" className="header-menu-action" aria-expanded={trashOpen} onClick={() => setTrashOpen((open) => !open)}>Kôš plánov ({trashedGoals.length})</button>
             {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <button type="button" key={goal.id} className="header-menu-action" onClick={() => restoreGoal(goal.id)}><span>{goal.title}</span><small>Obnoviť</small></button>) : <p>Kôš je prázdny.</p>}</section>}
             <details className="header-setting-group"><summary>Zálohy a obnovenie dát</summary>
-              <button type="button" className="header-menu-action" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
-              <button type="button" className="header-menu-action" onClick={exportRecovery}>Stiahnuť zálohy z tohto zariadenia</button>
-              {sync.recovery && <button type="button" className="header-menu-action" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť pôvodnú zálohu z tohto zariadenia</button>}
-              <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Obnoviť údaje zo zálohy</button>
-              <button type="button" className="header-menu-action" onClick={exportData}>Stiahnuť aktuálnu zálohu</button>
+              <button type="button" className="header-menu-action" onClick={exportData}>Stiahnuť zálohu</button>
+              <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Obnoviť zo súboru</button>
+              <button type="button" className="header-menu-action" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>Staršie zálohy</button>
             </details>
             <button type="button" className="header-menu-action" onClick={async () => { try { if (!await sync.logout()) setHeaderError('Zmeny sa ešte neuložili na server. Zostávajú zachované a ukladanie sa automaticky opakuje.'); } catch { setHeaderError('Odhlásenie sa nepodarilo. Zmeny zostávajú zachované.'); } }}>Odhlásiť sa</button>
             {headerError && <p role="alert">{headerError}</p>}
@@ -1167,7 +1181,9 @@ export default function Home() {
         </div>
       </section>
 
-      {backupsOpen ? <BackupPanel onClose={() => setBackupsOpen(false)} /> : null}
+      {backupsOpen ? <BackupPanel onClose={() => setBackupsOpen(false)} onChoose={(data, label) => {
+        openTransferModal(); setBackupsOpen(false); setImportText(JSON.stringify({ version: 1, data })); setImportFileName(label);
+      }} /> : null}
       {transferModalOpen ? (
         <div className="modal-backdrop" role="presentation">
           <section
@@ -1190,27 +1206,16 @@ export default function Home() {
                 ×
               </button>
             </div>
-            <div className="transfer-actions">
-              <button onClick={exportData} type="button">
-                Stiahnuť aktuálnu zálohu
-              </button>
-            </div>
+            <p>Vyber súbor zálohy z tejto aplikácie. Funguje aktuálna aj staršia záloha.</p>
             <form className="transfer-form" onSubmit={importData}>
-              <label>
-                Obsah súboru so zálohou
-                <textarea
-                  onChange={(event) => setImportText(event.target.value)}
-                  placeholder='{"version":1,"data":{...}}'
-                  value={importText}
-                />
-              </label>
-              <p>
-                Obnovenie nahradí aktuálne údaje obsahom zálohy.
-              </p>
-              {transferMessage ? <strong className="transfer-message">{transferMessage}</strong> : null}
-              <button disabled={!importText.trim()} type="submit">
-                Obnoviť údaje
-              </button>
+              <label>Vybrať súbor zálohy<input type="file" accept=".json,application/json" aria-label="Vybrať súbor zálohy" disabled={readingBackup} onChange={(event) => void chooseBackupFile(event.target.files?.[0])} /></label>
+              {readingBackup && <p role="status">Načítavam súbor…</p>}
+              {restorePreview && <div className="backup-choice-summary" role="status"><strong>{importFileName || 'Vložená záloha'}</strong><span>{restorePreview.goals.filter((goal) => !goal.deletedAt).length} projektov a cieľov · pripravené na obnovenie</span></div>}
+              <details className="backup-manual-input"><summary>Vložiť obsah zálohy ručne</summary><label>Obsah súboru so zálohou<textarea disabled={readingBackup} onChange={(event) => { setImportText(event.target.value); setImportFileName(''); setTransferMessage(''); }} placeholder='{"version":1,"data":{...}}' value={importText} /></label></details>
+              <p>Údaje sa zmenia až po potvrdení tlačidlom nižšie. Súčasná verzia zostane v automatických zálohách.</p>
+              {transferMessage && <strong className="transfer-message" role="status">{transferMessage}</strong>}
+              {!readingBackup && importText.trim() && !restorePreview && <p role="alert">Obsah nie je platná záloha z tejto aplikácie.</p>}
+              <button disabled={readingBackup || !restorePreview} type="submit">Obnoviť údaje</button>
             </form>
           </section>
         </div>

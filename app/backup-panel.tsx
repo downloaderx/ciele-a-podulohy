@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { readTransferData, type AppStateData } from './page-model';
+import { isValidState } from './state-sync';
 
 type Backup = { revision: number; updated_at: string };
 
-export function BackupPanel({ onClose }: { onClose: () => void }) {
+export function BackupPanel({ onClose, onChoose }: { onClose: () => void; onChoose: (data: AppStateData, label: string) => void }) {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('Načítavam zálohy…');
@@ -19,44 +21,30 @@ export function BackupPanel({ onClose }: { onClose: () => void }) {
     return () => controller.abort();
   }, []);
 
-  async function createBackup() {
-    setBusy(true); setMessage('Vytváram zálohu…');
+  async function chooseBackup(backup: Backup) {
+    setBusy(true); setMessage('Pripravujem zálohu…');
     try {
-      const response = await fetch('/api/backups', { method: 'POST', signal: AbortSignal.timeout(30000) });
+      const response = await fetch('/api/backups?revision=' + backup.revision, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
       const payload = await response.json() as { error?: string; backups: Backup[] };
-      if (!response.ok) throw new Error(payload.error ?? 'Záloha sa neuložila.');
-      setBackups(payload.backups); setMessage('Aktuálna serverová verzia je zálohovaná.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Záloha sa neuložila.'); }
-    finally { setBusy(false); }
-  }
-
-  async function downloadBackup(revision: number) {
-    setBusy(true); setMessage('Sťahujem zálohu…');
-    try {
-      const response = await fetch('/api/backups?revision=' + revision, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
-      const payload = await response.json() as { error?: string; backups: Backup[] };
-      if (!response.ok) throw new Error(payload.error ?? 'Zálohu sa nepodarilo stiahnuť.');
-      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-      const link = document.createElement('a'); link.href = url; link.download = `foxies-serverova-zaloha-${revision}.json`; link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage('Záloha je stiahnutá. Aktuálna tabuľa zostala zachovaná.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Zálohu sa nepodarilo stiahnuť.'); }
+      if (!response.ok) throw new Error(payload.error ?? 'Zálohu sa nepodarilo načítať.');
+      const data = readTransferData(payload);
+      if (!data || !isValidState(data)) throw new Error('Táto záloha nemá platný formát.');
+      onChoose(data, 'Automatická záloha · ' + new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Bratislava' }).format(new Date(backup.updated_at)));
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Zálohu sa nepodarilo načítať.'); }
     finally { setBusy(false); }
   }
 
   return <div className="modal-backdrop" role="presentation">
-    <section className="dialog-card data-modal" role="dialog" aria-modal="true" aria-label="História záloh">
-      <div className="modal-heading"><h2>História záloh</h2><button type="button" className="icon-button compact" aria-label="Zatvoriť históriu záloh" onClick={onClose}>×</button></div>
-      <p>Pred každým uložením sa na serveri zachová predchádzajúca verzia celej tabule. Zálohy sú spoločné pre obe líštičky a zostanú aj po vymazaní pamäte prehliadača.</p>
-      <p>Stiahnutý súbor si odlož aj mimo aplikácie. Obsahuje projekty, podúlohy, nastavenia aj históriu vykonaní a umožní dohľadať a obnoviť staršie údaje.</p>
-      <button type="button" disabled={busy} onClick={() => void createBackup()}>Zálohovať uloženú tabuľu teraz</button>
+    <section className="dialog-card data-modal" role="dialog" aria-modal="true" aria-label="Staršie zálohy">
+      <div className="modal-heading"><h2>Staršie zálohy</h2><button type="button" className="icon-button compact" aria-label="Zatvoriť staršie zálohy" onClick={onClose}>×</button></div>
+      <p>Tieto zálohy sa ukladajú automaticky pre obe líštičky. Vyber dátum; samotné obnovenie ešte potvrdíš v ďalšom kroku.</p>
       <p role="status" aria-live="polite">{message}</p>
       <div className="backup-history-list" role="list" aria-label="Posledných 100 serverových záloh">
         {backups.map((backup) => <div className="backup-history-row" role="listitem" key={backup.revision}>
           <span><strong>Verzia {backup.revision}</strong><time dateTime={backup.updated_at}>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Europe/Bratislava' }).format(new Date(backup.updated_at))}</time></span>
-          <button type="button" disabled={busy} onClick={() => void downloadBackup(backup.revision)}>Stiahnuť verziu {backup.revision}</button>
+          <button type="button" disabled={busy} aria-label={`Vybrať verziu ${backup.revision} na obnovenie`} onClick={() => void chooseBackup(backup)}>Vybrať na obnovenie</button>
         </div>)}
-        {!busy && backups.length === 0 ? <p>Zatiaľ tu nie sú serverové zálohy. Vytvor prvú tlačidlom vyššie.</p> : null}
+        {!busy && backups.length === 0 ? <p>Staršia záloha tu zatiaľ nie je. Vytvorí sa automaticky pri ukladaní zmien.</p> : null}
       </div>
       <small>Zobrazuje sa najviac 100 najnovších verzií. Staršie serverové verzie sa automaticky nemažú.</small>
     </section>

@@ -790,11 +790,11 @@ export function readTransferData(parsed: unknown): TransferPayload['data'] | nul
     return null;
   }
 
-  const maybeWrapped = parsed as Partial<TransferPayload>;
+  const maybeWrapped = parsed as Partial<TransferPayload> & { current?: unknown };
   const data =
     maybeWrapped.data && typeof maybeWrapped.data === 'object'
       ? maybeWrapped.data
-      : parsed;
+      : maybeWrapped.current && typeof maybeWrapped.current === 'object' ? maybeWrapped.current : parsed;
   const maybeData = data as Partial<TransferPayload['data']>;
 
   if (
