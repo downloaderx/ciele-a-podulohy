@@ -887,3 +887,17 @@ test('automatic merge archives both alternatives and detects a full local cache'
   assert.equal(JSON.parse(JSON.parse(raw)[0].raw).data.goals[0].title, 'Local alternative');
   assert.equal(archiveMergeVersions({ getItem: () => null, setItem: () => { throw Error('Quota'); } }, 'person-1', base, local, remote), false);
 });
+
+ test('downloaded, server and legacy rescue backups retain all restorable data', () => {
+ const { readTransferData } = require('../app/page-model.ts');
+ const original = state(); original.gratitudeEntries = [];
+ original.goals[0].children = [task('laundry', { completions: [{ id: 'done', personId: 'person-1', completedAt: '2026-11-05T10:00:00.000Z' }] })];
+ for (const payload of [original, {version:1,data:original}, {version:1,revision:42,data:original}, {version:1,current:original,localVersions:[]}]) {
+ const restored = readTransferData(JSON.parse(JSON.stringify(payload)));
+ assert.deepEqual(restored, original);
+ assert.equal(isValidState(restored), true);
+ }
+ assert.equal(readTransferData({current:{goals:[]}}), null);
+ const invalid=state(); invalid.goals[0].children=null;
+ assert.equal(isValidState(readTransferData({current:invalid})), false);
+ });

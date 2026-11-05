@@ -2866,3 +2866,7 @@ select:focus {
   .header-gear-button { font-size: 22px; }
   .header-popover { position: fixed; top: 88px; right: 12px; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 108px); }
 }
+
+.backup-choice-summary { display: grid; gap: .4rem; padding: 1rem; border: 1px solid var(--line, #97c4df); border-radius: .75rem; overflow-wrap: anywhere; }
+.backup-manual-input summary { cursor: pointer; margin-bottom: .75rem; }
+.transfer-form input[type="file"] { width: 100%; margin-top: .5rem; }
