@@ -22,7 +22,7 @@ import { useReminders } from './use-reminders';
 import { allTasks, liveGoal, isValidState, visibleState } from './state-sync';
 import { ThemePicker } from './theme-picker';
 import { EditableInput } from './editable-input';
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   avatarOptions,
   calculateProgress,
@@ -335,6 +335,21 @@ export default function Home() {
   const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory>('plan');
   const creationCategory: GoalCategory = isChoresPage ? 'chore' : newGoalCategory === 'activity' ? 'activity' : 'plan';
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [headerError, setHeaderError] = useState('');
+  const headerActionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!profileMenuOpen && !settingsOpen) return;
+    const close = () => { setProfileMenuOpen(false); setSettingsOpen(false); setTrashOpen(false); setAvatarMenuOpen(false); };
+    const outside = (event: MouseEvent) => { if (event.target instanceof Node && !headerActionsRef.current?.contains(event.target)) close(); };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      headerActionsRef.current?.querySelector<HTMLButtonElement>('button[aria-expanded="true"]')?.focus();
+      close();
+    };
+    document.addEventListener('click', outside); document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('click', outside); document.removeEventListener('keydown', escape); };
+  }, [profileMenuOpen, settingsOpen]);
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [completionBurst, setCompletionBurst] = useState(0);
@@ -906,19 +921,6 @@ export default function Home() {
     }
   }
 
-  function changePersonName(personId: string, name: string) {
-    setPeople((current) =>
-      current.map((person) =>
-        person.id === personId
-          ? {
-              ...person,
-              name,
-            }
-          : person,
-      ),
-    );
-  }
-
   function changePersonAvatar(personId: string, avatarId: string) {
     const selectedAvatar = getAvatarOptionsForPerson(personId).find(
       (avatar) => avatar.id === avatarId,
@@ -1079,6 +1081,7 @@ export default function Home() {
   }
 
   const choreTitles = new Set(goals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && goal.category === 'chore').flatMap((goal) => allTasks(goal).map((task) => task.title)));
+  const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
   const recentActivity = activityLog
     .filter((item) => (item.spaceId ?? sharedSpaceId) === boardSpaceId)
     .filter((item) => !isChoresPage || item.action.toLowerCase().includes('chore') || choreTitles.has(item.target) || [...choreTitles].some((title) => item.target.endsWith(' → ' + title)))
@@ -1107,9 +1110,6 @@ export default function Home() {
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
       <section className="sync-status" role="status" aria-live="polite">
         <span>{sync.status}</span>
-        <button type="button" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
-        <button type="button" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
-        <button type="button" onClick={() => void sync.logout().catch(() => setTransferMessage('Odhlásenie zlyhalo. Skúste znova.'))}>{sync.mode === 'profiles' ? 'Zmeniť líštičku' : 'Odhlásiť sa'}</button>
         {sync.conflicts.length > 0 ? <button type="button" onClick={() => setConflictsOpen(true)}>Vyriešiť rozdiely ({sync.conflicts.length})</button> : null}
         {sync.recovery ? <button type="button" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť poškodenú zálohu</button> : null}
         {reminders.message ? <span>{reminders.message}</span> : null}
@@ -1120,7 +1120,7 @@ export default function Home() {
         onResolve={(choices) => { if (sync.resolve(choices)) setConflictsOpen(false); }}
         onDownload={() => downloadJson(JSON.stringify(sync.conflictVersions(), null, 2), 'foxies-rozdielne-upravy.json')}
       /> : null}
-      <section className="topbar" aria-label="Prehľad tímu">
+      <section className="topbar compact-board-header" aria-label="Prehľad tímu">
         <div className="brand-lockup">
           <div className="fox-pair" aria-hidden="true">
             <Image
@@ -1141,156 +1141,42 @@ export default function Home() {
             </h1>
           </div>
         </div>
-        <div className="team-switcher" aria-label="Aktívny používateľ">
-          {people.map((person) => (
-            <div
-              key={person.id}
-              className={[
-                'person-card',
-                person.id === activePersonId ? 'active' : '',
-              ].filter(Boolean).join(' ')}
-              style={{ '--person-tone': person.tone } as React.CSSProperties}
-            >
-              <button
-                aria-label={
-                  person.id === activePersonId
-                    ? `Prihlásená osoba ${person.name}`
-                    : `Ikonka osoby ${person.name}`
-                }
-                className="person-fox"
-                disabled={person.id !== activePersonId}
-                title={person.id === activePersonId ? 'Toto je prihlásená líštička' : 'Ikonka druhej líštičky'}
-                type="button"
-              >
-                <AvatarFox person={person} size="medium" />
-              </button>
-              <div className="person-details">
-                <div className="person-name-row">
-                  {person.id === activePersonId ? (
-                    <input
-                      aria-label={`Meno osoby ${person.name}`}
-                      className="person-name"
-                      onChange={(event) => changePersonName(person.id, event.target.value)}
-                      onBlur={(event) => renamePerson(person.id, event.target.value)}
-                      onKeyDown={saveInputOnEnter}
-                      value={person.name}
-                    />
-                  ) : (
-                    <span
-                      aria-label={`Meno osoby ${person.name}`}
-                      className="person-name person-name-static"
-                    >
-                      {person.name}
-                    </span>
-                  )}
-                  {person.id === activePersonId ? (
-                    <span className="signed-in-badge">{sync.mode === 'profiles' ? 'zvolená' : 'prihlásený'}</span>
-                  ) : null}
-                </div>
-                {person.id === activePersonId ? (
-                  <div className="person-actions">
-                    <div className="avatar-dropdown">
-                      <button
-                        aria-expanded={avatarMenuOpen}
-                        className="avatar-dropdown-button"
-                        onClick={() => setAvatarMenuOpen((open) => !open)}
-                        type="button"
-                      >
-                        Zmeniť ikonku
-                      </button>
-                      {avatarMenuOpen ? (
-                        <div className="avatar-picker" aria-label={`Avatar pre ${person.name}`}>
-                          {getAvatarOptionsForPerson(person.id).map((avatar) => (
-                            <button
-                              aria-label={avatar.label}
-                              className={avatar.id === person.avatarId ? 'avatar-choice active' : 'avatar-choice'}
-                              key={avatar.id}
-                              onClick={() => changePersonAvatar(person.id, avatar.id)}
-                              style={{ '--avatar-tone': avatar.tone } as React.CSSProperties}
-                              title={avatar.label}
-                              type="button"
-                            >
-                              <Image alt="" height={21} src={avatar.src} width={21} />
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="avatar-owner-note">meno je iba text</span>
-                )}
-              </div>
-            </div>
-          ))}
-          <div className="trash-menu">
-            <button
-              aria-expanded={trashOpen}
-              aria-label="Kôš plánov"
-              className="settings-button"
-              onClick={() => {
-                setSettingsOpen(false);
-                setTrashOpen((open) => !open);
-              }}
-              title="Kôš"
-              type="button"
-            >
-              🗑
-            </button>
-            {trashOpen ? (
-              <div className="trash-popover">
-                <div className="trash-popover-heading">
-                  <strong>Kôš</strong>
-                  <span>{trashedGoals.length}</span>
-                </div>
-                {trashedGoals.length > 0 ? (
-                  <div className="trash-popover-list">
-                    {trashedGoals.map((goal) => (
-                      <button
-                        key={goal.id}
-                        onClick={() => {
-                          restoreGoal(goal.id);
-                          setTrashOpen(false);
-                        }}
-                        type="button"
-                      >
-                        <span>{goal.title}</span>
-                        <small>Obnoviť</small>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p>Kôš je prázdny.</p>
-                )}
-              </div>
-            ) : null}
-          </div>
-          <div className="settings-menu">
-            <button
-              aria-expanded={settingsOpen}
-              aria-label="Nastavenia"
-              className="settings-button"
-              onClick={() => setSettingsOpen((open) => !open)}
-              title="Nastavenia"
-              type="button"
-            >
-              ⚙
-            </button>
-            {settingsOpen ? (
-              <div className="settings-popover">
-                <ThemePicker />
-                <button type="button" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
-                <button onClick={exportRecovery} type="button">Stiahnuť všetky lokálne verzie</button>
-                <button onClick={openTransferModal} type="button">
-                  Prenos dát
-                </button>
-                <button type="button" onClick={() => {
-                  exportData();
-                  void sync.logout(true).catch(() => setTransferMessage('Odhlásenie zlyhalo. Lokálna záloha je zachovaná.'));
-                }}>Stiahnuť zálohu a opustiť profil</button>
-              </div>
-            ) : null}
-          </div>
+        <div className="header-actions" ref={headerActionsRef}>
+          <button type="button" className="header-profile-button" aria-label={`Zmeniť líštičku, aktuálne ${activePerson.name}`} title={`Zmeniť líštičku · ${activePerson.name}`} aria-haspopup="dialog" aria-expanded={profileMenuOpen} aria-controls="header-profile-panel" onClick={() => { setProfileMenuOpen((open) => !open); setSettingsOpen(false); setHeaderError(''); }} style={{ '--profile-tone': activePerson.tone } as React.CSSProperties}>
+            <AvatarFox person={activePerson} size="medium" />
+          </button>
+          <button type="button" className="header-gear-button" aria-label="Nastavenia" title="Nastavenia" aria-haspopup="dialog" aria-expanded={settingsOpen} aria-controls="header-settings-panel" onClick={() => { setSettingsOpen((open) => !open); setProfileMenuOpen(false); setHeaderError(''); }}>⚙</button>
+          {profileMenuOpen && <section id="header-profile-panel" className="header-popover profile-switch-popover" role="dialog" aria-label="Výber líštičky">
+            <div className="header-popover-heading"><h2>{sync.mode === 'profiles' ? 'Zmeniť líštičku' : 'Tvoj profil'}</h2><button type="button" aria-label="Zavrieť výber líštičky" onClick={() => setProfileMenuOpen(false)}>×</button></div>
+            <div className="header-profile-list">{people.filter((person) => sync.mode === 'profiles' || person.id === activePersonId).map((person) => <button type="button" key={person.id} disabled={person.id === activePersonId} aria-label={`Zvoliť profil ${person.name}`} onClick={async () => {
+              setHeaderError('');
+              try { await sync.chooseProfile(person.id); setProfileMenuOpen(false); }
+              catch (error) { setHeaderError(error instanceof Error ? error.message : 'Profil sa nepodarilo prepnúť.'); }
+            }}><AvatarFox person={person} size="medium" /><span>{person.name}</span>{person.id === activePersonId && <small>Aktuálna</small>}</button>)}</div>
+            <button type="button" className="header-menu-action" onClick={() => { setProfileMenuOpen(false); setSettingsOpen(true); }}>Upraviť profil</button>
+            {headerError && <p role="alert">{headerError}</p>}
+          </section>}
+          {settingsOpen && <section id="header-settings-panel" className="header-popover header-settings-panel" role="dialog" aria-label="Nastavenia aplikácie">
+            <div className="header-popover-heading"><h2>Nastavenia</h2><button type="button" aria-label="Zavrieť nastavenia" onClick={() => setSettingsOpen(false)}>×</button></div>
+            <details className="header-setting-group"><summary>Vzhľad a téma</summary><ThemePicker /></details>
+            <details className="header-setting-group"><summary>Profil · {activePerson.name}</summary>
+              <label className="header-name-field">Meno<EditableInput aria-label={`Meno osoby ${activePerson.name}`} value={activePerson.name} onCommit={(value) => renamePerson(activePersonId, value)} onKeyDown={saveInputOnEnter} /></label>
+              <button type="button" className="header-menu-action" aria-expanded={avatarMenuOpen} onClick={() => setAvatarMenuOpen((open) => !open)}>Zmeniť profilovku</button>
+              {avatarMenuOpen && <div className="header-avatar-picker" aria-label={`Avatar pre ${activePerson.name}`}>{getAvatarOptionsForPerson(activePersonId).map((avatar) => <button type="button" key={avatar.id} aria-label={avatar.label} aria-pressed={avatar.id === activePerson.avatarId} title={avatar.label} onClick={() => changePersonAvatar(activePersonId, avatar.id)}><Image alt="" height={32} width={32} src={avatar.src} /></button>)}</div>}
+            </details>
+            <button type="button" className="header-menu-action" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
+            <button type="button" className="header-menu-action" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
+            <button type="button" className="header-menu-action" aria-expanded={trashOpen} onClick={() => setTrashOpen((open) => !open)}>Kôš plánov ({trashedGoals.length})</button>
+            {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <button type="button" key={goal.id} className="header-menu-action" onClick={() => restoreGoal(goal.id)}><span>{goal.title}</span><small>Obnoviť</small></button>) : <p>Kôš je prázdny.</p>}</section>}
+            <details className="header-setting-group"><summary>Zálohy a prenos dát</summary>
+              <button type="button" className="header-menu-action" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
+              <button type="button" className="header-menu-action" onClick={exportRecovery}>Stiahnuť všetky lokálne verzie</button>
+              <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Prenos dát</button>
+              <button type="button" className="header-menu-action" onClick={() => { exportData(); void sync.logout(true).catch(() => setHeaderError('Odhlásenie zlyhalo. Lokálna záloha je zachovaná.')); }}>Stiahnuť zálohu a opustiť profil</button>
+            </details>
+            <button type="button" className="header-menu-action" onClick={() => void sync.logout().catch(() => setHeaderError('Odhlásenie zlyhalo. Skúste znova.'))}>Odhlásiť sa</button>
+            {headerError && <p role="alert">{headerError}</p>}
+          </section>}
         </div>
       </section>
 
