@@ -5,11 +5,17 @@ import type { AppStateData, Goal, Task } from './page-model';
 import { stableJson } from './state-sync';
 
 function retainRemoved(previous: Task[], next: Task[]): Task[] {
-  const ids = new Set(next.map((task) => task.id));
-  return [...next.map((task) => {
-    const old = previous.find((item) => item.id === task.id);
-    return { ...task, children: retainRemoved(old?.children ?? [], task.children) };
-  }), ...previous.filter((task) => !ids.has(task.id)).map((task) => ({ ...task, deletedAt: task.deletedAt ?? new Date().toISOString() }))];
+  const nextIds = new Set<string>();
+  const oldTasks = new Map<string, Task>();
+  const indexNext = (task: Task) => { nextIds.add(task.id); task.children.forEach(indexNext); };
+  const indexOld = (task: Task) => { oldTasks.set(task.id, task); task.children.forEach(indexOld); };
+  next.forEach(indexNext); previous.forEach(indexOld);
+  const pruneMoved = (task: Task): Task => ({ ...task, children: task.children.filter((child) => !nextIds.has(child.id)).map(pruneMoved) });
+  const retain = (old: Task[], requested: Task[]): Task[] => [
+    ...requested.map((task) => ({ ...task, children: retain(oldTasks.get(task.id)?.children ?? [], task.children) })),
+    ...old.filter((task) => !nextIds.has(task.id)).map((task) => ({ ...pruneMoved(task), deletedAt: task.deletedAt ?? new Date().toISOString() })),
+  ];
+  return retain(previous, next);
 }
 
 export function authorizedState(previous: AppStateData, incoming: AppStateData, personId: string): AppStateData {

@@ -769,3 +769,52 @@ test('large local histories respect the storage budget and checkpoint the previo
   assert.equal(JSON.parse(values.get('acorns-history-person-1'))[0].raw, 'previous live data');
   assert.equal(values.get('acorns-state-person-1'), 'new live data');
 });
+
+test('separating pantry preserves every task ID, nested history and unrelated spaces', () => {
+  const { splitPantry } = require('../app/chores-workspace-model.ts');
+  const recorded = { id: 'pantry-event', personId: 'person-1', completedAt: '2026-11-04T12:00:00Z' };
+  const kitchen = goal('kitchen-split', { category: 'chore', title: 'Kuchyňa (a špajza)', children: [task('sink'), task('shelf', { children: [task('pantry-box', { title: 'Špajza utrieť', choreCompletions: [recorded], children: [task('pantry-inner')] })] }), task('deleted-pantry', { title: 'Špajza stará', deletedAt: '2026-11-01T12:00:00Z' })] });
+  const privatePantry = goal('private-pantry', { category: 'chore', title: 'Špajza', spaceId: 'person-2' });
+  const original = [kitchen, privatePantry];
+  const next = splitPantry(original, kitchen.id, 'new-pantry', 'person-1');
+  const flatten = (items) => items.flatMap(item => [item.id, ...flatten(item.children)]);
+  assert.deepEqual(flatten(next).filter(id => id !== 'new-pantry').sort(), flatten(original).sort());
+  assert.equal(next.find(item => item.id === kitchen.id).title, 'Kuchyňa');
+  assert.deepEqual(next.find(item => item.id === 'new-pantry').children[0].choreCompletions, [recorded]);
+  assert.equal(next.find(item => item.id === 'new-pantry').spaceId, 'shared');
+  assert.equal(next.find(item => item.id === privatePantry.id), privatePantry);
+  assert.equal(kitchen.children[1].children.length, 1);
+  assert.equal(splitPantry(next, kitchen.id, 'second-pantry', 'person-1'), next);
+});
+
+test('pantry separation does nothing when there are no pantry tasks or an ID collision', () => {
+  const { splitPantry } = require('../app/chores-workspace-model.ts');
+  const clean = [goal('kitchen', { category: 'chore', title: 'Kuchyňa', children: [task('sink')] })];
+  assert.equal(splitPantry(clean, 'kitchen', 'pantry', 'person-1'), clean);
+  const withPantry = [goal('kitchen', { category: 'chore', title: 'Kuchyňa', children: [task('pantry', { title: 'Špajza' })] })];
+  assert.equal(splitPantry(withPantry, 'kitchen', 'kitchen', 'person-1'), withPantry);
+});
+
+test('server accepts pantry moves without duplicate tombstones and preserves both actors history', () => {
+  const { splitPantry } = require('../app/chores-workspace-model.ts');
+  const previous = state();
+  previous.goals[0] = goal('kitchen-server', { title: 'Kuchyňa (a špajza)', category: 'chore', children: [task('keep'), task('move', { title: 'Špajza', choreCompletions: [{ id: 'old-run', personId: 'person-2', completedAt: '2026-11-04T12:00:00Z' }], children: [task('nested-move')] })] });
+  const incoming = clone(previous); incoming.goals = splitPantry(incoming.goals, 'kitchen-server', 'pantry-server', 'person-1');
+  const saved = authorizedState(previous, incoming, 'person-1');
+  assert.equal(isValidState(saved), true);
+  assert.equal(saved.goals.find(g => g.id === 'kitchen-server').children.some(t => t.id === 'move'), false);
+  const moved = saved.goals.find(g => g.id === 'pantry-server').children[0];
+  assert.equal(moved.id, 'move'); assert.equal(moved.deletedAt, undefined);
+  assert.equal(moved.choreCompletions[0].personId, 'person-2');
+  assert.equal(moved.children[0].id, 'nested-move');
+});
+
+test('moving a child out of a removed parent keeps a single live child and a recoverable parent', () => {
+  const previous = state(); previous.goals[0].children = [task('old-parent', { children: [task('moved-child'), task('retained-child')] })];
+  const incoming = clone(previous); incoming.goals[0].children = [task('moved-child')];
+  const saved = authorizedState(previous, incoming, 'person-1');
+  assert.equal(isValidState(saved), true);
+  assert.equal(saved.goals[0].children.find(t => t.id === 'moved-child').deletedAt, undefined);
+  const parent = saved.goals[0].children.find(t => t.id === 'old-parent');
+  assert.ok(parent.deletedAt); assert.deepEqual(parent.children.map(t => t.id), ['retained-child']);
+});
