@@ -1154,12 +1154,12 @@ export default function Home() {
             {reminders.message && <p className="header-permission-note" role="status">{reminders.message}</p>}
             <button type="button" className="header-menu-action" aria-expanded={trashOpen} onClick={() => setTrashOpen((open) => !open)}>Kôš plánov ({trashedGoals.length})</button>
             {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <button type="button" key={goal.id} className="header-menu-action" onClick={() => restoreGoal(goal.id)}><span>{goal.title}</span><small>Obnoviť</small></button>) : <p>Kôš je prázdny.</p>}</section>}
-            <details className="header-setting-group"><summary>Zálohy a prenos dát</summary>
+            <details className="header-setting-group"><summary>Zálohy a obnovenie dát</summary>
               <button type="button" className="header-menu-action" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
-              <button type="button" className="header-menu-action" onClick={exportRecovery}>Stiahnuť všetky lokálne verzie</button>
-              {sync.recovery && <button type="button" className="header-menu-action" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť pôvodnú lokálnu zálohu</button>}
-              <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Prenos dát</button>
-              <button type="button" className="header-menu-action" onClick={() => { exportData(); void sync.logout(true).catch(() => setHeaderError('Odhlásenie zlyhalo. Lokálna záloha je zachovaná.')); }}>Stiahnuť zálohu a opustiť profil</button>
+              <button type="button" className="header-menu-action" onClick={exportRecovery}>Stiahnuť zálohy z tohto zariadenia</button>
+              {sync.recovery && <button type="button" className="header-menu-action" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť pôvodnú zálohu z tohto zariadenia</button>}
+              <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Obnoviť údaje zo zálohy</button>
+              <button type="button" className="header-menu-action" onClick={exportData}>Stiahnuť aktuálnu zálohu</button>
             </details>
             <button type="button" className="header-menu-action" onClick={async () => { try { if (!await sync.logout()) setHeaderError('Zmeny sa ešte neuložili na server. Zostávajú zachované a ukladanie sa automaticky opakuje.'); } catch { setHeaderError('Odhlásenie sa nepodarilo. Zmeny zostávajú zachované.'); } }}>Odhlásiť sa</button>
             {headerError && <p role="alert">{headerError}</p>}
@@ -1171,18 +1171,18 @@ export default function Home() {
       {transferModalOpen ? (
         <div className="modal-backdrop" role="presentation">
           <section
-            aria-label="Prenos dát"
+            aria-label="Obnovenie zo zálohy"
             aria-modal="true"
             className="dialog-card data-modal"
             role="dialog"
           >
             <div className="modal-heading">
               <div>
-                <span className="label">Prenos dát</span>
-                <h2>Export a import</h2>
+                <span className="label">Zálohy</span>
+                <h2>Obnovenie zo zálohy</h2>
               </div>
               <button
-                aria-label="Zatvoriť prenos dát"
+                aria-label="Zatvoriť obnovenie zálohy"
                 className="icon-button compact"
                 onClick={closeTransferModal}
                 type="button"
@@ -1192,12 +1192,12 @@ export default function Home() {
             </div>
             <div className="transfer-actions">
               <button onClick={exportData} type="button">
-                Stiahnuť zálohu
+                Stiahnuť aktuálnu zálohu
               </button>
             </div>
             <form className="transfer-form" onSubmit={importData}>
               <label>
-                Vložiť JSON zálohu
+                Obsah súboru so zálohou
                 <textarea
                   onChange={(event) => setImportText(event.target.value)}
                   placeholder='{"version":1,"data":{...}}'
@@ -1205,11 +1205,11 @@ export default function Home() {
                 />
               </label>
               <p>
-                Import prepíše lokálne dáta v tomto prehliadači.
+                Obnovenie nahradí aktuálne údaje obsahom zálohy.
               </p>
               {transferMessage ? <strong className="transfer-message">{transferMessage}</strong> : null}
               <button disabled={!importText.trim()} type="submit">
-                Importovať dáta
+                Obnoviť údaje
               </button>
             </form>
           </section>
