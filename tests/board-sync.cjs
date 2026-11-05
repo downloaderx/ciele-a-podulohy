@@ -58,7 +58,7 @@ function harness({ remote = state(), personId = 'person-1', cache = {}, offline 
     getItem: key => entries.get(key) ?? null, setItem: (key, value) => { if (quota) throw Error('Quota'); entries.set(key, value); }, removeItem: key => entries.delete(key) };
   global.window = { localStorage: storage,
     setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; }, clearTimeout: id => timers.delete(id),
-    setInterval: () => ++timerId, clearInterval: () => {},
+    setInterval: (fn, delay) => { timers.set(++timerId, { fn, delay, interval: true }); return timerId; }, clearInterval: id => timers.delete(id),
     addEventListener: (name, fn) => { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name).add(fn); },
     removeEventListener: (name, fn) => listeners.get(name)?.delete(fn),
   };
@@ -91,24 +91,27 @@ function harness({ remote = state(), personId = 'person-1', cache = {}, offline 
     const effects = h.effects.splice(0); effects.forEach(effect => effect());
   }); };
   h.edit = async mutate => { mutate(h.data); h.data = clone(h.data); h.schedule(); await tick(); };
+  h.runTimers = async delay => { for (const [id, timer] of [...timers]) { if (timer.delay !== delay) continue; if (!timer.interval) timers.delete(id); timer.fn(); } await tick(); };
   h.ready = () => until(() => h.api?.loaded && h.api?.authenticated, 'board initialized');
   h.close = async () => { await tick(); h.disposed = true; h.slots.forEach(s => s?.cleanup?.()); global.fetch = originals.fetch; global.window = originals.window; };
   h.schedule(); return h;
 }
 
-test('actual hook shows remote-only chores during startup conflicts and stops writes until a field choice', async () => {
+test('startup conflicts merge automatically, preserve alternatives and do not block profile switching', async () => {
   const old = state(), remote = state(), empty = { ...state(), goals: [] };
   old.goals[0].title = 'Old bathroom'; remote.goals[0].title = 'Bathroom';
+  old.goals[0].children.push(task('local-only'));
   remote.goals.push(goal('new-project', { children: [task('new-work', { choreIntervalDays: 90, choreWeight: 5 })] }));
   const h = harness({ remote, cache: { 'acorns-state-person-1': JSON.stringify({ data: old, base: empty }) } });
   try {
-    await h.ready(); assert.equal(h.api.conflicts.length, 1);
-    assert.equal(h.data.goals.length, 2); assert.equal(h.data.goals[1].children[0].choreIntervalDays, 90);
-    assert.equal(h.api.conflictVersions().localAtConflict.goals.length, 1);
-    await h.api.retry(); assert.equal(h.server.events.filter(e => e.method === 'PUT').length, 0);
-    await h.api.chooseProfile('person-2'); assert.equal(h.server.personId, 'person-1');
-    h.api.resolve({ '/goals/chores/title': 'remote' }); await tick(); await h.api.retry();
-    assert.equal(h.server.data.goals.length, 2); assert.equal(h.server.data.goals[0].title, 'Bathroom');
+    await h.ready(); assert.equal(h.api.conflicts.length, 0);
+    assert.equal(h.data.goals.length, 2); assert.equal(h.data.goals[0].title, 'Bathroom');
+    assert.ok(h.data.goals[0].children.some(t => t.id === 'local-only'));
+    await h.api.retry(); assert.equal(h.server.data.goals.length, 2);
+    const history = h.entries.get('acorns-history-person-1'); assert.ok(history.includes('Old bathroom')); assert.ok(history.includes('Bathroom'));
+    assert.equal(await h.api.chooseProfile('person-2'), true);
+    assert.equal(h.server.personId, 'person-2'); assert.equal(h.api.conflicts.length, 0);
+    assert.ok(h.data.goals[0].children.some(t => t.id === 'local-only'));
   } finally { await h.close(); }
 });
 
@@ -202,20 +205,51 @@ test('a cookie change between reading and writing cannot attribute a save to the
   } finally { await h.close(); }
 });
 
-test('the final conflict choice starts saving immediately and does not return after retries or profile switches', async () => {
-  const local = state(), remote = state(), base = { ...state(), goals: [] };
-  local.goals[0].title = 'My bathroom'; remote.goals[0].title = 'Server bathroom';
-  local.goals[0].description = 'My note'; remote.goals[0].description = 'Server note';
-  const h = harness({ remote, cache: { 'acorns-state-person-1': JSON.stringify({ data: local, base }) } });
+test('in-session conflicts save current edits and both sides new work without a prompt', async () => {
+  const h = harness();
   try {
-    await h.ready(); assert.equal(h.api.conflicts.length, 2);
-    assert.equal(h.api.resolve({ '/goals/chores/title': 'local' }), false);
-    await tick(); assert.equal(h.api.conflicts.length, 2); assert.equal(h.server.events.some(e => e.method === 'PUT'), false);
-    assert.equal(h.api.resolve({ '/goals/chores/title': 'local', '/goals/chores/description': 'remote' }), true);
-    await until(() => h.api.conflicts.length === 0 && h.api.status === 'Všetky zmeny sú uložené.', 'choices automatically saved');
-    assert.equal(h.server.data.goals[0].title, 'My bathroom'); assert.equal(h.server.data.goals[0].description, 'Server note');
-    await h.api.retry(); await tick(); assert.equal(h.api.conflicts.length, 0);
+    await h.ready(); await h.edit(s => { s.goals[0].title = 'My bathroom'; s.goals[0].children.push(task('local-work')); });
+    h.server.data.goals[0].title = 'Server bathroom'; h.server.data.goals[0].children.push(task('remote-work')); h.server.revision++;
+    await h.api.retry(); await tick();
+    assert.equal(h.api.conflicts.length, 0); assert.equal(h.server.data.goals[0].title, 'My bathroom');
+    assert.ok(h.server.data.goals[0].children.some(t => t.id === 'local-work'));
+    assert.ok(h.server.data.goals[0].children.some(t => t.id === 'remote-work'));
+    assert.ok(h.entries.get('acorns-history-person-1').includes('Server bathroom'));
     await h.api.chooseProfile('person-2'); await h.api.chooseProfile('person-1'); await tick();
-    assert.equal(h.api.conflicts.length, 0); assert.equal(h.data.goals[0].title, 'My bathroom');
+    assert.equal(h.data.goals[0].title, 'My bathroom'); assert.equal(h.api.conflicts.length, 0);
+  } finally { await h.close(); }
+});
+
+test('a full cache preserves the unarchived local conflict value while synchronization continues', async () => {
+  const old = state(), remote = state(), base = { ...state(), goals: [] };
+  old.goals[0].title = 'Unsaved local value'; remote.goals[0].title = 'Remote value';
+  const h = harness({ remote, quota: true, cache: { 'acorns-state-person-1': JSON.stringify({ data: old, base }) } });
+  try {
+    await h.ready(); assert.equal(h.data.goals[0].title, 'Unsaved local value');
+    await h.api.retry(); assert.equal(h.server.data.goals[0].title, 'Unsaved local value'); assert.equal(h.api.conflicts.length, 0);
+  } finally { await h.close(); }
+});
+
+test('autosave and reconnect save pending work without a manual retry', async () => {
+  const h = harness();
+  try {
+    await h.ready(); h.server.offline = true;
+    await h.edit(s => s.goals[0].children.push(task('offline-auto')));
+    await h.runTimers(500); await tick();
+    assert.equal(h.server.data.goals[0].children.some(t => t.id === 'offline-auto'), false);
+    h.server.offline = false; for (const listener of h.listeners.get('online') ?? []) listener();
+    await until(() => h.server.data.goals[0].children.some(t => t.id === 'offline-auto'), 'automatic reconnect save');
+    assert.equal(h.api.conflicts.length, 0);
+  } finally { await h.close(); }
+});
+
+test('a CAS collision schedules and performs a background retry', async () => {
+  const h = harness();
+  try {
+    await h.ready(); await h.edit(s => s.goals[0].title = 'CAS local title');
+    h.server.beforeSave = () => { h.server.beforeSave = null; h.server.data.goals[0].children.push(task('CAS remote work')); h.server.revision++; };
+    await h.runTimers(500); await until(() => /Zlučujem/.test(h.api.status), 'collision handled');
+    await h.runTimers(750); await until(() => h.server.data.goals[0].title === 'CAS local title', 'automatic CAS retry');
+    assert.ok(h.server.data.goals[0].children.some(t => t.id === 'CAS remote work')); assert.equal(h.api.conflicts.length, 0);
   } finally { await h.close(); }
 });

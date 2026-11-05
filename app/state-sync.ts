@@ -117,7 +117,7 @@ function mergeRanking(base: string[], local: string[], remote: string[]): string
 
 // Merge changes against the last acknowledged server version, by field and item ID.
 // Conflicting edits require an explicit choice before another write is attempted.
-export function mergeStates(base: AppStateData, local: AppStateData, remote: AppStateData, prefer: ConflictPreference | ConflictChoices = 'local') {
+export function mergeStates(base: AppStateData, local: AppStateData, remote: AppStateData, prefer: ConflictPreference | ConflictChoices = 'local', automatic = false) {
   const conflicts: MergeConflict[] = [];
   const choice = (path: string) => typeof prefer === 'string' ? prefer : prefer[path] ?? 'local';
   function merge(b: unknown, l: unknown, r: unknown, path: string): unknown {
@@ -126,11 +126,21 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
     if (record(b) && record(l) && record(r) && typeof b.id === 'string' &&
         ((l.deletedAt !== b.deletedAt && !same(r, b)) || (r.deletedAt !== b.deletedAt && !same(l, b)))) {
       conflicts.push({ path, local: l, remote: r });
+      // A concurrent edit must not disappear with a deletion. Keep the edited item
+      // live and still merge independent fields, descendants and execution history.
+      if (automatic && (!l.deletedAt || !r.deletedAt)) {
+        return merge({ ...b, deletedAt: undefined }, { ...l, deletedAt: undefined }, { ...r, deletedAt: undefined }, path);
+      }
       return choice(path) === 'local' ? l : r;
     }
     if (path.startsWith('/goalRankings/') && Array.isArray(l) && Array.isArray(r) && [...l, ...r].every((id) => typeof id === 'string')) {
       const ranking = mergeRanking(Array.isArray(b) ? b : [], l, r);
       if (ranking) return ranking;
+      if (automatic) {
+        const preferred = choice(path) === 'local' ? l : r;
+        const other = choice(path) === 'local' ? r : l;
+        return [...new Set([...preferred, ...other])];
+      }
     }
     if (Array.isArray(l) && Array.isArray(r) && [...l, ...r].every((item) => record(item) && string(item.id))) {
       const byId = (items: unknown) => new Map((Array.isArray(items) ? items : []).map((item) => [(item as { id: string }).id, item]));
@@ -148,13 +158,56 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
       return [...new Set([...l, ...r])].sort((a, b) => Date.parse(String(b)) - Date.parse(String(a))).slice(0, 20);
     }
     if (path.endsWith('/lastCompletedAt') && typeof l === 'string' && typeof r === 'string') return Date.parse(l) > Date.parse(r) ? l : r;
+    if (automatic && (l === undefined || r === undefined)) {
+      const present = l ?? r;
+      if (record(present) && typeof present.id === 'string') {
+        conflicts.push({ path, local: l, remote: r });
+        return present;
+      }
+    }
     if (!['/expanded', '/activePersonId', '/updatedById'].some((field) => path.endsWith(field))) conflicts.push({ path, local: l, remote: r });
     return choice(path) === 'local' ? l : r;
   }
   const state = merge(base, local, remote, '') as AppStateData;
+  if (automatic) {
+    // A task moved to a different area can meet a concurrent edit at its former
+    // location. Merge its contents once and keep its intended new parent.
+    const index = (goals: Task[]) => {
+      const result = new Map<string, { task: Task; parent: string }>();
+      const walk = (items: Task[], parent: string) => items.forEach((task) => { result.set(task.id, { task, parent }); walk(task.children, task.id); });
+      walk(goals, '$root'); return result;
+    };
+    const original = index(base.goals), ours = index(local.goals), theirs = index(remote.goals);
+    const seen = new Set<string>(), duplicates = new Set<string>();
+    const detect = (items: Task[]) => items.forEach((task) => { if (seen.has(task.id)) duplicates.add(task.id); seen.add(task.id); detect(task.children); });
+    detect(state.goals);
+    if (duplicates.size) {
+      const parents = new Map<string, string>(), combined = new Map<string, Task>();
+      for (const id of duplicates) {
+        const b = original.get(id), l = ours.get(id), r = theirs.get(id);
+        const target = l && r && b ? l.parent !== b.parent && r.parent === b.parent ? l
+          : r.parent !== b.parent && l.parent === b.parent ? r : choice('/goals/' + id) === 'local' ? l : r : l ?? r;
+        if (!target) continue;
+        parents.set(id, target.parent);
+        combined.set(id, merge(b?.task, l?.task, r?.task, '/goals/' + id) as Task);
+      }
+      const emitted = new Set<string>();
+      const rebuild = (items: Task[], parent: string): Task[] => items.flatMap((task) => {
+        if ((parents.has(task.id) && parents.get(task.id) !== parent) || emitted.has(task.id)) return [];
+        emitted.add(task.id);
+        const value = combined.get(task.id) ?? task;
+        return [{ ...value, children: rebuild(value.children, value.id) }];
+      });
+      state.goals = rebuild(state.goals, '$root') as Goal[];
+    }
+  }
   state.activePersonId = local.activePersonId;
   state.activityLog = [...state.activityLog].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 80);
   return { state, conflicts };
+}
+
+export function mergeInBackground(base: AppStateData, local: AppStateData, remote: AppStateData, prefer: ConflictPreference) {
+  return mergeStates(base, local, remote, prefer, true);
 }
 
 export function allTasks(task: Task): Task[] { return task.children.flatMap((child) => [child, ...allTasks(child)]); }

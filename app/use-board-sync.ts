@@ -1,11 +1,11 @@
 'use client';
 
-import { preserveLocalRecovery, archiveLocalVersion } from './local-recovery';
+import { preserveLocalRecovery, archiveLocalVersion, archiveMergeVersions } from './local-recovery';
 import { readAcknowledgedBoard, rememberAcknowledgedBoard } from './acknowledged-cache';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultPeople, type AppStateData } from './page-model';
-import { isValidState, mergeStates, mergeInitialBoard, visibleState, stableJson, type MergeConflict, type ConflictChoices } from './state-sync';
+import { isValidState, mergeStates, mergeInBackground, mergeInitialBoard, visibleState, stableJson } from './state-sync';
 
 const empty = (personId = 'person-1'): AppStateData => ({ activePersonId: personId, people: defaultPeople, goals: [], activityLog: [], goalRankings: {} });
 const snapshot = (state: AppStateData) => stableJson({ ...state, activePersonId: '' });
@@ -28,12 +28,11 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   const [transitioning, setTransitioning] = useState(false);
   const transitionRef = useRef(false);
   const syncFlight = useRef<Promise<void> | null>(null);
-  const syncOutcome = useRef<'saved' | 'pending' | 'error' | 'conflict'>('error');
+  const syncOutcome = useRef<'saved' | 'pending' | 'error'>('error');
   const [loaded, setLoaded] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [mode, setMode] = useState<'profiles' | 'supabase'>('supabase');
   const [status, setStatus] = useState('Overujem prihlásenie…');
-  const [conflicts, setConflicts] = useState<MergeConflict[]>([]);
   const [recovery, setRecovery] = useState<string | null>(null);
   const latest = useRef(state);
   const base = useRef(empty());
@@ -42,7 +41,6 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   const busy = useRef(false);
   const initializing = useRef(false);
   const generation = useRef(0);
-  const conflictRef = useRef<{ base: AppStateData; remote: ServerState; localAtConflict: AppStateData } | null>(null);
   const syncRef = useRef<() => Promise<void>>(async () => {});
 
   const replace = useCallback((data: AppStateData) => { latest.current = data; apply(data); }, [apply]);
@@ -62,12 +60,21 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     setStatus('V inom okne sa zmenila líštička. Vyber profil znova; rozpracované zmeny zostávajú lokálne.');
   }, [persist]);
 
+  const reconcile = useCallback((baseline: AppStateData, local: AppStateData, remote: AppStateData, startup = false, legacyOnly = false) => {
+    const first = startup ? mergeInitialBoard(baseline, local, remote, legacyOnly) : mergeStates(baseline, local, remote);
+    if (!first.conflicts.length && isValidState(first.state)) return first;
+    const archived = archiveMergeVersions(window.localStorage, local.activePersonId, baseline, local, remote);
+    // A stale startup cache yields to the acknowledged server on disputed fields.
+    // In-session edits win a write race. Independent items and histories always merge.
+    return mergeInBackground(baseline, local, remote, startup && archived ? 'remote' : 'local');
+  }, []);
+
   const begin = useCallback(async (personId: string) => {
     preserveLocalRecovery(window.localStorage);
     const currentGeneration = ++generation.current;
     initializing.current = true;
     identity.current = personId;
-    conflictRef.current = null; setConflicts([]); revision.current = null;
+    revision.current = null;
     let local = empty(personId), baseline = empty(personId);
     let legacyOnly = false;
     try {
@@ -101,7 +108,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     }
     const acknowledgedCache = readAcknowledgedBoard(window.localStorage);
     latest.current = local; base.current = baseline;
-    const fallback = acknowledgedCache ? mergeInitialBoard(baseline, local, visibleState(acknowledgedCache.data, personId), legacyOnly) : null;
+    const fallback = acknowledgedCache ? reconcile(baseline, local, visibleState(acknowledgedCache.data, personId), true, legacyOnly) : null;
     replace(fallback?.state ?? local); setStatus('Načítavam spoločnú tabuľu…');
     try {
       const response = await fetchApi('/api/state', { headers: { 'x-acorns-person-id': personId } });
@@ -114,30 +121,23 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (remote.data.activePersonId !== personId) { pauseForProfileChange(); return; }
       // An established server board must never be repopulated by the obsolete pre-sync cache.
       // That untouched cache remains available for explicit recovery.
-      const merged = mergeInitialBoard(baseline, local, remote.data, legacyOnly);
+      const merged = reconcile(baseline, local, remote.data, true, legacyOnly);
       // Keep the legacy source intact as a backup; import it only once per browser.
       try { window.localStorage.setItem(legacyMigrationKey, '1'); } catch { /* Server loading must survive a full cache. */ }
-      if (merged.conflicts.length) {
-        conflictRef.current = { base: baseline, remote, localAtConflict: local };
-        replace(merged.state); setConflicts(merged.conflicts);
-        setStatus('Našli sa rozdielne úpravy. Vyberte verziu sporných polí.');
-      } else {
-        base.current = remote.data; revision.current = remote.revision; replace(merged.state);
-        setStatus('Dáta načítané.');
-      }
+      base.current = remote.data; revision.current = remote.revision; replace(merged.state);
+      setStatus('Dáta načítané.');
       persist();
     } catch (error) {
       if (generation.current === currentGeneration) {
         if (fallback && acknowledgedCache) {
           const remote = { data: visibleState(acknowledgedCache.data, personId), revision: acknowledgedCache.revision };
-          if (fallback.conflicts.length) { conflictRef.current = { base: baseline, remote, localAtConflict: local }; setConflicts(fallback.conflicts); }
-          else { base.current = remote.data; revision.current = remote.revision; }
+          base.current = remote.data; revision.current = remote.revision;
           replace(fallback.state); persist();
         }
         setStatus(error instanceof Error ? error.message : 'Server je nedostupný. Zmeny zostávajú lokálne.');
       }
     } finally { if (generation.current === currentGeneration) { initializing.current = false; setAuthenticated(true); setLoaded(true); } }
-  }, [persist, replace, pauseForProfileChange]);
+  }, [persist, replace, pauseForProfileChange, reconcile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,7 +157,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
   }, [begin]);
 
   const runSynchronize = useCallback(async () => {
-    if (busy.current || initializing.current || !identity.current || conflictRef.current) return;
+    if (busy.current || initializing.current || !identity.current) return;
     const personId = identity.current;
     busy.current = true;
     syncOutcome.current = 'error';
@@ -173,13 +173,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (generation.current === currentGeneration) rememberAcknowledgedBoard(window.localStorage, remote);
       if (generation.current !== currentGeneration) return;
       if (remote.data.activePersonId !== personId) { pauseForProfileChange(); return; }
-      const merged = mergeStates(base.current, latest.current, remote.data);
-      if (merged.conflicts.length) {
-        conflictRef.current = { base: base.current, remote, localAtConflict: latest.current };
-        replace(merged.state); persist(); setConflicts(merged.conflicts);
-        syncOutcome.current = 'conflict';
-        setStatus('Rovnaké pole bolo upravené na viacerých zariadeniach. Vyberte verziu.'); return;
-      }
+      const merged = reconcile(base.current, latest.current, remote.data);
       base.current = remote.data; revision.current = remote.revision;
       if (snapshot(latest.current) !== snapshot(merged.state)) replace(merged.state);
       if (snapshot(latest.current) === snapshot(base.current)) { syncOutcome.current = 'saved'; setStatus('Všetky zmeny sú uložené.'); persist(); return; }
@@ -190,25 +184,19 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       if (saved.status === 409) {
         const collision = await saved.json() as { error?: string };
         if (collision.error) { pauseForProfileChange(); return; }
-        syncOutcome.current = 'pending'; setStatus('Na serveri pribudla zmena. Zlučujem pri ďalšom pokuse…'); return; }
+        syncOutcome.current = 'pending'; setStatus('Na serveri pribudla zmena. Zlučujem pri ďalšom pokuse…'); window.setTimeout(() => void syncRef.current(), 750); return; }
       if (!saved.ok) throw new Error(await message(saved));
       const acknowledged = serverState(await saved.json());
       if (generation.current === currentGeneration) rememberAcknowledgedBoard(window.localStorage, acknowledged);
       // Edits made while the request was running are rebased, never discarded.
-      const rebased = mergeStates(sent, latest.current, acknowledged.data);
-      if (rebased.conflicts.length) {
-        conflictRef.current = { base: sent, remote: acknowledged, localAtConflict: latest.current };
-        replace(rebased.state); persist(); setConflicts(rebased.conflicts);
-        syncOutcome.current = 'conflict';
-        setStatus('Server upravil sporné polia. Vyberte verziu.'); return;
-      }
+      const rebased = reconcile(sent, latest.current, acknowledged.data);
       base.current = acknowledged.data; revision.current = acknowledged.revision; replace(rebased.state); persist();
       syncOutcome.current = snapshot(rebased.state) === snapshot(acknowledged.data) ? 'saved' : 'pending';
       setStatus(snapshot(rebased.state) === snapshot(acknowledged.data) ? 'Všetky zmeny sú uložené.' : 'Nové zmeny čakajú na uloženie.');
     } catch (error) {
       if (generation.current === currentGeneration) setStatus(error instanceof Error ? error.message : 'Server je nedostupný. Zmeny zostávajú lokálne.');
     } finally { busy.current = false; }
-  }, [persist, replace, pauseForProfileChange]);
+  }, [persist, replace, pauseForProfileChange, reconcile]);
 
   // All callers await the same write, including a profile switch racing an autosave.
   const synchronize = useCallback(() => {
@@ -233,7 +221,7 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     const interval = window.setInterval(run, 8000);
     window.addEventListener('online', run); window.addEventListener('focus', run);
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (conflictRef.current || snapshot(latest.current) !== snapshot(base.current)) { event.preventDefault(); }
+      if (snapshot(latest.current) !== snapshot(base.current)) { event.preventDefault(); }
     };
     window.addEventListener('beforeunload', beforeUnload);
     return () => { window.clearInterval(interval); window.removeEventListener('online', run); window.removeEventListener('focus', run); window.removeEventListener('beforeunload', beforeUnload); };
@@ -250,7 +238,6 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     archiveLocalVersion(window.localStorage, identity.current, Date.now(), true);
     for (let attempt = 0; attempt < 3; attempt++) {
       await syncRef.current();
-      if (conflictRef.current) { setStatus('Profil zostal zachovaný. Najprv vyber verzie sporných polí; všetky ostatné položky sú na tabuli.'); return false; }
       if (syncOutcome.current === 'saved' && snapshot(latest.current) === snapshot(base.current) && revision.current !== null) return true;
       if (syncOutcome.current === 'error') return false;
     }
@@ -258,48 +245,29 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     return false;
   }
   async function chooseProfile(personId: string) {
-    if (transitionRef.current) return;
+    if (transitionRef.current) return false;
     transitionRef.current = true; setTransitioning(true);
     try {
-      if (!await prepareProfileChange()) return;
+      if (!await prepareProfileChange()) return false;
       const response = await fetchApi('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ personId }) });
       if (!response.ok) throw new Error(await message(response));
       const payload = await response.json() as { personId: string }; await begin(payload.personId);
+      return identity.current === personId;
     } finally { transitionRef.current = false; setTransitioning(false); }
   }
   async function logout(keepPending = false) {
-    if (transitionRef.current) return;
+    if (transitionRef.current) return false;
     transitionRef.current = true; setTransitioning(true);
     try {
-      if (!keepPending && !await prepareProfileChange()) return;
+      if (!keepPending && !await prepareProfileChange()) return false;
       persist();
       if (identity.current) archiveLocalVersion(window.localStorage, identity.current, Date.now(), true);
       const response = await fetchApi('/api/session', { method: 'DELETE' });
-      if (!response.ok) { setStatus(await message(response)); return; }
+      if (!response.ok) { setStatus(await message(response)); return false; }
       generation.current++; identity.current = null;
-      conflictRef.current = null; setConflicts([]);
       replace(empty()); setAuthenticated(false); setStatus('');
+      return true;
     } finally { transitionRef.current = false; setTransitioning(false); }
   }
-  function resolve(prefer: 'local' | 'remote' | ConflictChoices): boolean {
-    const pending = conflictRef.current;
-    if (!pending) return true;
-    if (typeof prefer !== 'string' && conflicts.some((conflict) => !prefer[conflict.path])) return false;
-    const merged = mergeStates(pending.base, latest.current, pending.remote.data, prefer);
-    if (typeof prefer !== 'string' && merged.conflicts.some((conflict) => !prefer[conflict.path])) {
-      setConflicts(merged.conflicts);
-      setStatus('Pribudlo ďalšie sporné pole. Vyberte jeho verziu pred uložením.');
-      return false;
-    }
-    base.current = pending.remote.data; revision.current = pending.remote.revision;
-    conflictRef.current = null; setConflicts([]); replace(merged.state); persist();
-    setStatus('Sporné polia vyriešené. Ukladám zmeny…');
-    void syncRef.current();
-    return true;
-  }
-  function conflictVersions() {
-    const pending = conflictRef.current;
-    return pending ? { local: latest.current, localAtConflict: pending.localAtConflict, server: pending.remote.data, base: pending.base, serverRevision: pending.remote.revision, conflicts } : null;
-  }
-  return { loaded, authenticated, transitioning, mode, status, conflicts, recovery, login, chooseProfile, logout, resolve, conflictVersions, retry: synchronize };
+  return { loaded, authenticated, transitioning, mode, status, conflicts: [], recovery, login, chooseProfile, logout, retry: synchronize };
 }
