@@ -1,3 +1,5 @@
+import type { AppStateData } from './page-model';
+
 // Only board data: never include unrelated storage, credentials or session keys.
 export function collectLocalRecovery(storage: Pick<Storage, 'length' | 'key' | 'getItem'>) {
   const exact = new Set(['acorns-acknowledged-board', 'ciele-goals', 'ciele-people', 'ciele-activity-log', 'ciele-goal-rankings', 'acorns-state-person-1', 'acorns-state-person-2', 'ciele-state-backups-person-1', 'ciele-state-backups-person-2', 'acorns-history-person-1', 'acorns-history-person-2', 'acorns-daily-person-1', 'acorns-daily-person-2']);
@@ -10,6 +12,18 @@ export function collectLocalRecovery(storage: Pick<Storage, 'length' | 'key' | '
     try { versions[key] = JSON.parse(raw); } catch { versions[key] = raw; }
   }
   return versions;
+}
+
+// Keep the local alternative first in the bounded history. If storage is full,
+// callers retain local conflict values; the server predecessor is backed up before a write.
+export function archiveMergeVersions(storage: Pick<Storage, 'getItem' | 'setItem'>, personId: string, base: AppStateData, local: AppStateData, remote: AppStateData): boolean {
+  const raw = JSON.stringify({ data: local, base });
+  archiveLocalVersion(storage, personId, Date.now(), true, JSON.stringify({ data: remote, base: remote }));
+  archiveLocalVersion(storage, personId, Date.now(), true, raw);
+  try {
+    const history = JSON.parse(storage.getItem('acorns-history-' + personId) ?? '[]') as { raw: string }[];
+    return history.some((entry) => entry.raw === raw);
+  } catch { return false; }
 }
 
 // Preserve both profiles before startup synchronization can refresh their caches.

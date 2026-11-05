@@ -818,3 +818,72 @@ test('moving a child out of a removed parent keeps a single live child and a rec
   const parent = saved.goals[0].children.find(t => t.id === 'old-parent');
   assert.ok(parent.deletedAt); assert.deepEqual(parent.children.map(t => t.id), ['retained-child']);
 });
+
+test('background merge chooses server startup fields while keeping independent work and executions', () => {
+  const { mergeInBackground } = require('../app/state-sync.ts');
+  const base = state(), local = clone(base), remote = clone(base);
+  local.goals[0].title = 'Cached name'; remote.goals[0].title = 'Server name';
+  local.goals[0].children = [task('local-new')]; remote.goals[0].children = [task('remote-new')];
+  const merged = mergeInBackground(base, local, remote, 'remote');
+  assert.equal(merged.state.goals[0].title, 'Server name');
+  assert.deepEqual(merged.state.goals[0].children.map(t => t.id).sort(), ['local-new', 'remote-new']);
+  assert.equal(isValidState(merged.state), true); assert.ok(merged.conflicts.length);
+});
+
+test('background deletion versus editing keeps the item live and merges both sides descendants', () => {
+  const { mergeInBackground } = require('../app/state-sync.ts');
+  const base = state(); base.goals[0].children = [task('edited')];
+  const local = clone(base), remote = clone(base);
+  local.goals[0].children[0].deletedAt = '2026-11-05T12:00:00Z';
+  local.goals[0].children[0].children = [task('local-descendant')];
+  remote.goals[0].children[0].title = 'New remote text';
+  remote.goals[0].children[0].children = [task('remote-descendant')];
+  const merged = mergeInBackground(base, local, remote, 'local');
+  const edited = merged.state.goals[0].children[0];
+  assert.equal(edited.deletedAt, undefined); assert.equal(edited.title, 'New remote text');
+  assert.deepEqual(edited.children.map(t => t.id).sort(), ['local-descendant', 'remote-descendant']);
+  assert.equal(isValidState(merged.state), true);
+});
+
+test('background moves preserve a concurrent execution once at the new location', () => {
+  const { mergeInBackground } = require('../app/state-sync.ts');
+  const base = state(); base.goals[0].children = [task('moved-work')];
+  const local = clone(base), remote = clone(base);
+  const moved = local.goals[0].children.pop(); local.goals.push(goal('new-area', { children: [moved] }));
+  remote.goals[0].children[0].choreCompletions = [{ id: 'partner-run', personId: 'person-2', completedAt: '2026-11-05T12:00:00Z' }];
+  const merged = mergeInBackground(base, local, remote, 'local').state;
+  assert.equal(isValidState(merged), true);
+  assert.equal(merged.goals[0].children.length, 0);
+  assert.equal(merged.goals.find(g => g.id === 'new-area').children[0].choreCompletions[0].id, 'partner-run');
+  assert.equal(isValidState(authorizedState(remote, merged, 'person-1')), true);
+});
+
+test('two simultaneous moves keep all areas and only one instance of the moved task', () => {
+  const { mergeInBackground } = require('../app/state-sync.ts');
+  const base = state(); base.goals[0].children = [task('double-move')];
+  const local = clone(base), remote = clone(base);
+  local.goals.push(goal('local-area', { children: local.goals[0].children.splice(0) }));
+  remote.goals.push(goal('remote-area', { children: remote.goals[0].children.splice(0) }));
+  const merged = mergeInBackground(base, local, remote, 'local').state;
+  assert.equal(isValidState(merged), true); assert.equal(merged.goals.length, 5);
+  assert.equal(merged.goals.find(g => g.id === 'local-area').children[0].id, 'double-move');
+  assert.equal(merged.goals.find(g => g.id === 'remote-area').children.length, 0);
+});
+
+test('automatic ranking conflicts retain every ID without repeated entries', () => {
+  const { mergeInBackground } = require('../app/state-sync.ts');
+  const base = state(); base.goalRankings['person-1'] = ['a', 'b'];
+  const local = clone(base), remote = clone(base);
+  local.goalRankings['person-1'] = ['b', 'a', 'local-new']; remote.goalRankings['person-1'] = ['a', 'b', 'remote-new'];
+  assert.deepEqual(mergeInBackground(base, local, remote, 'remote').state.goalRankings['person-1'], ['a', 'b', 'remote-new', 'local-new']);
+});
+
+test('automatic merge archives both alternatives and detects a full local cache', () => {
+  const { archiveMergeVersions } = require('../app/local-recovery.ts');
+  const values = new Map(), storage = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) };
+  const base = state(), local = clone(base), remote = clone(base); local.goals[0].title = 'Local alternative'; remote.goals[0].title = 'Server alternative';
+  assert.equal(archiveMergeVersions(storage, 'person-1', base, local, remote), true);
+  const raw = values.get('acorns-history-person-1'); assert.ok(raw.includes('Local alternative')); assert.ok(raw.includes('Server alternative'));
+  assert.equal(JSON.parse(JSON.parse(raw)[0].raw).data.goals[0].title, 'Local alternative');
+  assert.equal(archiveMergeVersions({ getItem: () => null, setItem: () => { throw Error('Quota'); } }, 'person-1', base, local, remote), false);
+});

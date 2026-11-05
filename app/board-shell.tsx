@@ -4,7 +4,6 @@ import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 import { collectLocalRecovery } from './local-recovery';
 
-import { SyncConflictPanel } from './sync-conflict-panel';
 import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoreRandomizer } from './chore-randomizer';
 import { ChoresWorkspace } from './chores-workspace';
@@ -351,7 +350,6 @@ export default function Home() {
     return () => { document.removeEventListener('click', outside); document.removeEventListener('keydown', escape); };
   }, [profileMenuOpen, settingsOpen]);
   const [backupsOpen, setBackupsOpen] = useState(false);
-  const [conflictsOpen, setConflictsOpen] = useState(false);
   const [completionBurst, setCompletionBurst] = useState(0);
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [boardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
@@ -1108,18 +1106,6 @@ export default function Home() {
       <link rel="preload" as="image" href="/completion-bunny-bubble.svg" />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
-      <section className="sync-status" role="status" aria-live="polite">
-        <span>{sync.status}</span>
-        {sync.conflicts.length > 0 ? <button type="button" onClick={() => setConflictsOpen(true)}>Vyriešiť rozdiely ({sync.conflicts.length})</button> : null}
-        {sync.recovery ? <button type="button" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť poškodenú zálohu</button> : null}
-        {reminders.message ? <span>{reminders.message}</span> : null}
-      </section>
-      {sync.conflicts.length > 0 ? <SyncConflictPanel open={conflictsOpen} onClose={() => setConflictsOpen(false)} conflicts={sync.conflicts}
-        labelFor={(path) => conflictLabel(path, state)}
-        valueFor={(value) => conflictValue(value, [...state.goals, ...(sync.conflictVersions()?.server.goals ?? [])])}
-        onResolve={(choices) => { if (sync.resolve(choices)) setConflictsOpen(false); }}
-        onDownload={() => downloadJson(JSON.stringify(sync.conflictVersions(), null, 2), 'foxies-rozdielne-upravy.json')}
-      /> : null}
       <section className="topbar compact-board-header" aria-label="Prehľad tímu">
         <div className="brand-lockup">
           <div className="fox-pair" aria-hidden="true">
@@ -1150,7 +1136,7 @@ export default function Home() {
             <div className="header-popover-heading"><h2>{sync.mode === 'profiles' ? 'Zmeniť líštičku' : 'Tvoj profil'}</h2><button type="button" aria-label="Zavrieť výber líštičky" onClick={() => setProfileMenuOpen(false)}>×</button></div>
             <div className="header-profile-list">{people.filter((person) => sync.mode === 'profiles' || person.id === activePersonId).map((person) => <button type="button" key={person.id} disabled={person.id === activePersonId} aria-label={`Zvoliť profil ${person.name}`} onClick={async () => {
               setHeaderError('');
-              try { await sync.chooseProfile(person.id); setProfileMenuOpen(false); }
+              try { const changed = await sync.chooseProfile(person.id); if (changed) setProfileMenuOpen(false); else setHeaderError('Profil sa zatiaľ neprepol. Rozpracované zmeny sú zachované a ukladanie sa automaticky skúša znova.'); }
               catch (error) { setHeaderError(error instanceof Error ? error.message : 'Profil sa nepodarilo prepnúť.'); }
             }}><AvatarFox person={person} size="medium" /><span>{person.name}</span>{person.id === activePersonId && <small>Aktuálna</small>}</button>)}</div>
             <button type="button" className="header-menu-action" onClick={() => { setProfileMenuOpen(false); setSettingsOpen(true); }}>Upraviť profil</button>
@@ -1165,16 +1151,17 @@ export default function Home() {
               {avatarMenuOpen && <div className="header-avatar-picker" aria-label={`Avatar pre ${activePerson.name}`}>{getAvatarOptionsForPerson(activePersonId).map((avatar) => <button type="button" key={avatar.id} aria-label={avatar.label} aria-pressed={avatar.id === activePerson.avatarId} title={avatar.label} onClick={() => changePersonAvatar(activePersonId, avatar.id)}><Image alt="" height={32} width={32} src={avatar.src} /></button>)}</div>}
             </details>
             <button type="button" className="header-menu-action" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
-            <button type="button" className="header-menu-action" onClick={() => void sync.retry()}>Skúsiť synchronizáciu</button>
+            {reminders.message && <p className="header-permission-note" role="status">{reminders.message}</p>}
             <button type="button" className="header-menu-action" aria-expanded={trashOpen} onClick={() => setTrashOpen((open) => !open)}>Kôš plánov ({trashedGoals.length})</button>
             {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <button type="button" key={goal.id} className="header-menu-action" onClick={() => restoreGoal(goal.id)}><span>{goal.title}</span><small>Obnoviť</small></button>) : <p>Kôš je prázdny.</p>}</section>}
             <details className="header-setting-group"><summary>Zálohy a prenos dát</summary>
               <button type="button" className="header-menu-action" onClick={() => { setBackupsOpen(true); setSettingsOpen(false); }}>História záloh</button>
               <button type="button" className="header-menu-action" onClick={exportRecovery}>Stiahnuť všetky lokálne verzie</button>
+              {sync.recovery && <button type="button" className="header-menu-action" onClick={() => downloadJson(sync.recovery!, 'foxies-povodna-zaloha.json')}>Stiahnuť pôvodnú lokálnu zálohu</button>}
               <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Prenos dát</button>
               <button type="button" className="header-menu-action" onClick={() => { exportData(); void sync.logout(true).catch(() => setHeaderError('Odhlásenie zlyhalo. Lokálna záloha je zachovaná.')); }}>Stiahnuť zálohu a opustiť profil</button>
             </details>
-            <button type="button" className="header-menu-action" onClick={() => void sync.logout().catch(() => setHeaderError('Odhlásenie zlyhalo. Skúste znova.'))}>Odhlásiť sa</button>
+            <button type="button" className="header-menu-action" onClick={async () => { try { if (!await sync.logout()) setHeaderError('Zmeny sa ešte neuložili na server. Zostávajú zachované a ukladanie sa automaticky opakuje.'); } catch { setHeaderError('Odhlásenie sa nepodarilo. Zmeny zostávajú zachované.'); } }}>Odhlásiť sa</button>
             {headerError && <p role="alert">{headerError}</p>}
           </section>}
         </div>
@@ -1395,26 +1382,9 @@ function downloadJson(content: string, name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function conflictLabel(path: string, state: AppStateData) {
-  const parts = path.split('/');
-  const task = [...parts].reverse().map((id) => findTaskById(state.goals, id)).find(Boolean);
-  const person = state.people.find((person) => parts.includes(person.id));
-  const names: Record<string, string> = { gratitudeEntries: 'vďačnosti', text: 'zápis vďačnosti', title: 'názov', description: 'poznámka', done: 'dokončenie', deletedAt: 'vymazanie', category: 'kategória', dueAt: 'termín', choreCadence: 'skupina chores', choreWeight: 'náročnosť chores', choreIntervalDays: 'interval chores', recurrenceDays: 'interval', recurrenceStartAt: 'začiatok opakovania', recurrenceToleranceDays: 'tolerancia', name: 'meno', avatarId: 'avatar', tone: 'farba profilu', goalRankings: 'poradie', satisfactionByPerson: 'spokojnosť', satisfactionAnsweredOnByPerson: 'dátum hodnotenia spokojnosti', importanceByPerson: 'dôležitosť', feasibilityByPerson: 'reálnosť' };
-  const field = [...parts].reverse().find((part) => names[part]);
-  return `${task?.title ?? person?.name ?? 'Tabuľa'} · ${field ? names[field] : 'položka'}`;
-}
-
-function conflictValue(value: unknown, goals: Goal[] = []): string {
-  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value.map((id) => goals.find((goal) => goal.id === id)?.title ?? `Nový cieľ (${id.slice(-6)})`).join(' → ');
-  if (value === undefined) return 'bez hodnoty / odstránené';
-  if (typeof value === 'boolean') return value ? 'áno' : 'nie';
-  if (value && typeof value === 'object' && 'title' in value) return `${String(value.title)}${'deletedAt' in value && value.deletedAt ? ' (v koši)' : ''}`;
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
-
 function AuthGate({ onAuthenticate, onChooseProfile, mode, people, status }: {
   onAuthenticate: (email: string, password: string) => Promise<void>;
-  onChooseProfile: (personId: string) => Promise<void>;
+  onChooseProfile: (personId: string) => Promise<void | boolean>;
   mode: 'profiles' | 'supabase';
   people: Person[];
   status: string;
