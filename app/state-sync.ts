@@ -1,3 +1,4 @@
+import { noteColors } from './lists-model';
 import { purgeTask } from './trash';
 import { validGratitudeDay } from './gratitude';
 import type { AppStateData, Goal, Task } from './page-model';
@@ -42,7 +43,8 @@ export function isValidState(value: unknown): value is AppStateData {
   }
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
-        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'care'].includes(String(goal.category))) ||
+        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'care'].includes(String(goal.category))) ||
+        (goal.noteColor !== undefined && !noteColors.some((color) => color === goal.noteColor)) ||
         (goal.spaceId !== undefined && !['shared', ...personIds].includes(String(goal.spaceId))) ||
         (goal.satisfactionByPerson !== undefined && !ratings(goal.satisfactionByPerson)) ||
         (goal.satisfactionAnsweredOnByPerson !== undefined && (!record(goal.satisfactionAnsweredOnByPerson) || !Object.entries(goal.satisfactionAnsweredOnByPerson).every(([id, day]) => personIds.includes(id) && validGratitudeDay(day) && record(goal.satisfactionByPerson) && goal.satisfactionByPerson[id] !== undefined))) ||

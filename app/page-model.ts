@@ -36,7 +36,10 @@ export type TaskKind = 'todo' | 'rule' | 'topic';
 export type ChoreCadence = 'routine' | 'occasional';
 export type ChoreWeight = 1 | 3 | 5;
 
+export type NoteColor = 'butter' | 'rose' | 'mint' | 'lavender' | 'sky';
+
 export type Goal = Task & {
+  noteColor?: NoteColor;
   satisfactionByPerson?: Record<string, number>;
   satisfactionAnsweredOnByPerson?: Record<string, string>;
   category?: GoalCategory;
@@ -52,7 +55,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list';
 
 export type ActivityItem = {
   id: string;
@@ -246,6 +249,7 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'errand', label: 'Vybaviť' },
   { id: 'habit', label: 'Habits' },
   { id: 'activity', label: 'Activities' },
+  { id: 'list', label: 'Lists & todos' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },

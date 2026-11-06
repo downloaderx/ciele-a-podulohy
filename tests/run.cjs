@@ -1008,3 +1008,55 @@ test('chore menu matches old edit logs only to unambiguous titles on the same bo
   assert.equal(ranked.find(x=>x.goal.id==='b').activity,2);
   assert.deepEqual(rankChoreAreas(areas,[],now).map(x=>x.goal.id),rankChoreAreas([...areas].reverse(),[],now).map(x=>x.goal.id));
 });
+
+
+test('one-off lists create independent shared checklists with no chore recurrence', () => {
+  const { createTodoList, createTodoItem } = require('../app/lists-model.ts');
+  const { normalizeGoals, normalizeGoalCategory } = require('../app/page-model.ts');
+  const list=createTodoList('list','  Vybaviť  ','person-1','lavender');
+  assert.equal(list.title,'Vybaviť'); assert.equal(list.category,'list'); assert.equal(list.spaceId,'shared');
+  assert.equal(normalizeGoalCategory('list'),'list');
+  const item=createTodoItem('one-off',' Zavolať do servisu ','person-1');
+  list.children=[{...item,done:true}];
+  const normalized=normalizeGoals([list],clone(defaultPeople))[0];
+  assert.equal(normalized.category,'list'); assert.equal(normalized.noteColor,'lavender');
+  assert.equal(normalized.children[0].done,true); assert.equal(normalized.recurrenceDays,undefined);
+  assert.equal(item.choreCadence,undefined); assert.equal(item.choreCompletions,undefined);
+  assert.equal(createTodoList('bad',' ','person-1'),null); assert.equal(createTodoItem('bad',' ','person-1'),null);
+  assert.equal(createTodoList('bad','x'.repeat(101),'person-1'),null);
+});
+
+test('lists validate and survive backups, profile switching, independent edits and shared authorization', () => {
+  const { createTodoList, createTodoItem } = require('../app/lists-model.ts');
+  const { readTransferData } = require('../app/page-model.ts');
+  const base=state(), list=createTodoList('list','Nákupy','person-1','butter');
+  list.children=[createTodoItem('milk','Mlieko','person-1')]; base.goals.push(list);
+  assert.equal(isValidState(base),true);
+  const copy=readTransferData(JSON.parse(JSON.stringify({version:1,data:base})));
+  assert.equal(copy.goals.at(-1).noteColor,'butter');
+  assert.ok(visibleState(base,'person-2').goals.find(g=>g.id==='list'));
+  const local=clone(base), remote=clone(base);
+  local.goals.at(-1).children.push(createTodoItem('bread','Chlieb','person-1'));
+  remote.goals.at(-1).children[0].done=true; remote.goals.at(-1).noteColor='mint';
+  const merged=mergeStates(base,local,remote).state;
+  const saved=authorizedState(base,merged,'person-1');
+  assert.equal(saved.goals.find(g=>g.id==='list').children.length,2); assert.equal(saved.goals.find(g=>g.id==='list').children[0].done,true);
+  assert.equal(saved.goals.find(g=>g.id==='list').noteColor,'mint');
+  const second=clone(saved); second.goals.find(g=>g.id==='list').children[0].done=false;
+  assert.equal(authorizedState(saved,second,'person-2').goals.find(g=>g.id==='list').children[0].done,false);
+  const invalid=clone(base); invalid.goals.at(-1).noteColor='invalid'; assert.equal(isValidState(invalid),false);
+});
+
+test('list trash retains completed tasks and note color and can be permanently cleared', () => {
+  const { createTodoList, createTodoItem } = require('../app/lists-model.ts');
+  const { purgeTask } = require('../app/trash.ts');
+  const original=state(); const list=createTodoList('list','Cestovanie','person-1','sky');
+  list.children=[{...createTodoItem('ticket','Lístky','person-1'),done:true}]; original.goals.push(list);
+  const requested=clone(original); requested.goals=removeTask(requested.goals,'list');
+  const saved=authorizedState(original,requested,'person-1');
+  const deleted=saved.goals.find(g=>g.id==='list');
+  assert.ok(deleted.deletedAt); assert.equal(deleted.noteColor,'sky'); assert.equal(deleted.children[0].done,true);
+  const purged=clone(saved); purged.goals=purged.goals.map(g=>g.id==='list'?purgeTask(g,'2026-11-06T10:00:00Z'):g);
+  const erased=authorizedState(saved,purged,'person-1').goals.find(g=>g.id==='list');
+  assert.equal(erased.title,''); assert.ok(erased.purgedAt); assert.equal(isValidState({...saved,goals:saved.goals.map(g=>g.id==='list'?erased:g)}),true);
+});
