@@ -957,3 +957,54 @@ test('bulk trash selection removes only topmost selected items and skips deleted
   assert.deepEqual(selectedTrashRoots(area,[]),[]);
   assert.deepEqual(selectedTrashRoots({...area,deletedAt:'2026-11-01T10:00:00Z'},['area','child']),[]);
 });
+
+
+test('chore menu balances current care and use without activity hiding neglected work', () => {
+  const { rankChoreAreas } = require('../app/chores-menu-model.ts');
+  const now=new Date('2026-11-06T12:00:00Z');
+  const done=(id)=>task(id,{choreCompletions:[{id:'run-'+id,personId:'person-1',completedAt:'2026-11-05T12:00:00Z'}]});
+  const area=(id,children)=>goal(id,{category:'chore',children});
+  const full=area('full',[done('full-task')]);
+  const mostly=area('mostly',[done('m1'),done('m2'),done('m3'),task('m4')]);
+  const mixed=area('mixed',[done('x1'),task('x2')]);
+  const neglected=area('neglected',[task('n1')]);
+  const busyLog=Array.from({length:80},(_,i)=>({id:'edit-'+i,action:'upravil(a) poznámku',target:'neglected',actorId:'person-1',createdAt:'2026-11-05T12:00:00Z',spaceId:'shared'}));
+  const input=[neglected,mixed,mostly,full], original=clone(input);
+  const ranked=rankChoreAreas(input,busyLog,now);
+  assert.deepEqual(ranked.map(x=>x.goal.id),['full','mostly','mixed','neglected']);
+  assert.equal(ranked.at(-1).score,0); assert.equal(ranked[0].score,1);
+  assert.deepEqual(input,original);
+  const same=area('same',[done('s1'),task('s2')]);
+  const edits=[{id:'edit',action:'zmenil(a) náročnosť chores',target:'s2',actorId:'person-1',createdAt:'2026-11-05T12:00:00Z'}];
+  assert.equal(rankChoreAreas([mixed,same],edits,now)[0].goal.id,'same');
+});
+
+test('chore menu uses reminder intervals, ignores undone and future activity, and keeps empty areas neutral', () => {
+  const { rankChoreAreas } = require('../app/chores-menu-model.ts');
+  const now=new Date('2026-11-06T12:00:00Z');
+  const oldRun={id:'old',personId:'person-1',completedAt:'2026-10-01T12:00:00Z'};
+  const scheduled=goal('scheduled',{category:'chore',children:[task('occasional',{choreCadence:'occasional',choreIntervalDays:90,choreCompletions:[oldRun]})]});
+  const overdue=goal('overdue',{category:'chore',children:[task('late',{choreCadence:'occasional',choreIntervalDays:5,choreCompletions:[oldRun]})]});
+  const undone=goal('undone',{category:'chore',children:[task('undo',{choreCompletions:[{id:'u',personId:'person-1',completedAt:'2026-11-05T12:00:00Z',undoneAt:'2026-11-05T13:00:00Z'},{id:'future',personId:'person-1',completedAt:'2026-12-01T12:00:00Z'}]})]});
+  const empty=goal('empty',{category:'chore'});
+  const ranked=rankChoreAreas([empty,overdue,undone,scheduled],[],now);
+  assert.equal(ranked[0].goal.id,'scheduled'); assert.equal(ranked[0].maintained,1);
+  assert.equal(ranked.find(x=>x.goal.id==='overdue').occasionalAttention,1);
+  assert.ok(ranked.find(x=>x.goal.id==='overdue').maxOverdueDays>0);
+  assert.equal(ranked.find(x=>x.goal.id==='undone').activity,0);
+  assert.equal(ranked.at(-1).total,0);
+  const deleted=clone(overdue); deleted.deletedAt='2026-11-05T12:00:00Z';
+  assert.equal(rankChoreAreas([deleted],[],now).length,0);
+});
+
+test('chore menu matches old edit logs only to unambiguous titles on the same board', () => {
+  const { rankChoreAreas } = require('../app/chores-menu-model.ts');
+  const now=new Date('2026-11-06T12:00:00Z');
+  const areas=[goal('a',{category:'chore',children:[task('a1',{title:'Podlaha'})]}),goal('b',{category:'chore',children:[task('b1',{title:'Podlaha'}),task('b2',{title:'Nový názov'})]})];
+  const log=(id,target,action='upravil(a) poznámku',extra={})=>({id,target,action,actorId:'person-1',createdAt:'2026-11-05T12:00:00Z',...extra});
+  const events=[log('ambiguous','Podlaha'),log('private','a','upravil(a) poznámku',{spaceId:'person-1'}),log('rename','Starý názov → Nový názov','premenil(a)'),log('interval','Nový názov · každých 30 dní','zmenil(a) interval chores'),log('old','a','upravil(a) poznámku',{createdAt:'2026-01-01T12:00:00Z'}),log('future','a','upravil(a) poznámku',{createdAt:'2026-12-01T12:00:00Z'})];
+  const ranked=rankChoreAreas(areas,[...events,events[2]],now);
+  assert.equal(ranked.find(x=>x.goal.id==='a').activity,0);
+  assert.equal(ranked.find(x=>x.goal.id==='b').activity,2);
+  assert.deepEqual(rankChoreAreas(areas,[],now).map(x=>x.goal.id),rankChoreAreas([...areas].reverse(),[],now).map(x=>x.goal.id));
+});
