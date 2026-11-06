@@ -55,7 +55,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook';
 
 export type ActivityItem = {
   id: string;
@@ -250,6 +250,7 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'habit', label: 'Habits' },
   { id: 'activity', label: 'Activities' },
   { id: 'list', label: 'Lists & todos' },
+  { id: 'rulebook', label: 'Rulebook' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },
