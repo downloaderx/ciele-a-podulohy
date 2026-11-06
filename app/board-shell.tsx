@@ -1,6 +1,8 @@
 'use client';
 
 import { purgeTask, selectedTrashRoots } from './trash';
+import { ListsWorkspace } from './lists-workspace';
+import { createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
@@ -73,6 +75,7 @@ import {
   type BoardSpaceId,
   type CompletedItem,
   type Goal,
+  type NoteColor,
   type GoalCategory,
   type Person,
   type Task,
@@ -82,7 +85,7 @@ import {
   type TransferPayload,
 } from './page-model';
 
-const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit');
+const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list');
 
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
@@ -303,7 +306,9 @@ function splitLongDescription(description: string) {
 }
 
 export default function Home() {
-  const isChoresPage = usePathname() === '/chores';
+  const pathname = usePathname();
+  const isChoresPage = pathname === '/chores';
+  const isListsPage = pathname === '/lists-and-todos';
   const [choreReveal, setChoreReveal] = useState<ChoreReveal | null>(null);
   useEffect(() => {
     if (!choreReveal) return;
@@ -352,7 +357,7 @@ export default function Home() {
   const [completionBurst, setCompletionBurst] = useState(0);
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
+  const boardSpaceId = isChoresPage || isListsPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -387,6 +392,7 @@ export default function Home() {
     () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && enabledGoalCategories.some((category) => category.id === normalizeGoalCategory(goal.category))),
     [activeGoals, boardSpaceId],
   );
+  const todoLists = useMemo(() => activeGoals.filter((goal) => goal.category === 'list' && getGoalSpaceId(goal) === sharedSpaceId), [activeGoals]);
   const activityGoals = useMemo(
     () => visibleGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
     [visibleGoals],
@@ -506,6 +512,28 @@ export default function Home() {
     setNewGoalDescription('');
     setNewGoalCategory('plan');
     return goalId;
+  }
+
+  function addTodoList(title: string) {
+    const list = createTodoList(createId(), title, activePersonId, noteColors[todoLists.length % noteColors.length]);
+    if (!list) return;
+    setGoals((current) => [...current, list]);
+    addActivity('pridal(a) zoznam', list.title);
+    return list.id;
+  }
+
+  function addTodoItem(listId: string, title: string) {
+    const item = createTodoItem(createId(), title, activePersonId);
+    if (!item) return;
+    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && !list.deletedAt
+      ? { ...list, updatedById: activePersonId, children: [...list.children, item] } : list));
+    addActivity('pridal(a) úlohu do zoznamu', item.title);
+  }
+
+  function changeListColor(listId: string, color: NoteColor) {
+    if (!noteColors.includes(color)) return;
+    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list'
+      ? { ...list, noteColor: color, updatedById: activePersonId } : list));
   }
 
   function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo', choreCadence?: ChoreCadence, choreWeight?: ChoreWeight, choreIntervalDays?: number) {
@@ -1129,7 +1157,7 @@ export default function Home() {
   }
 
   return (
-    <main className={`app-shell${isChoresPage ? ' chores-shell' : ''}`} aria-busy={sync.transitioning}>
+    <main className={`app-shell${isChoresPage ? ' chores-shell' : isListsPage ? ' lists-shell' : ''}`} aria-busy={sync.transitioning}>
       <link rel="preload" as="image" href="/completion-bunny-bubble.svg" />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
@@ -1239,11 +1267,12 @@ export default function Home() {
       ) : null}
 
       <nav className="board-section-nav" aria-label="Sekcie tabule">
-        <Link href="/vztahove-ciele" aria-current={!isChoresPage ? 'page' : undefined}>Vzťahové ciele</Link>
         <Link href="/chores" aria-current={isChoresPage ? 'page' : undefined}>Chores</Link>
+        <Link href="/lists-and-todos" aria-current={isListsPage ? 'page' : undefined}>Lists &amp; todos</Link>
+        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage ? 'page' : undefined}>Vzťahové ciele</Link>
       </nav>
-      <h2 className="board-section-title">{isChoresPage ? 'Chores' : 'Vzťahové ciele'}</h2>
-      {!isChoresPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : 'Vzťahové ciele'}</h2>
+      {!isChoresPage && !isListsPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1261,7 +1290,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isChoresPage ? <ChoresWorkspace
+      {isListsPage ? <ListsWorkspace lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
