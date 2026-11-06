@@ -3039,3 +3039,38 @@ select:focus {
 
 :root[data-theme] .todo-note input:not([type='checkbox']), :root[data-theme] .todo-note select { background: transparent; color: var(--note-ink); }
 :root[data-theme] .todo-note h2 { color: var(--note-ink); }
+
+/* Relationship pages share Chores' compact navigation and theme colors. */
+.relationship-content > .project-strip { margin: 0 0 18px; }
+.relationship-topic-list { margin-top: 18px; }
+.relationship-content .relationship-goal { border: 0; padding: 0; margin: 0; box-shadow: none; background: transparent; }
+.relationship-goal .goal-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.relationship-goal .goal-title-block { grid-column: 1; }
+.relationship-goal .goal-header > .danger { grid-column: 2; grid-row: 1; }
+.relationship-goal .progress-badge { grid-column: 1 / -1; text-align: left; }
+.relationship-goal .title-input { font-size: 23px; }
+.relationship-content .gratitude-panel, .relationship-content .priority-panel, .relationship-content .activities-panel { margin: 0; box-shadow: none; }
+.relationship-changes { display: grid; gap: 16px; }
+.rulebook-pick { padding: 20px; border-radius: 20px; background: var(--panel-soft); margin-bottom: 20px; }
+.rulebook-pick blockquote { margin: 14px 0; font-size: 21px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.rulebook-pick p { color: var(--muted); }
+.rulebook-pick button, .rulebook-add > button { padding: 10px 14px; border-radius: 12px; background: var(--accent); color: var(--button-ink, var(--ink)); }
+.rulebook-add { display: grid; gap: 10px; margin: 0 0 24px; }
+.rulebook-add label { display: grid; gap: 7px; }
+.rulebook-add textarea { width: 100%; min-height: 90px; resize: vertical; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--foreground); font: inherit; }
+.rulebook-add > button { justify-self: start; }
+.rulebook-count { color: var(--muted); font-size: 14px; font-weight: 400; }
+.rulebook-list { display: grid; gap: 8px; list-style: none; padding: 0; }
+.rulebook-list li { padding: 14px 16px; border-radius: 16px; background: var(--panel-soft); min-width: 0; }
+.rulebook-list li:nth-child(even) { background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
+.rulebook-list p { margin: 0 0 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rulebook-list input { width: 100%; margin-bottom: 8px; }
+.rulebook-actions { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.rulebook-actions button { color: var(--muted); font-size: 12px; text-align: left; }
+.rulebook-actions button:hover { color: var(--foreground); text-decoration: underline; }
+@media (max-width: 760px) {
+ .relationship-content { padding: 14px; }
+ .rulebook-pick { padding: 16px; }
+ .rulebook-pick blockquote { font-size: 18px; }
+ .rulebook-list li { padding: 12px; }
+}

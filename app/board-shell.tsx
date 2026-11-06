@@ -1,13 +1,14 @@
 'use client';
 
 import { purgeTask, selectedTrashRoots } from './trash';
+import { RelationshipWorkspace } from './relationship-workspace';
+import { collectRules, createRule } from './rulebook-model';
 import { ListsWorkspace } from './lists-workspace';
 import { createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
 import { satisfactionSchedule } from './satisfaction-schedule';
-import { ChoreRandomizer } from './chore-randomizer';
 import { ChoresWorkspace } from './chores-workspace';
 import { splitPantry } from './chores-workspace-model';
 import type { ChoreReveal } from './chore-randomizer-model';
@@ -28,7 +29,6 @@ import {
   avatarOptions,
   calculateProgress,
   calculateChoreProgress,
-  calculateCategoryProgress,
   choreView,
   choreHistorySummary,
   choreAttention,
@@ -85,7 +85,7 @@ import {
   type TransferPayload,
 } from './page-model';
 
-const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list');
+const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook');
 
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
@@ -401,17 +401,6 @@ export default function Home() {
     () => visibleGoals.filter((goal) => normalizeGoalCategory(goal.category) === (isChoresPage ? 'chore' : 'plan')),
     [visibleGoals, isChoresPage],
   );
-  const boardGoalGroups = useMemo(
-    () =>
-      enabledGoalCategories
-        .filter((category) => category.id !== 'activity')
-        .map((category) => ({
-          ...category,
-          goals: category.id === 'chore' ? boardGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'chore').sort((a, b) => a.title.localeCompare(b.title, 'sk')) : sortGoalsByAverageRanking(boardGoals.filter((goal) => normalizeGoalCategory(goal.category) === category.id), people, goalRankings),
-        }))
-        .filter((category) => category.goals.length > 0),
-    [boardGoals, people, goalRankings],
-  );
   const rankedActiveGoals = useMemo(
     () => sortGoalsByAverageRanking(boardGoals, people, goalRankings),
     [boardGoals, goalRankings, people],
@@ -420,10 +409,6 @@ export default function Home() {
     .filter((goal) => canEditBoard && getGoalSpaceId(goal) === boardSpaceId)
     .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)).filter((task) => !task.purgedAt), [boardSpaceId, goals, canEditBoard]);
 
-  const categoryTotals = useMemo(() => ({
-    plan: calculateCategoryProgress(boardGoals, 'plan', choreDay),
-    chore: calculateCategoryProgress(boardGoals, 'chore', choreDay),
-  }), [boardGoals, choreDay]);
   const completedItems = useMemo(
     () => collectCompletedItems(boardGoals),
     [boardGoals],
@@ -1100,7 +1085,7 @@ export default function Home() {
   }
 
   function renderGoalPanel(goal: Goal) {
-    return (<GoalPanel workspace={isChoresPage}
+    return (<GoalPanel workspace={isChoresPage} focusGoal={!isChoresPage}
                     activePersonId={activePersonId}
                     revealChore={choreReveal}
                     goal={goal}
@@ -1311,36 +1296,46 @@ export default function Home() {
           <label>Poznámka (voliteľná)<input value={newGoalDescription} onChange={(event) => setNewGoalDescription(event.target.value)} /></label>
           <button type="submit">Pridať oblasť</button>
         </form>}
-      /> : <>
-      <section className="summary-grid" aria-label="Celkový stav">
-        <div className="summary-panel">
-          <div className="category-progress-summary">
-            {(['plan', 'chore'] as const).filter((category) => category === (isChoresPage ? 'chore' : 'plan') && (category !== 'plan' || boardSpaceId !== sharedSpaceId)).map((category) => {
-              const progress = categoryTotals[category];
-              const label = getCategoryLabel(category, boardSpaceId);
-              return <section className="category-progress-card" aria-label={`Priebeh: ${label}`} key={category}>
-                <h2>{label}</h2>
-                {category === 'chore' ? <span className="category-progress-context">Bežné chores · posledných 7 dní</span> : null}
-                <strong>{progress.total ? `${progress.percent}%` : '—'}</strong>
-                <div className="meter" aria-hidden="true"><span style={{ width: `${progress.percent}%` }} /></div>
-                <GrowthBranch percent={progress.percent} />
-                <p>{progress.total ? `Hotovo ${progress.done} z ${progress.total} ${category === 'chore' ? 'bežných prác za posledných 7 dní' : 'krokov v tejto kategórii'}.` : 'V tejto kategórii zatiaľ nie sú úlohy na dokončenie.'}</p>
-                {category === 'chore' ? <p className="category-progress-note">Percento zohľadňuje náročnosť a záznamy za posledných 7 dní vrátane dneška. Označenia bez dátumu sa nezapočítavajú. Občasné práce majú vlastný priebeh pri projektoch.</p> : null}
-              </section>;
-            })}
-          </div>
-          {!isChoresPage && <GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
+      /> : <RelationshipWorkspace key={boardSpaceId}
+        goals={rankedActiveGoals} canEdit={canEditBoard}
+        rules={collectRules(activeGoals, boardSpaceId)}
+        onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
+        onRenameRule={renameTask} onDeleteRule={deleteTask}
+        renderGoal={renderGoalPanel}
+        overview={<><ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />{boardSpaceId === sharedSpaceId && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. Otázku nájdeš v jednotlivých témach.</p> : null}</>}
+        gratitude={<GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
             if (day !== gratitudeDay()) return;
             const entry = { id: activePersonId + ':' + day, personId: activePersonId, day, text };
             setGratitudeEntries((current) => [...current.filter((item) => item.id !== entry.id), entry]);
           }} />}
-        </div>
-        {!canEditBoard ? <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p> : null}
-        <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={addGoal}>
-          {!isChoresPage && <ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />}
-          {boardGoals.some((goal) => normalizeGoalCategory(goal.category) === 'chore') ? <ChoreRandomizer key={boardSpaceId + activePersonId} goals={boardGoals} onOpen={setChoreReveal} /> : null}
+        activities={<ActivityWheelPanel key={boardSpaceId + activePersonId}
+        activitiesOpen={activitiesOpen}
+        activities={activityGoals}
+        onToggleActivities={() => setActivitiesOpen((open) => !open)}
+        onPickRandom={pickRandomActivity}
+        selectedActivity={randomActivity}
+      />}
+        poll={<PriorityPoll
+        onRefreshOrder={() => setPriorityRefreshKey((key) => key + 1)}
+        boardSpaceId={boardSpaceId}
+        people={people}
+        refreshKey={priorityRefreshKey}
+        rankedGoals={rankedActiveGoals}
+      />}
+        calendar={recurringGoals.some((goal) => normalizeGoalCategory(goal.category) !== 'chore') ? <>      <fieldset disabled={!canEditBoard} className="board-edit-controls">
+        {recurringGoals.some((goal) => normalizeGoalCategory(goal.category) !== 'chore') ? <RecurringCalendarPanel
+        boardSpaceId={boardSpaceId}
+        goals={recurringGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'chore')}
+        onChangeRecurrence={changeGoalRecurrence}
+        onChangeRecurrenceStart={changeGoalRecurrenceStart}
+        onChangeRecurrenceTolerance={changeGoalRecurrenceTolerance}
+        onCompleteToday={completeRecurringGoalToday}
+      /> : null}
+      </fieldset></> : null}
+        changes={<><RecentActivityPanel activityLog={recentActivity} people={people} /><CompletedWorkPanel completedItems={completedItems} people={people} /></>}
+        addForm={(onCreated) => <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={(event) => { const id = addGoal(event); if (id) onCreated(id, creationCategory); }}>
           <label>
-            {isChoresPage ? 'Nový chore projekt' : 'Nový cieľ'} v tabuľke {boardSpaceLabel}
+            Nová téma v tabuľke {boardSpaceLabel}
             <input
               onChange={(event) => setNewGoalTitle(event.target.value)}
               placeholder={isChoresPage ? 'Napr. Kuchyňa alebo Pranie' : 'Napr. spoločný čas'}
@@ -1368,61 +1363,9 @@ export default function Home() {
               ))}
             </select>
           </label>}
-          <button type="submit">{isChoresPage ? 'Pridať chore projekt' : 'Pridať cieľ'}</button>
-        </form></fieldset>
-      </section>
-
-      {recentActivity.length > 0 ? (
-        <RecentActivityPanel activityLog={recentActivity} people={people} />
-      ) : null}
-
-      <CompletedWorkPanel completedItems={completedItems} people={people} />
-
-      {!isChoresPage && <ActivityWheelPanel key={boardSpaceId + activePersonId}
-        activitiesOpen={activitiesOpen}
-        activities={activityGoals}
-        onToggleActivities={() => setActivitiesOpen((open) => !open)}
-        onPickRandom={pickRandomActivity}
-        selectedActivity={randomActivity}
+          <button type="submit">Pridať tému</button>
+        </form></fieldset>}
       />}
-
-      <fieldset disabled={!canEditBoard} className="board-edit-controls">
-        {recurringGoals.some((goal) => normalizeGoalCategory(goal.category) !== 'chore') ? <RecurringCalendarPanel
-        boardSpaceId={boardSpaceId}
-        goals={recurringGoals.filter((goal) => normalizeGoalCategory(goal.category) !== 'chore')}
-        onChangeRecurrence={changeGoalRecurrence}
-        onChangeRecurrenceStart={changeGoalRecurrenceStart}
-        onChangeRecurrenceTolerance={changeGoalRecurrenceTolerance}
-        onCompleteToday={completeRecurringGoalToday}
-      /> : null}
-      </fieldset>
-      {!isChoresPage && <PriorityPoll
-        onRefreshOrder={() => setPriorityRefreshKey((key) => key + 1)}
-        boardSpaceId={boardSpaceId}
-        people={people}
-        refreshKey={priorityRefreshKey}
-        rankedGoals={rankedActiveGoals}
-      />}
-
-      <section className="board" aria-label="Zoznam cieľov">
-        {boardGoalGroups.length > 0 ? (
-          boardGoalGroups.map((category) => (
-            <section className="board-category" key={category.id}>
-              <div className="board-category-heading">
-                <h2>{getCategoryLabel(category.id, boardSpaceId)}</h2>
-                <span>{category.goals.length}</span>
-              </div>
-              {boardSpaceId === sharedSpaceId && category.id === 'plan' && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. Dobrovoľnú otázku nájdeš po rozbalení jednotlivých cieľov.</p> : null}
-              <div className="board-category-list">
-                {category.goals.map(renderGoalPanel)}
-              </div>
-            </section>
-          ))
-        ) : (
-          <p className="empty-board">{isChoresPage ? 'Pridaj prvý chore projekt, napríklad Kuchyňa alebo Pranie.' : 'Prvý vzťahový cieľ si nájde miesto hneď tu.'}</p>
-        )}
-      </section>
-      </>}
       </fieldset>
     </main>
   );
@@ -1514,26 +1457,6 @@ function RecentActivityPanel({
         })}
       </ol>
     </section>
-  );
-}
-
-function GrowthBranch({ percent }: { percent: number }) {
-  const markers = [20, 40, 60, 80, 100];
-
-  return (
-    <div className="growth-branch" aria-label={`Vetvička plánov je na ${percent}%`}>
-      <span className="branch-line" />
-      {markers.map((marker, index) => (
-        <span
-          className={percent >= marker ? 'branch-marker active' : 'branch-marker'}
-          key={marker}
-          style={{ '--marker-index': index } as React.CSSProperties}
-        >
-          <span className="leaf" />
-          <span className="acorn" />
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -1892,6 +1815,7 @@ function ProjectProgressStrip({
 
 type GoalPanelProps = {
   workspace?: boolean;
+  focusGoal?: boolean;
   choreSelection?: { selectedIds: string[]; onToggle: (id: string) => void };
   revealChore?: ChoreReveal | null;
   activePersonId: string;
@@ -1928,7 +1852,7 @@ function GoalPanel(props: GoalPanelProps) {
   } : undefined;
   const [manuallyExpanded, setExpanded] = useState(false);
   const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
-  const expanded = props.workspace || manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
+  const expanded = props.focusGoal || props.workspace || manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
   const [descriptionChunks, setDescriptionChunks] = useState<string[]>([]);
   const progress = calculateProgress(props.goal);
   const feasibilityByPerson = normalizeGoalFeasibility(props.goal, props.people);
@@ -1949,12 +1873,12 @@ function GoalPanel(props: GoalPanelProps) {
     setDescriptionChunks([]);
   }
 
-  if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} />;
+  if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} open={props.focusGoal} />;
 
   return (
-    <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}${props.workspace ? ' workspace-goal' : ''}${areaSettingsOpen ? ' area-settings-open' : ''}`}>
+    <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}${props.workspace ? ' workspace-goal' : ''}${props.focusGoal ? ' relationship-goal' : ''}${areaSettingsOpen ? ' area-settings-open' : ''}`}>
       <div className="goal-header">
-        {!props.workspace && <button
+        {!props.workspace && !props.focusGoal && <button
           aria-label={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
           aria-expanded={expanded}
           title={expanded ? 'Zbaliť cieľ' : 'Rozbaliť cieľ'}
@@ -2317,9 +2241,9 @@ function ReadOnlyTasks({ tasks, isChore = false }: { tasks: Task[]; isChore?: bo
     </details>
   </div>)}</div>;
 }
-function ReadOnlyGoal({ goal, people }: { goal: Goal; people: Person[] }) {
+function ReadOnlyGoal({ goal, people, open }: { goal: Goal; people: Person[]; open?: boolean }) {
   const progress = calculateProgress(goal);
-  return <article className="goal-panel readonly-goal"><details>
+  return <article className="goal-panel readonly-goal"><details open={open}>
     <summary><h3>{goal.title}</h3><span>{normalizeGoalCategory(goal.category) === 'chore' ? 'Priebežná starostlivosť' : `${progress.percent}%`}</span></summary>
     <p>{goal.description}</p>
     {normalizeGoalCategory(goal.category) !== 'chore' ? <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p> : null}

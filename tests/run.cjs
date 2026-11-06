@@ -1060,3 +1060,42 @@ test('list trash retains completed tasks and note color and can be permanently c
   const erased=authorizedState(saved,purged,'person-1').goals.find(g=>g.id==='list');
   assert.equal(erased.title,''); assert.ok(erased.purgedAt); assert.equal(isValidState({...saved,goals:saved.goals.map(g=>g.id==='list'?erased:g)}),true);
 });
+
+
+test('Rulebook collects live relationship rules in the selected board without moving tasks', () => {
+  const { collectRules, createRule } = require('../app/rulebook-model.ts');
+  const topic = goal('topic-rules', { children: [task('rule-1', {kind:'rule'}), task('deleted-parent', {deletedAt:'2026-11-01T00:00:00Z', children:[task('hidden-rule',{kind:'rule'})]}), task('todo-1')] });
+  const shared = createRule('new-rule','  Naša dohoda  ','person-1','shared');
+  const privateRule = createRule('private-rule','Osobné','person-2','person-2');
+  const input = [topic, shared, privateRule, goal('chore-rule', { category:'chore', children:[task('not-a-relationship-rule',{kind:'rule'})] })];
+  const before = clone(input);
+  assert.deepEqual(collectRules(input,'shared'), [{id:'rule-1',text:'rule-1',sourceId:'topic-rules',sourceTitle:'topic-rules'}, {id:'new-rule',text:'Naša dohoda'}]);
+  assert.deepEqual(input,before);
+  assert.equal(collectRules(input,'person-2')[0].id,'private-rule');
+  assert.equal(createRule('empty','  ','person-1','shared'),null);
+  assert.equal(createRule('long','a'.repeat(4001),'person-1','shared'),null);
+});
+
+test('Rulebook randomizer handles empty and single pools and avoids immediate repeats', () => {
+  const { pickRule } = require('../app/rulebook-model.ts');
+  assert.equal(pickRule([]),undefined);
+  const a={id:'a',text:'A'}, b={id:'b',text:'B'};
+  assert.equal(pickRule([a],'a'),a);
+  for(let i=0;i<20;i++) assert.equal(pickRule([a,b],'a'),b);
+});
+
+test('shared Rulebook survives validation, normalization, profile authorization and independent merges', () => {
+  const { createRule, collectRules } = require('../app/rulebook-model.ts');
+  const base=state(), local=clone(base), remote=clone(base);
+  local.goals.push(createRule('rule-a','Dohoda A','person-1','shared'));
+  remote.goals.push(createRule('rule-b','Dohoda B','person-2','shared'));
+  assert.equal(isValidState(local),true);
+  const merged=mergeStates(base,local,remote);
+  assert.deepEqual(merged.conflicts,[]);
+  const result=authorizedState(remote,merged.state,'person-1');
+  assert.equal(isValidState(result),true);
+  assert.deepEqual(collectRules(result.goals,'shared').map(rule=>rule.id).sort(),['rule-a','rule-b']);
+  assert.equal(collectRules(authorizedState(result,{...result,activePersonId:'person-2'},'person-2').goals,'shared').length,2);
+  const malicious=clone(result);malicious.goals.push(createRule('private-rule-attack','Cudzie','person-1','person-2'));
+  assert.throws(()=>authorizedState(result,malicious,'person-1'),/iba na prezeranie/);
+});
