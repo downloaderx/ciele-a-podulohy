@@ -1875,6 +1875,31 @@ function GoalPanel(props: GoalPanelProps) {
 
   if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} open={props.focusGoal} />;
 
+  if (props.focusGoal) return <article className="simple-relationship-goal">
+    <header className="simple-goal-heading">
+      <div><span className="label">Vzťahová téma</span><h2>{props.goal.title}</h2></div>
+      <button type="button" className="simple-goal-edit" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>{areaSettingsOpen ? 'Hotovo' : 'Upraviť tému'}</button>
+    </header>
+    {areaSettingsOpen ? <section className="simple-goal-settings" aria-label="Úprava témy">
+      <label>Názov<EditableInput aria-label="Názov cieľa" value={props.goal.title} onCommit={(value) => props.onRename(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
+      <label>Poznámka<EditableInput aria-label="Poznámka k cieľu" value={props.goal.description} onCommit={(value) => props.onRenameDescription(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
+      <details><summary>Ďalšie možnosti</summary><label>Termín (voliteľný)<input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} /></label>
+        <ItemMeta createdById={props.goal.ownerId} people={props.people} updatedById={props.goal.updatedById} />
+        <button type="button" className="simple-trash" onClick={() => { if (window.confirm('Presunúť túto tému aj s položkami do koša?')) props.onDelete(props.goal.id); }}>Presunúť tému do koša</button>
+      </details>
+    </section> : props.goal.description.trim() ? <p className="simple-goal-note">{props.goal.description}</p> : null}
+    {isRelationship && <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />}
+    <section className="simple-goal-items" aria-label="Pravidlá a kroky témy">
+      <div className="simple-items-heading"><h3>Pravidlá a kroky</h3><span>{props.goal.children.length}</span></div>
+      {props.goal.children.length ? <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} /> : <p className="empty-board">Pridaj dohodu, pravidlo alebo konkrétny krok.</p>}
+      <details className="simple-add-item"><summary>＋ Pridať položku</summary><RelationshipItemForm onSubmit={(title, kind) => props.onAddSubtask(props.goal.id, title, undefined, kind)} /></details>
+    </section>
+    <details className="simple-goal-ratings"><summary>Hodnotenie a priority</summary>
+      {isRelationship && <SatisfactionSummary goal={props.goal} people={props.people} />}
+      <ImportancePanel activePersonId={props.activePersonId} feasibilityByPerson={feasibilityByPerson} goalId={props.goal.id} importanceByPerson={importanceByPerson} onRateFeasibility={props.onRateFeasibility} onRateImportance={props.onRateImportance} people={props.people} />
+    </details>
+  </article>;
+
   return (
     <article className={`goal-panel${expanded ? '' : ' goal-panel-collapsed'}${props.workspace ? ' workspace-goal' : ''}${props.focusGoal ? ' relationship-goal' : ''}${areaSettingsOpen ? ' area-settings-open' : ''}`}>
       <div className="goal-header">
@@ -2279,6 +2304,7 @@ function ChoreAttentionBadge({ reason, cadence = 'routine' }: { reason: string; 
 }
 
 function TaskRow(props: TaskRowProps) {
+  const compact = props.workspace || props.focusGoal;
   const [taskSettingsOpen, setTaskSettingsOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [manuallyExpanded, setExpanded] = useState(false);
@@ -2320,21 +2346,22 @@ function TaskRow(props: TaskRowProps) {
 
   return (
     <div id={`task-${props.task.id}`} tabIndex={-1} className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties} onKeyDown={(event) => {
-      if (props.workspace && taskSettingsOpen && event.key === 'Escape') {
+      if (compact && taskSettingsOpen && event.key === 'Escape') {
         event.preventDefault(); event.stopPropagation(); closeTaskSettings();
       }
     }}>
       <div className={[
         'task-row',
-        props.workspace ? 'workspace-task' : '',
-        props.workspace && !hasChildren ? 'workspace-task-leaf' : '',
+        props.focusGoal ? 'relationship-task' : '',
+        compact ? 'workspace-task' : '',
+        compact && !hasChildren ? 'workspace-task-leaf' : '',
         props.choreSelection ? 'workspace-task-selecting' : '',
         taskSettingsOpen ? 'task-settings-open' : '',
         (isChore ? doneToday : props.task.done) ? 'done' : '',
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
         {props.choreSelection && <input className="chore-select-checkbox" type="checkbox" aria-label={`Vybrať na presunutie do koša: ${props.task.title}`} checked={props.choreSelection.selectedIds.includes(props.task.id)} onChange={() => props.choreSelection?.onToggle(props.task.id)} />}
-        {(!props.workspace || hasChildren) && <button
+        {(!compact || hasChildren) && <button
           aria-label={hasChildren ? (expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
           aria-expanded={hasChildren ? expanded : undefined}
           title={hasChildren ? `${expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
@@ -2360,22 +2387,22 @@ function TaskRow(props: TaskRowProps) {
         )}
         <span className={`task-title-tooltip-wrap${attention ? ' has-chore-attention' : ''}`}>
           {attention ? <ChoreAttentionBadge reason={attention} cadence={props.task.choreCadence} /> : null}
-          <EditableInput
+          {props.focusGoal && !taskSettingsOpen ? <span className="relationship-task-copy">{!isCompletable && <span className="relationship-kind">{props.task.kind === 'rule' ? 'Pravidlo' : 'Téma'}</span>}{props.task.title}</span> : <EditableInput
             aria-label="Názov podúlohy"
             className="task-title"
             value={props.task.title}
             onCommit={(value) => props.onRename(props.task.id, value)}
             onKeyDown={saveInputOnEnter}
             title="Klikni a uprav podúlohu"
-          />
+          />}
           {props.task.title.trim() ? (
             <span className="task-title-tooltip" role="tooltip">
               {props.task.title}
             </span>
           ) : null}
         </span>
-        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy práce' : 'Upraviť prácu'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
-        {(!props.workspace || taskSettingsOpen) && <div className="task-actions">
+        {compact && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy položky' : 'Upraviť položku'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
+        {(!compact || taskSettingsOpen) && <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
           </button>
@@ -2435,13 +2462,14 @@ function TaskRow(props: TaskRowProps) {
             <p>Uchováva sa posledných 200 záznamov.</p>
           </details> : null}
         </div> : null}
+        {props.focusGoal && <button type="button" className="simple-trash" onClick={() => { if (window.confirm('Presunúť túto položku aj s podúlohami do koša?')) props.onDelete(props.task.id); }}>Do koša</button>}
         <ItemMeta
           createdById={props.task.ownerId}
           people={props.people}
           updatedById={props.task.updatedById}
         />
         </div>}
-        {!props.workspace && <button
+        {!compact && <button
           aria-label="Presunúť podúlohu do koša"
           className="icon-button compact danger"
           onClick={() => props.onDelete(props.task.id)}
@@ -2473,7 +2501,7 @@ function TaskRow(props: TaskRowProps) {
         </div>
       ) : null}
 
-      {adding ? (
+      {adding ? props.focusGoal ? <RelationshipItemForm onSubmit={(title, kind) => { props.onAddSubtask(props.task.id, title, undefined, kind); setExpanded(true); setAdding(false); }} /> : (
         <AddTaskForm
           showDeadline={!isChore}
           chore={isChore}
@@ -2521,6 +2549,15 @@ function ItemMeta({
       ) : null}
     </span>
   );
+}
+
+function RelationshipItemForm({ onSubmit }: { onSubmit: (title: string, kind: TaskKind) => void }) {
+  const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<TaskKind>('todo');
+  return <form className="relationship-item-form" onSubmit={(event) => { event.preventDefault(); if (!title.trim()) return; onSubmit(title.trim(), kind); setTitle(''); }}>
+    <label>Text položky<textarea required maxLength={4000} rows={2} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Čo chceme urobiť alebo na čom sa dohodnúť…" /></label>
+    <div><label>Typ<select value={kind} onChange={(event) => setKind(event.target.value as TaskKind)}>{taskKinds.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label><button type="submit" disabled={!title.trim()}>Pridať</button></div>
+  </form>;
 }
 
 function AddTaskForm({
