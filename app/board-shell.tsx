@@ -2343,6 +2343,12 @@ function TaskRow(props: TaskRowProps) {
     [props.task.title],
   );
 
+  function closeTaskSettings() {
+    setTaskSettingsOpen(false);
+    setAdding(false);
+    setSplitDraft(null);
+  }
+
   function splitTaskIntoSiblings() {
     const [firstChunk, ...siblingChunks] = titleChunks;
 
@@ -2358,7 +2364,11 @@ function TaskRow(props: TaskRowProps) {
   }
 
   return (
-    <div id={`task-${props.task.id}`} tabIndex={-1} className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties}>
+    <div id={`task-${props.task.id}`} tabIndex={-1} className="task-branch" style={{ '--depth': props.depth } as React.CSSProperties} onKeyDown={(event) => {
+      if (props.workspace && taskSettingsOpen && event.key === 'Escape') {
+        event.preventDefault(); event.stopPropagation(); closeTaskSettings();
+      }
+    }}>
       <div className={[
         'task-row',
         props.workspace ? 'workspace-task' : '',
@@ -2409,7 +2419,7 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
-        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`Upraviť prácu: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Skryť detaily práce' : 'Detaily a nastavenia práce'} onClick={() => setTaskSettingsOpen((open) => !open)}><span aria-hidden="true">{taskSettingsOpen ? '×' : '⋯'}</span></button>}
+        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy práce' : 'Upraviť prácu'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
         {(!props.workspace || taskSettingsOpen) && <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
