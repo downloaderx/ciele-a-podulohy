@@ -2092,10 +2092,12 @@ function GoalPanel(props: GoalPanelProps) {
 
         <div className="children-list">
           <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
+          {props.workspace ? <details className="workspace-add-task"><summary>+ Pridať prácu</summary><AddTaskForm label="Názov novej práce" onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)} /></details> : (
           <AddTaskForm
             label="Pridať podúlohu k cieľu"
             onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)}
           />
+          )}
         </div>
       </> : null}
     </article>
@@ -2293,7 +2295,9 @@ function TaskList(props: GoalPanelProps & { tasks: Task[]; parentId: string; dep
     const progress = calculateChoreProgress(props.tasks, cadence);
     if (!tasks.length && props.depth > 1) return null;
     return <section className="chore-task-group" key={cadence} aria-label={cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}>
-      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3><span>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</span><strong title={cadence === 'routine' ? 'Váha druhov prác vykonaných za posledných 7 dní' : 'Občasné práce sa pripomínajú podľa intervalu od posledného vykonania'}>{progress.total ? cadence === 'routine' ? `${progress.doneWeight}/${progress.totalWeight} bodov · ${progress.done}/${progress.total} prác` : `${progress.total} prác · podľa intervalov` : '—'}</strong></div>
+      <div className="chore-group-heading"><h3>{cadence === 'routine' ? 'Bežné chores' : 'Občasné chores'}</h3>
+        {props.workspace ? <details className="chore-group-details"><summary aria-label={cadence === 'routine' ? 'Prehľad bežných chores' : 'Prehľad občasných chores'} title="Prehľad skupiny">ⓘ</summary><p>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</p><p>{progress.total ? cadence === 'routine' ? `${progress.doneWeight}/${progress.totalWeight} bodov · ${progress.done}/${progress.total} prác` : `${progress.total} prác · podľa intervalov` : 'Zatiaľ bez prác'}</p></details> : <><span>{cadence === 'routine' ? 'Posledných 7 dní · podľa potreby' : 'Raz za dlhší čas'}</span><strong>{progress.total ? cadence === 'routine' ? `${progress.doneWeight}/${progress.totalWeight} bodov · ${progress.done}/${progress.total} prác` : `${progress.total} prác · podľa intervalov` : '—'}</strong></>}
+      </div>
       {tasks.length ? renderTasks(tasks) : <p className="chore-group-empty">{cadence === 'routine' ? 'Podúlohu sem zaradíš výberom „Bežné“ v jej riadku.' : 'Podúlohu sem zaradíš výberom „Občasné“ v jej riadku.'}</p>}
     </section>;
   })}</>;
@@ -2343,11 +2347,12 @@ function TaskRow(props: TaskRowProps) {
       <div className={[
         'task-row',
         props.workspace ? 'workspace-task' : '',
+        props.workspace && !hasChildren ? 'workspace-task-leaf' : '',
         taskSettingsOpen ? 'task-settings-open' : '',
         (isChore ? doneToday : props.task.done) ? 'done' : '',
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
-        <button
+        {(!props.workspace || hasChildren) && <button
           aria-label={hasChildren ? (expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
           aria-expanded={hasChildren ? expanded : undefined}
           title={hasChildren ? `${expanded ? 'Skryť' : 'Zobraziť'} vnorené podúlohy (${props.task.children.length})` : 'Bez vnorených podúloh'}
@@ -2357,7 +2362,7 @@ function TaskRow(props: TaskRowProps) {
           type="button"
         >
           <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
-        </button>
+        </button>}
         {isCompletable && isChore ? (
           <button type="button" className={`chore-complete-button${doneToday ? ' completed-today' : ''}`} aria-label="Zaznamenať vykonanie podúlohy" title={doneToday ? 'Dnes už vykonané — kliknutím zaznamenáš ďalšie vykonanie' : 'Vykonané teraz — môžeš označiť opakovane'} onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
         ) : isCompletable ? (
@@ -2387,8 +2392,8 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
-        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`Upraviť prácu: ${props.task.title}`} aria-expanded={taskSettingsOpen} onClick={() => setTaskSettingsOpen((open) => !open)}>Upraviť</button>}
-        <div className="task-actions">
+        {props.workspace && <button type="button" className="task-settings-toggle" aria-label={`Upraviť prácu: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Skryť detaily práce' : 'Detaily a nastavenia práce'} onClick={() => setTaskSettingsOpen((open) => !open)}><span aria-hidden="true">{taskSettingsOpen ? '×' : '⋯'}</span></button>}
+        {(!props.workspace || taskSettingsOpen) && <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
           </button>
@@ -2453,15 +2458,15 @@ function TaskRow(props: TaskRowProps) {
           people={props.people}
           updatedById={props.task.updatedById}
         />
-        </div>
-        <button
+        </div>}
+        {(!props.workspace || taskSettingsOpen) && <button
           aria-label="Presunúť podúlohu do koša"
           className="icon-button compact danger"
           onClick={() => props.onDelete(props.task.id)}
           type="button"
         >
           ×
-        </button>
+        </button>}
       </div>
 
       {splitDraft !== null ? (
