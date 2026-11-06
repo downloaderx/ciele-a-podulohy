@@ -253,3 +253,21 @@ test('a CAS collision schedules and performs a background retry', async () => {
     assert.ok(h.server.data.goals[0].children.some(t => t.id === 'CAS remote work')); assert.equal(h.api.conflicts.length, 0);
   } finally { await h.close(); }
 });
+
+
+test('today gratitude appears locally immediately and survives autosave and profile switches', async () => {
+  const { gratitudeDay } = require('../app/gratitude.ts');
+  const h = harness();
+  try {
+    await h.ready();
+    const day=gratitudeDay(), entry={id:'person-1:'+day,personId:'person-1',day,text:'Pokojný spoločný večer'};
+    await h.edit(s => { s.gratitudeEntries=[entry]; });
+    assert.deepEqual(h.data.gratitudeEntries,[entry]);
+    await h.api.retry();
+    assert.deepEqual(h.server.data.gratitudeEntries,[entry]);
+    await h.api.chooseProfile('person-2'); await tick();
+    assert.deepEqual(h.data.gratitudeEntries,[entry]);
+    await h.api.chooseProfile('person-1'); await tick();
+    assert.deepEqual(h.data.gratitudeEntries,[entry]);
+  } finally { await h.close(); }
+});

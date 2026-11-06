@@ -27,7 +27,10 @@ export function GratitudePanel({ entries, people, activePersonId, onSave }: Prop
       <time dateTime={day}>{gratitudeDateLabel(day)}</time>
     </div>
     <p className="gratitude-hint">Aj drobnosť sa počíta. Jeden zápis denne od každého, iba ak máte chuť.</p>
-    <ul className="gratitude-entries">
+    <GratitudeEditor key={`${activePersonId}-${day}-${own?.text ?? ''}`} entry={own} day={day} onSave={onSave} />
+    {own ? <p className="gratitude-saved" role="status">✓ Tvoj dnešný zápis je pridaný v prehľade nižšie.</p> : null}
+    <h3 className="gratitude-today-heading">Dnešné zápisy</h3>
+    <ul className="gratitude-entries" aria-label="Dnešné zápisy">
       {people.map((person) => {
         const entry = entries.find((item) => item.personId === person.id && item.day === day);
         return <li key={person.id} className={entry ? '' : 'gratitude-empty'}>
@@ -36,7 +39,6 @@ export function GratitudePanel({ entries, people, activePersonId, onSave }: Prop
         </li>;
       })}
     </ul>
-    <GratitudeEditor key={`${activePersonId}-${day}-${own?.text ?? ''}`} entry={own} day={day} onSave={onSave} />
     <details className="gratitude-history">
       <summary>Predchádzajúce dni ({historyDays.length})</summary>
       {historyDays.length === 0 ? <p>Tu nájdete zápisy z predchádzajúcich dní. Zatiaľ tu žiadne nie sú — dnešné sa sem presunú zajtra.</p> : null}
