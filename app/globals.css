@@ -3141,3 +3141,18 @@ select:focus {
  .simple-relationship-goal .task-branch .children-list { margin-left: 8px; padding-left: 6px; }
  .relationship-task.task-settings-open > .task-actions { display: flex; }
 }
+
+/* Give each rating its own full-width line on narrow screens. */
+@media (max-width: 760px) {
+  .importance-panel { margin: 12px 0 0; min-width: 0; }
+  .importance-heading { gap: 10px; }
+  .importance-heading > span { min-width: 0; overflow-wrap: anywhere; }
+  .importance-heading .info-button { flex-shrink: 0; }
+  .importance-rows { gap: 16px; }
+  .importance-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 8px; }
+  .importance-person { grid-column: 1; grid-row: 1; }
+  .importance-row > strong { grid-column: 2; grid-row: 1; }
+  .importance-row > .rating-stack { grid-column: 1 / -1; min-width: 0; gap: 5px; }
+  .importance-meter { min-width: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .importance-meter button { min-width: 0; width: 100%; height: 28px; min-height: 28px; }
+}
