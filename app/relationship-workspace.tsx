@@ -26,14 +26,17 @@ export function RelationshipWorkspace(props: Props) {
   const [view, setView] = useState('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedGoal = props.goals.find((goal) => 'topic:' + goal.id === view);
-  const pages = [
-    { id: 'rulebook', label: 'Rulebook' },
-    { id: 'poll', label: 'Anketa priorít' },
-    { id: 'gratitude', label: 'Vďačnosť' },
-    { id: 'activities', label: 'Spoločné aktivity' },
-    ...(props.calendar ? [{ id: 'calendar', label: 'Kalendár' }] : []),
-    { id: 'changes', label: 'Zmeny' },
+  const groups = [
+    { id: 'topics', label: 'Témy a ciele', pages: [{ id: 'poll', label: 'Anketa priorít' }] },
+    { id: 'agreements', label: 'Pravidlá a dohody', pages: [{ id: 'rulebook', label: 'Rulebook' }] },
+    { id: 'moments', label: 'Spoločné chvíle', pages: [
+      { id: 'gratitude', label: 'Vďačnosť' },
+      { id: 'activities', label: 'Spoločné aktivity' },
+      ...(props.calendar ? [{ id: 'calendar', label: 'Kalendár' }] : []),
+    ] },
+    { id: 'history', label: 'História', pages: [{ id: 'changes', label: 'Zmeny' }] },
   ];
+  const pages = groups.flatMap((group) => group.pages);
   const current = selectedGoal || ['overview', 'add', ...pages.map((page) => page.id)].includes(view) ? view : 'overview';
   const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? 'Pridať tému' : 'Prehľad');
   function navigate(next: string) { setView(next); setMenuOpen(false); }
@@ -45,11 +48,15 @@ export function RelationshipWorkspace(props: Props) {
     </div>
     <nav id="relationship-menu" className={`chores-menu${menuOpen ? ' is-open' : ''}`} aria-label="Menu vzťahových cieľov">
       <button type="button" aria-current={current === 'overview' ? 'page' : undefined} onClick={() => navigate('overview')}>Prehľad</button>
-      <span className="chores-menu-label">Dlhodobé ciele vo vzťahu</span>
-      {props.goals.map((goal) => <button type="button" key={goal.id} aria-current={selectedGoal?.id === goal.id ? 'page' : undefined} onClick={() => navigate('topic:' + goal.id)}>{goal.title}</button>)}
-      {props.canEdit && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ Pridať tému</button>}
-      <span className="chores-menu-label">Ďalšie stránky</span>
-      {pages.map((page) => <button type="button" key={page.id} aria-current={current === page.id ? 'page' : undefined} onClick={() => navigate(page.id)}>{page.label}</button>)}
+      {groups.map((group) => <section key={group.id} className={`relationship-menu-group relationship-menu-${group.id}`} aria-labelledby={`relationship-menu-${group.id}-heading`}>
+        <h3 id={`relationship-menu-${group.id}-heading`}>{group.label}</h3>
+        {group.id === 'topics' && <>
+          {props.goals.map((goal) => <button type="button" key={goal.id} aria-current={selectedGoal?.id === goal.id ? 'page' : undefined} onClick={() => navigate('topic:' + goal.id)}>{goal.title}</button>)}
+          {props.canEdit && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ Pridať tému</button>}
+        </>}
+        {group.pages.map((page) => <button type="button" key={page.id} aria-current={current === page.id ? 'page' : undefined} onClick={() => navigate(page.id)}>{page.label}</button>)}
+      </section>)}
+
     </nav>
     <div className="chores-content relationship-content">
       {!props.canEdit && <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p>}
