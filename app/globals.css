@@ -3080,3 +3080,18 @@ select:focus {
 .gratitude-entries p { color: var(--foreground); font-size: 14px; line-height: 1.5; margin: 5px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gratitude-entries strong { color: var(--foreground); font-size: 13px; }
 .gratitude-empty p { color: var(--muted); font-size: 12px; }
+
+/* Separate relationship functions by purpose, with soft colors in every theme. */
+#relationship-menu { gap: 10px; padding: 10px; }
+.relationship-menu-group { --menu-tone: #6d9ee8; display: grid; gap: 2px; min-width: 0; padding: 8px 5px 5px; border-radius: 14px; background: color-mix(in srgb, var(--menu-tone) 11%, var(--panel)); }
+.relationship-menu-group h3 { margin: 0; padding: 4px 9px 8px; font-size: 11px; font-weight: 800; letter-spacing: .055em; text-transform: uppercase; color: var(--muted); }
+.relationship-menu-agreements { --menu-tone: #ac88dd; }
+.relationship-menu-moments { --menu-tone: #e99ab2; }
+.relationship-menu-history { --menu-tone: #91a7a5; }
+#relationship-menu .relationship-menu-group button { min-height: 38px; padding: 8px 9px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+#relationship-menu .relationship-menu-group button:hover { background: color-mix(in srgb, var(--menu-tone) 19%, var(--panel)); }
+#relationship-menu .relationship-menu-group button[aria-current='page'] { background: color-mix(in srgb, var(--menu-tone) 30%, var(--panel)); color: var(--foreground); box-shadow: inset 3px 0 0 var(--menu-tone); }
+#relationship-menu .relationship-menu-group button:focus-visible { outline-color: var(--foreground); }
+#relationship-menu .relationship-menu-topics .chores-add-area { font-size: 12px; font-weight: 500; }
+#relationship-menu .relationship-menu-topics .chores-add-area + button { margin-top: 5px; }
+@media (max-width: 760px) { #relationship-menu { max-height: 65dvh; gap: 8px; } }
