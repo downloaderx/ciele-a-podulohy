@@ -2878,3 +2878,22 @@ select:focus {
 .header-trash-actions button, .trash-confirm-actions button { height: auto; min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-soft); color: var(--foreground); }
 .header-trash-actions .trash-delete-button, .trash-confirm-actions .trash-delete-button { color: var(--danger); border-color: currentColor; background: var(--panel); }
 .trash-confirm-actions { justify-content: flex-end; margin-top: 20px; }
+
+/* Chores show only the action and title until details are opened. */
+.workspace-task .task-settings-toggle { min-width: 36px; min-height: 36px; padding: 0; font-size: 22px; line-height: 1; }
+.workspace-task-leaf { grid-template-columns: 28px minmax(0, 1fr) 36px; }
+.workspace-task-leaf .task-title-tooltip-wrap { grid-column: 2; }
+.workspace-task-leaf .task-settings-toggle { grid-column: 3; }
+.workspace-task-leaf.task-settings-open > .danger { grid-column: 3; }
+.workspace-add-task > summary { cursor: pointer; padding: 10px 2px; color: var(--muted); font-size: 13px; }
+.workspace-add-task[open] > summary { margin-bottom: 8px; }
+.chore-group-details { margin-left: auto; font-size: 12px; color: var(--muted); max-width: 100%; }
+.chore-group-details > summary { cursor: pointer; list-style: none; padding: 5px 9px; font-size: 18px; }
+.chore-group-details > summary::-webkit-details-marker { display: none; }
+.chore-group-details[open] { flex-basis: 100%; margin-left: 0; }
+.chore-group-details[open] > summary { float: right; }
+.chore-group-details p { margin: 5px 2px; }
+@media (max-width: 760px) {
+  .workspace-task-leaf { grid-template-columns: 28px minmax(0, 1fr) 36px; }
+  .workspace-task .task-settings-toggle, .workspace-task > .chore-complete-button { min-height: 40px; }
+}
