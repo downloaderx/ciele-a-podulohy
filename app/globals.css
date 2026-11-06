@@ -3001,9 +3001,9 @@ select:focus {
 .todo-note-heading > button { flex-shrink: 0; min-width: 36px; min-height: 36px; padding: 5px 8px; border-radius: 10px; background: #ffffff40; color: var(--note-ink); font-size: 14px; }
 .todo-note input:not([type='checkbox']), .todo-note select { width: 100%; min-width: 0; border: 0; border-bottom: 1px solid #00000020; padding: 7px 4px; border-radius: 3px; background: transparent; color: var(--note-ink); }
 .todo-note-heading input { font-size: 18px; font-weight: 700; }
-.note-checklist { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 4px; max-height: 320px; overflow: auto; }
-.note-checklist li { display: flex; align-items: center; gap: 8px; min-height: 38px; }
-.note-task-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; padding: 7px 0; line-height: 1.4; }
+.note-checklist { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 2px; max-height: 320px; overflow: auto; }
+.note-checklist li { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.note-task-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; padding: 4px 0; line-height: 1.4; }
 .note-task-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: #466a58; }
 .note-task-check span { overflow-wrap: anywhere; }
 .note-checklist .is-done .note-task-check span { text-decoration: line-through; opacity: .55; }
