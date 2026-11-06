@@ -2897,3 +2897,19 @@ select:focus {
   .workspace-task-leaf { grid-template-columns: 28px minmax(0, 1fr) 36px; }
   .workspace-task .task-settings-toggle, .workspace-task > .chore-complete-button { min-height: 40px; }
 }
+
+.chore-selection-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-soft); }
+.chore-selection-toolbar label { display: flex; align-items: center; gap: 8px; }
+.chore-selection-toolbar span { color: var(--muted); font-size: 12px; }
+.chore-selection-toolbar button { padding: 8px 12px; border: 1px solid var(--danger); border-radius: 7px; color: var(--danger); background: var(--panel); }
+.chore-selection-toolbar input, .chore-select-checkbox { width: 20px; height: 20px; accent-color: var(--accent); }
+.workspace-task-selecting { grid-template-columns: 24px 32px 28px minmax(0, 1fr) 36px; }
+.workspace-task-selecting .chore-select-checkbox { grid-column: 1; grid-row: 1; }
+.workspace-task-selecting .task-title-tooltip-wrap { grid-column: 4; }
+.workspace-task-selecting .task-settings-toggle { grid-column: 5; }
+.workspace-task-selecting.workspace-task-leaf { grid-template-columns: 24px 28px minmax(0, 1fr) 36px; }
+.workspace-task-selecting.workspace-task-leaf .task-title-tooltip-wrap { grid-column: 3; }
+.workspace-task-selecting.workspace-task-leaf .task-settings-toggle { grid-column: 4; }
+.workspace-goal .children-list > .workspace-add-task { margin-bottom: 10px; }
+.add-task.add-task-no-deadline { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 760px) { .chore-selection-toolbar { align-items: stretch; flex-direction: column; } }

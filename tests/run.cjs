@@ -946,3 +946,14 @@ test('permanent deletion is limited to trashed items on editable boards', () => 
   assert.equal(saved.goals[0].title,nested.goals[0].title);
   const invalid=state(); invalid.goals[0].purgedAt='bad date'; assert.equal(isValidState(invalid),false);
 });
+
+
+test('bulk trash selection removes only topmost selected items and skips deleted content', () => {
+  const { selectedTrashRoots } = require('../app/trash.ts');
+  const area=goal('area',{children:[task('parent',{children:[task('child')]}),task('sibling'),task('deleted',{deletedAt:'2026-11-01T10:00:00Z'})]});
+  assert.deepEqual(selectedTrashRoots(area,['parent','child','sibling','deleted','missing']),['parent','sibling']);
+  assert.deepEqual(selectedTrashRoots(area,['area','child']),['area']);
+  assert.deepEqual(selectedTrashRoots(area,['child']),['child']);
+  assert.deepEqual(selectedTrashRoots(area,[]),[]);
+  assert.deepEqual(selectedTrashRoots({...area,deletedAt:'2026-11-01T10:00:00Z'},['area','child']),[]);
+});

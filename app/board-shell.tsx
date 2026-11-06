@@ -1,6 +1,6 @@
 'use client';
 
-import { purgeTask } from './trash';
+import { purgeTask, selectedTrashRoots } from './trash';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
@@ -1861,6 +1861,7 @@ function ProjectProgressStrip({
 
 type GoalPanelProps = {
   workspace?: boolean;
+  choreSelection?: { selectedIds: string[]; onToggle: (id: string) => void };
   revealChore?: ChoreReveal | null;
   activePersonId: string;
   boardSpaceId: BoardSpaceId;
@@ -1888,6 +1889,12 @@ type GoalPanelProps = {
 
 function GoalPanel(props: GoalPanelProps) {
   const [areaSettingsOpen, setAreaSettingsOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selectedRoots = selectedTrashRoots(props.goal, selectedIds);
+  const choreSelection = props.workspace && areaSettingsOpen ? {
+    selectedIds,
+    onToggle: (id: string) => setSelectedIds((ids) => ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]),
+  } : undefined;
   const [manuallyExpanded, setExpanded] = useState(false);
   const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
   const expanded = props.workspace || manuallyExpanded || Boolean(props.revealChore && props.revealChore !== dismissedReveal && props.revealChore.path.includes(props.goal.id));
@@ -1980,7 +1987,7 @@ function GoalPanel(props: GoalPanelProps) {
           ) : null}
           </> : null}
         </div>
-        {props.workspace && <button type="button" className="area-settings-toggle" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>Nastavenia oblasti</button>}
+        {props.workspace && <button type="button" className="area-settings-toggle" aria-expanded={areaSettingsOpen} onClick={() => { setAreaSettingsOpen((open) => !open); setSelectedIds([]); }}>{areaSettingsOpen ? 'Dokončiť úpravy' : 'Upraviť oblasť'}</button>}
         {!(props.workspace && category === 'chore') && <div className={isRelationship ? 'relationship-summary-badge' : 'progress-badge'}>
           {isRelationship ? <SatisfactionSummary goal={props.goal} people={props.people} /> : <>
           {category === 'chore' ? <><span>za posledných 7 dní · {progress.done}/{progress.total} prác</span>
@@ -1992,7 +1999,7 @@ function GoalPanel(props: GoalPanelProps) {
           {category !== 'chore' ? <span>{progress.done}/{progress.total}</span> : null}
           </>}
         </div>}
-        {expanded ? <button
+        {expanded && !props.workspace ? <button
           aria-label="Presunúť plán do koša"
           className="icon-button danger"
           onClick={() => props.onDelete(props.goal.id)}
@@ -2003,7 +2010,7 @@ function GoalPanel(props: GoalPanelProps) {
       </div>
 
       {expanded ? <>
-      <div className="goal-meta">
+      {!props.workspace && <div className="goal-meta">
         {category !== 'chore' ? <label className="deadline-field">Termín
           <input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} />
         </label> : null}
@@ -2038,7 +2045,7 @@ function GoalPanel(props: GoalPanelProps) {
           </select>
         </label>
         }
-        <label className="category-select">
+        {!props.workspace && <label className="category-select">
           Kategória
           <select
             onChange={(event) => props.onChangeCategory(props.goal.id, event.target.value as GoalCategory)}
@@ -2050,7 +2057,7 @@ function GoalPanel(props: GoalPanelProps) {
               </option>
             ))}
           </select>
-        </label>
+        </label>}
         {isRecurring ? (
           <label className="category-select recurrence-select">
             Opakovať
@@ -2063,7 +2070,7 @@ function GoalPanel(props: GoalPanelProps) {
             dní
           </label>
         ) : null}
-      </div>
+      </div>}
 
       {isRecurring ? (
         <div className="recurrence-summary">
@@ -2091,8 +2098,16 @@ function GoalPanel(props: GoalPanelProps) {
       /> : null}
 
         <div className="children-list">
-          <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
-          {props.workspace ? <details className="workspace-add-task"><summary>+ Pridať prácu</summary><AddTaskForm label="Názov novej práce" onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)} /></details> : (
+          {props.workspace && <>
+            <details className="workspace-add-task" open={areaSettingsOpen || undefined}><summary>+ Pridať prácu</summary><AddTaskForm showDeadline={false} label="Názov novej práce" onSubmit={(title) => props.onAddSubtask(props.goal.id, title)} /></details>
+            {choreSelection && <div className="chore-selection-toolbar" role="group" aria-label="Výber položiek na presunutie do koša">
+              <label><input type="checkbox" checked={selectedIds.includes(props.goal.id)} onChange={() => choreSelection.onToggle(props.goal.id)} />Vybrať celú oblasť aj s prácami</label>
+              <span>{selectedRoots.length ? `Vybrané: ${selectedRoots.length}` : 'Vyber práce pomocou štvorčekov pri ich názvoch.'}</span>
+              <button type="button" disabled={!selectedRoots.length} onClick={() => { selectedRoots.forEach(props.onDelete); setSelectedIds([]); }}>Presunúť vybrané do koša</button>
+            </div>}
+          </>}
+          <TaskList {...props} choreSelection={choreSelection} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
+          {!props.workspace && (
           <AddTaskForm
             label="Pridať podúlohu k cieľu"
             onSubmit={(title, dueAt) => props.onAddSubtask(props.goal.id, title, dueAt)}
@@ -2348,10 +2363,12 @@ function TaskRow(props: TaskRowProps) {
         'task-row',
         props.workspace ? 'workspace-task' : '',
         props.workspace && !hasChildren ? 'workspace-task-leaf' : '',
+        props.choreSelection ? 'workspace-task-selecting' : '',
         taskSettingsOpen ? 'task-settings-open' : '',
         (isChore ? doneToday : props.task.done) ? 'done' : '',
         isCompletable ? '' : 'no-checkbox',
       ].filter(Boolean).join(' ')}>
+        {props.choreSelection && <input className="chore-select-checkbox" type="checkbox" aria-label={`Vybrať na presunutie do koša: ${props.task.title}`} checked={props.choreSelection.selectedIds.includes(props.task.id)} onChange={() => props.choreSelection?.onToggle(props.task.id)} />}
         {(!props.workspace || hasChildren) && <button
           aria-label={hasChildren ? (expanded ? 'Skryť vnorené podúlohy' : 'Zobraziť vnorené podúlohy') : 'Bez vnorených podúloh'}
           aria-expanded={hasChildren ? expanded : undefined}
@@ -2459,7 +2476,7 @@ function TaskRow(props: TaskRowProps) {
           updatedById={props.task.updatedById}
         />
         </div>}
-        {(!props.workspace || taskSettingsOpen) && <button
+        {!props.workspace && <button
           aria-label="Presunúť podúlohu do koša"
           className="icon-button compact danger"
           onClick={() => props.onDelete(props.task.id)}
@@ -2493,6 +2510,7 @@ function TaskRow(props: TaskRowProps) {
 
       {adding ? (
         <AddTaskForm
+          showDeadline={!isChore}
           label="Názov ďalšej podúlohy"
           onSubmit={(title, dueAt) => {
             props.onAddSubtask(props.task.id, title, dueAt);
@@ -2541,8 +2559,10 @@ function ItemMeta({
 function AddTaskForm({
   label,
   onSubmit,
+  showDeadline = true,
 }: {
   label: string;
+  showDeadline?: boolean;
   onSubmit: (title: string, dueAt?: string) => void;
 }) {
   const [title, setTitle] = useState('');
@@ -2550,11 +2570,11 @@ function AddTaskForm({
 
   return (
     <form
-      className="add-task"
+      className={`add-task${showDeadline ? '' : ' add-task-no-deadline'}`}
       onSubmit={(event) => {
         event.preventDefault();
         if (!title.trim()) return;
-        onSubmit(title, dueAt || undefined);
+        onSubmit(title, showDeadline ? dueAt || undefined : undefined);
         setTitle('');
         setDueAt('');
       }}
@@ -2567,9 +2587,9 @@ function AddTaskForm({
           value={title}
         />
       </label>
-      <label>Termín (voliteľný)
+      {showDeadline && <label>Termín (voliteľný)
         <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
-      </label>
+      </label>}
       <button type="submit">Pridať</button>
     </form>
   );
