@@ -901,3 +901,48 @@ test('automatic merge archives both alternatives and detects a full local cache'
  const invalid=state(); invalid.goals[0].children=null;
  assert.equal(isValidState(readTransferData({current:invalid})), false);
  });
+
+
+test('permanent trash deletion erases content and survives stale clients and backup imports', () => {
+  const { purgeTask } = require('../app/trash.ts');
+  const before = state(); before.goals[0].deletedAt = '2026-11-01T10:00:00Z';
+  before.goals[0].description = 'Private old description';
+  before.goals[0].children = [task('erased-child', {title:'Old child title', choreCompletions:[{id:'old-run',personId:'person-1',completedAt:'2026-10-30T10:00:00Z'}]})];
+  const requested=clone(before); requested.goals[0]=purgeTask(requested.goals[0], '2026-11-05T10:00:00Z');
+  assert.equal(isValidState(requested),true);
+  const saved=authorizedState(before,requested,'person-1');
+  assert.ok(saved.goals[0].purgedAt);
+  assert.equal(saved.goals[0].title,''); assert.equal(saved.goals[0].description,'');
+  assert.equal(saved.goals[0].children[0].title,'');
+  assert.equal(saved.goals[0].children[0].choreCompletions,undefined);
+  assert.equal(stableJson(saved.goals.slice(1)),stableJson(before.goals.slice(1)));
+  const stale=clone(before); stale.goals[0].deletedAt=undefined;
+  stale.goals[0].children[0].title='Resurrected title';
+  const resaved=authorizedState(saved,stale,'person-2');
+  assert.equal(resaved.goals[0].title,''); assert.ok(resaved.goals[0].deletedAt);
+  assert.equal(resaved.goals[0].children[0].title,'');
+  const removed=clone(saved); removed.goals=removed.goals.slice(1);
+  assert.ok(authorizedState(saved,removed,'person-1').goals.find(g=>g.id==='shared').purgedAt);
+  for (const [local,remote] of [[stale,saved],[saved,stale]]) {
+    const merged=mergeStates(before,local,remote,'local',true).state;
+    assert.ok(merged.goals[0].purgedAt); assert.ok(merged.goals[0].deletedAt);
+    assert.equal(merged.goals[0].title,''); assert.equal(merged.goals[0].children[0].title,'');
+    assert.equal(isValidState(merged),true);
+  }
+});
+
+test('permanent deletion is limited to trashed items on editable boards', () => {
+  const { purgeTask } = require('../app/trash.ts');
+  const before=state(), attempt=clone(before);
+  attempt.goals[0]=purgeTask(attempt.goals[0],'2026-11-05T10:00:00Z');
+  assert.throws(()=>authorizedState(before,attempt,'person-1'),/iba položku v koši/);
+  before.goals[2].deletedAt='2026-11-01T10:00:00Z';
+  const hidden=clone(before); hidden.goals[2]=purgeTask(hidden.goals[2],'2026-11-05T10:00:00Z');
+  assert.throws(()=>authorizedState(before,hidden,'person-1'),/iba na prezeranie/);
+  const nested=state(); nested.goals[0].children=[task('trashed-child',{deletedAt:'2026-11-01T10:00:00Z'}),task('live-child')];
+  const change=clone(nested); change.goals[0].children[0]=purgeTask(change.goals[0].children[0],'2026-11-05T10:00:00Z');
+  const saved=authorizedState(nested,change,'person-1');
+  assert.ok(saved.goals[0].children[0].purgedAt); assert.equal(saved.goals[0].children[1].title,'live-child');
+  assert.equal(saved.goals[0].title,nested.goals[0].title);
+  const invalid=state(); invalid.goals[0].purgedAt='bad date'; assert.equal(isValidState(invalid),false);
+});

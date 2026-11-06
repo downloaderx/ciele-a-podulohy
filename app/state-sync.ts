@@ -1,3 +1,4 @@
+import { purgeTask } from './trash';
 import { validGratitudeDay } from './gratitude';
 import type { AppStateData, Goal, Task } from './page-model';
 
@@ -26,7 +27,7 @@ export function isValidState(value: unknown): value is AppStateData {
         (task.choreCadence !== undefined && !['routine', 'occasional'].includes(String(task.choreCadence))) ||
         (task.choreIntervalDays !== undefined && (typeof task.choreIntervalDays !== 'number' || !Number.isInteger(task.choreIntervalDays) || task.choreIntervalDays < 1 || task.choreIntervalDays > 3650)) ||
         (task.choreWeight !== undefined && ![1, 3, 5].includes(task.choreWeight as number)) ||
-        !date(task.dueAt) || !date(task.deletedAt) || !Array.isArray(task.children)) return false;
+        !date(task.purgedAt) || (task.purgedAt !== undefined && !task.deletedAt) || !date(task.dueAt) || !date(task.deletedAt) || !Array.isArray(task.children)) return false;
     if (task.choreCompletions !== undefined) {
       if (!Array.isArray(task.choreCompletions) || task.choreCompletions.length > 200) return false;
       const completionIds = new Set<string>();
@@ -121,6 +122,8 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
   const conflicts: MergeConflict[] = [];
   const choice = (path: string) => typeof prefer === 'string' ? prefer : prefer[path] ?? 'local';
   function merge(b: unknown, l: unknown, r: unknown, path: string): unknown {
+    const erased = [b, l, r].find((item) => record(item) && typeof item.purgedAt === 'string' && Array.isArray(item.children));
+    if (erased) return purgeTask(erased as Task, (erased as Task).purgedAt!);
     if (same(l, b)) return r;
     if (same(r, b) || same(l, r)) return l;
     if (record(b) && record(l) && record(r) && typeof b.id === 'string' &&

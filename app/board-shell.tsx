@@ -1,5 +1,6 @@
 'use client';
 
+import { purgeTask } from './trash';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
@@ -361,6 +362,7 @@ export default function Home() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [randomActivityId, setRandomActivityId] = useState<string | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [pendingPurgeId, setPendingPurgeId] = useState<string | null>(null);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [priorityRefreshKey, setPriorityRefreshKey] = useState(0);
   const state = useMemo(() => ({ goals, people, activePersonId, activityLog, goalRankings, gratitudeEntries }), [goals, people, activePersonId, activityLog, goalRankings, gratitudeEntries]);
@@ -410,7 +412,7 @@ export default function Home() {
   );
   const trashedGoals = useMemo(() => goals
     .filter((goal) => canEditBoard && getGoalSpaceId(goal) === boardSpaceId)
-    .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)), [boardSpaceId, goals, canEditBoard]);
+    .flatMap((goal) => goal.deletedAt ? [goal] : allTasks(goal).filter((task) => task.deletedAt)).filter((task) => !task.purgedAt), [boardSpaceId, goals, canEditBoard]);
 
   const categoryTotals = useMemo(() => ({
     plan: calculateCategoryProgress(boardGoals, 'plan', choreDay),
@@ -827,8 +829,16 @@ export default function Home() {
 
   function restoreGoal(goalId: string) {
     const task = findTaskById(goals, goalId);
+    if (!task?.deletedAt || task.purgedAt) return;
     setGoals((current) => updateTaskTree(current, goalId, (item) => ({ ...item, deletedAt: undefined, updatedById: activePersonId })));
     if (task) addActivity('obnovil(a) položku z koša', task.title);
+  }
+
+  function permanentlyDeleteTask(taskId: string) {
+    if (!canEditBoard || !trashedGoals.some((task) => task.id === taskId)) return;
+    const at = new Date().toISOString();
+    setGoals((current) => updateTaskTree(current, taskId, (task) => task.deletedAt && !task.purgedAt ? purgeTask(task, at) : task));
+    setPendingPurgeId(null);
   }
 
   function rateGoalSatisfaction(goalId: string, score: number | null) {
@@ -1169,7 +1179,7 @@ export default function Home() {
             <button type="button" className="header-menu-action" onClick={() => void reminders.toggle()}>{reminders.enabled ? 'Vypnúť pripomienky' : 'Zapnúť pripomienky'}</button>
             {reminders.message && <p className="header-permission-note" role="status">{reminders.message}</p>}
             <button type="button" className="header-menu-action" aria-expanded={trashOpen} onClick={() => setTrashOpen((open) => !open)}>Kôš plánov ({trashedGoals.length})</button>
-            {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <button type="button" key={goal.id} className="header-menu-action" onClick={() => restoreGoal(goal.id)}><span>{goal.title}</span><small>Obnoviť</small></button>) : <p>Kôš je prázdny.</p>}</section>}
+            {trashOpen && <section className="header-trash-panel" aria-label="Kôš plánov">{trashedGoals.length ? trashedGoals.map((goal) => <div key={goal.id} className="header-trash-item"><span>{goal.title}</span><div className="header-trash-actions"><button type="button" onClick={() => restoreGoal(goal.id)}>Obnoviť</button><button type="button" className="trash-delete-button" aria-label={`Odstrániť natrvalo: ${goal.title}`} onClick={() => { setPendingPurgeId(goal.id); setSettingsOpen(false); }}>Odstrániť natrvalo</button></div></div>) : <p>Kôš je prázdny.</p>}</section>}
             <details className="header-setting-group"><summary>Zálohy a obnovenie dát</summary>
               <button type="button" className="header-menu-action" onClick={exportData}>Stiahnuť zálohu</button>
               <button type="button" className="header-menu-action" onClick={() => { openTransferModal(); setSettingsOpen(false); }}>Obnoviť zo súboru</button>
@@ -1181,6 +1191,12 @@ export default function Home() {
         </div>
       </section>
 
+      {pendingPurgeId && <div className="modal-backdrop" role="presentation"><section className="dialog-card data-modal" role="alertdialog" aria-modal="true" aria-labelledby="purge-title" aria-describedby="purge-description">
+        <h2 id="purge-title">Odstrániť položku natrvalo?</h2>
+        <p><strong>{trashedGoals.find((task) => task.id === pendingPurgeId)?.title}</strong></p>
+        <p id="purge-description">Položka aj všetky jej podúlohy sa odstránia z koša. Obnovenie z koša už nebude možné. Staršie zálohy zostanú zachované.</p>
+        <div className="trash-confirm-actions"><button type="button" onClick={() => setPendingPurgeId(null)}>Zrušiť</button><button type="button" className="trash-delete-button" disabled={!trashedGoals.some((task) => task.id === pendingPurgeId)} onClick={() => permanentlyDeleteTask(pendingPurgeId)}>Odstrániť natrvalo</button></div>
+      </section></div>}
       {backupsOpen ? <BackupPanel onClose={() => setBackupsOpen(false)} onChoose={(data, label) => {
         openTransferModal(); setBackupsOpen(false); setImportText(JSON.stringify({ version: 1, data })); setImportFileName(label);
       }} /> : null}
