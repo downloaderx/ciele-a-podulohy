@@ -508,7 +508,7 @@ export default function Home() {
     return goalId;
   }
 
-  function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo', choreCadence?: ChoreCadence, choreWeight?: ChoreWeight) {
+  function addSubtask(parentId: string, title: string, dueAt?: string, kind: TaskKind = 'todo', choreCadence?: ChoreCadence, choreWeight?: ChoreWeight, choreIntervalDays?: number) {
     const trimmed = title.trim();
     const normalizedDueAt = normalizeDateTimeInput(dueAt);
 
@@ -533,6 +533,7 @@ export default function Home() {
             kind,
             choreCadence: choreCadence ?? task.choreCadence,
             choreWeight,
+            choreIntervalDays,
             children: [],
           },
         ],
@@ -1866,7 +1867,7 @@ type GoalPanelProps = {
   activePersonId: string;
   boardSpaceId: BoardSpaceId;
   goal: Goal;
-  onAddSubtask: (parentId: string, title: string, dueAt?: string, kind?: TaskKind, choreCadence?: ChoreCadence, choreWeight?: ChoreWeight) => void;
+  onAddSubtask: (parentId: string, title: string, dueAt?: string, kind?: TaskKind, choreCadence?: ChoreCadence, choreWeight?: ChoreWeight, choreIntervalDays?: number) => void;
   onChangeCategory: (goalId: string, category: GoalCategory) => void;
   onChangeRecurrence: (goalId: string, recurrenceDays: number) => void;
   onChangeTaskKind: (taskId: string, kind: TaskKind) => void;
@@ -2099,7 +2100,7 @@ function GoalPanel(props: GoalPanelProps) {
 
         <div className="children-list">
           {props.workspace && <>
-            <details className="workspace-add-task" open={areaSettingsOpen || undefined}><summary>+ Pridať prácu</summary><AddTaskForm showDeadline={false} label="Názov novej práce" onSubmit={(title) => props.onAddSubtask(props.goal.id, title)} /></details>
+            <details className="workspace-add-task" open={areaSettingsOpen || undefined}><summary>+ Pridať prácu</summary><AddTaskForm chore showDeadline={false} label="Názov novej práce" onSubmit={(title, dueAt, settings) => props.onAddSubtask(props.goal.id, title, dueAt, 'todo', settings?.cadence, settings?.weight, settings?.intervalDays)} /></details>
             {choreSelection && <div className="chore-selection-toolbar" role="group" aria-label="Výber položiek na presunutie do koša">
               <label><input type="checkbox" checked={selectedIds.includes(props.goal.id)} onChange={() => choreSelection.onToggle(props.goal.id)} />Vybrať celú oblasť aj s prácami</label>
               <span>{selectedRoots.length ? `Vybrané: ${selectedRoots.length}` : 'Vyber práce pomocou štvorčekov pri ich názvoch.'}</span>
@@ -2521,9 +2522,11 @@ function TaskRow(props: TaskRowProps) {
       {adding ? (
         <AddTaskForm
           showDeadline={!isChore}
+          chore={isChore}
+          initialChoreCadence={props.task.choreCadence}
           label="Názov ďalšej podúlohy"
-          onSubmit={(title, dueAt) => {
-            props.onAddSubtask(props.task.id, title, dueAt);
+          onSubmit={(title, dueAt, settings) => {
+            props.onAddSubtask(props.task.id, title, dueAt, 'todo', settings?.cadence, settings?.weight, settings?.intervalDays);
             setExpanded(true);
             setAdding(false);
           }}
@@ -2570,21 +2573,32 @@ function AddTaskForm({
   label,
   onSubmit,
   showDeadline = true,
+  chore = false,
+  initialChoreCadence = 'routine',
 }: {
   label: string;
   showDeadline?: boolean;
-  onSubmit: (title: string, dueAt?: string) => void;
+  chore?: boolean;
+  initialChoreCadence?: ChoreCadence;
+  onSubmit: (title: string, dueAt?: string, settings?: { cadence: ChoreCadence; weight: ChoreWeight; intervalDays?: number }) => void;
 }) {
   const [title, setTitle] = useState('');
   const [dueAt, setDueAt] = useState('');
+  const [cadence, setCadence] = useState<ChoreCadence>(initialChoreCadence);
+  const [weight, setWeight] = useState<ChoreWeight>(1);
+  const [intervalDays, setIntervalDays] = useState('30');
+  const interval = Number(intervalDays);
+  const validInterval = !chore || cadence !== 'occasional' || (Number.isInteger(interval) && interval >= 1 && interval <= 3650);
 
   return (
     <form
-      className={`add-task${showDeadline ? '' : ' add-task-no-deadline'}`}
+      className={`add-task${showDeadline ? '' : ' add-task-no-deadline'}${chore ? ' add-chore-form' : ''}`}
       onSubmit={(event) => {
         event.preventDefault();
-        if (!title.trim()) return;
-        onSubmit(title, showDeadline ? dueAt || undefined : undefined);
+        if (!title.trim() || !validInterval) return;
+        onSubmit(title, showDeadline ? dueAt || undefined : undefined, chore ? {
+          cadence, weight, intervalDays: cadence === 'occasional' ? interval : undefined,
+        } : undefined);
         setTitle('');
         setDueAt('');
       }}
@@ -2600,7 +2614,12 @@ function AddTaskForm({
       {showDeadline && <label>Termín (voliteľný)
         <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
       </label>}
-      <button type="submit">Pridať</button>
+      {chore && <div className="new-chore-parameters">
+        <label>Častosť<select value={cadence} onChange={(event) => setCadence(event.target.value as ChoreCadence)}><option value="routine">Bežná</option><option value="occasional">Občasná</option></select></label>
+        <label>Náročnosť<select value={weight} onChange={(event) => setWeight(Number(event.target.value) as ChoreWeight)}><option value={1}>Drobná (1)</option><option value={3}>Stredná (3)</option><option value={5}>Veľká (5)</option></select></label>
+        {cadence === 'occasional' && <label>Opakovať každých (dní)<input type="number" min={1} max={3650} step={1} required value={intervalDays} onChange={(event) => setIntervalDays(event.target.value)} /></label>}
+      </div>}
+      <button type="submit" disabled={chore && (!title.trim() || !validInterval)}>Pridať</button>
     </form>
   );
 }
