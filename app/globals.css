@@ -3074,3 +3074,9 @@ select:focus {
  .rulebook-pick blockquote { font-size: 18px; }
  .rulebook-list li { padding: 12px; }
 }
+
+.gratitude-saved { color: var(--foreground); background: var(--panel-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 12px 0; }
+.gratitude-today-heading { margin: 20px 0 10px; font-size: 16px; }
+.gratitude-entries p { color: var(--foreground); font-size: 14px; line-height: 1.5; margin: 5px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gratitude-entries strong { color: var(--foreground); font-size: 13px; }
+.gratitude-empty p { color: var(--muted); font-size: 12px; }
