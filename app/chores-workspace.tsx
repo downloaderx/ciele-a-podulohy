@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ChoreRandomizer } from './chore-randomizer';
 import type { ChoreReveal } from './chore-randomizer-model';
-import { calculateChoreProgress, choreAttentionCount, type Goal } from './page-model';
+import { calculateChoreProgress, choreAttentionCount, type ActivityItem, type Goal } from './page-model';
+import { rankChoreAreas } from './chores-menu-model';
 import { pantrySource } from './chores-workspace-model';
 
 type Props = {
   goals: Goal[];
+  activityLog: ActivityItem[];
   storageKey: string;
   canEdit: boolean;
   renderGoal: (goal: Goal) => ReactNode;
@@ -31,6 +33,7 @@ export function ChoresWorkspace(props: Props) {
   const routine = calculateChoreProgress(tasks, 'routine');
   const occasionalAttention = choreAttentionCount(tasks, new Date(), 'occasional');
   const pantry = pantrySource(props.goals);
+  const menuAreas = useMemo(() => rankChoreAreas(props.goals, props.activityLog), [props.goals, props.activityLog]);
 
   function navigate(next: string) {
     setView(next); setMenuOpen(false);
@@ -44,10 +47,12 @@ export function ChoresWorkspace(props: Props) {
     </div>
     <nav id="chores-menu" className={`chores-menu${menuOpen ? ' is-open' : ''}`} aria-label="Menu Chores">
       <button type="button" aria-current={current === 'overview' ? 'page' : undefined} onClick={() => navigate('overview')}>Prehľad</button>
-      <span className="chores-menu-label">Práce podľa oblastí</span>
-      {props.goals.map((goal) => <button type="button" key={goal.id} aria-current={selectedGoal?.id === goal.id ? 'page' : undefined} onClick={() => navigate('area:' + goal.id)}>
-        <span>{goal.title}</span>
-        {choreAttentionCount(goal.children, new Date(), 'occasional') > 0 && <span className="chores-menu-alert" title="Občasné práce na kontrolu">!</span>}
+      <span className="chores-menu-label" title="Poradie vychádza hlavne z podielu prác bez aktuálnej pripomienky. Vykonania a uložené úpravy za posledných 30 dní majú menšiu váhu.">Oblasti podľa starostlivosti</span>
+      <span className="chores-menu-legend" aria-hidden="true"><span>Viac vybaveného</span><span>Viac na kontrolu</span></span>
+      {menuAreas.map((area) => <button type="button" key={area.goal.id} className="chores-area-link" data-empty={area.total ? undefined : true} style={{ '--care-share': `${Math.round(area.careShare * 100)}%` } as CSSProperties} aria-current={selectedGoal?.id === area.goal.id ? 'page' : undefined} onClick={() => navigate('area:' + area.goal.id)}
+        title={area.total ? `V poriadku: ${area.maintained}/${area.total} prác · bežné na pripomenutie: ${area.routineAttention} · občasné na kontrolu: ${area.occasionalAttention} · nedávna aktivita: ${area.activity}` : 'Zatiaľ bez prác'}>
+        <span>{area.goal.title}</span>
+        {area.occasionalAttention > 0 ? <span className="chores-menu-alert" aria-label="Občasné práce na kontrolu">!</span> : area.routineAttention > 0 ? <span className="chores-menu-alert chores-menu-routine" aria-label="Bežné práce na pripomenutie">↻</span> : null}
       </button>)}
       {!props.goals.length && <p>Zatiaľ bez oblastí.</p>}
       {props.canEdit && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ Pridať oblasť</button>}

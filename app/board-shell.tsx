@@ -1262,6 +1262,7 @@ export default function Home() {
       </section>}
 
       {isChoresPage ? <ChoresWorkspace
+        activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
         storageKey={'foxies-chores-menu:' + activePersonId + ':' + boardSpaceId}

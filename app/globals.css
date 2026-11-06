@@ -2949,3 +2949,13 @@ select:focus {
   .chores-shell .chore-task-group, .chores-shell .task-branch, .chores-shell .nested { gap: 6px; }
   .chores-shell .chore-group-heading { padding-top: 10px; }
 }
+
+.chores-menu-legend { display: flex; justify-content: space-between; gap: 8px; padding: 0 8px 7px; color: var(--muted); font-size: 10px; }
+.chores-menu-legend span::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; background: var(--accent); }
+.chores-menu-legend span:last-child::before { background: #dfa74e; }
+.chores-menu .chores-area-link { border: 0; border-radius: 12px; background: color-mix(in srgb, color-mix(in srgb, var(--accent) var(--care-share), #dfa74e) 14%, var(--panel)); }
+.chores-menu .chores-area-link:hover { background: color-mix(in srgb, color-mix(in srgb, var(--accent) var(--care-share), #dfa74e) 24%, var(--panel)); }
+.chores-menu .chores-area-link[aria-current='page'] { background: var(--accent); color: var(--button-ink, #07111f); }
+.chores-menu .chores-menu-routine { color: #24578c; background: #dbeeff; }
+
+.chores-menu .chores-area-link[data-empty]:not([aria-current='page']) { background: var(--panel-soft); }
