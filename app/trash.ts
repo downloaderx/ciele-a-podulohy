@@ -12,3 +12,11 @@ export function purgeTask<T extends Task>(task: T, at: string): T {
       importanceByPerson: {}, feasibilityByPerson: {} } : {}),
   } as T;
 }
+
+// Selecting a parent already includes its descendants; never delete them twice.
+export function selectedTrashRoots(root: Task, selectedIds: string[]): string[] {
+  const selected = new Set(selectedIds);
+  const walk = (task: Task): string[] => task.deletedAt || task.purgedAt ? []
+    : selected.has(task.id) ? [task.id] : task.children.flatMap(walk);
+  return walk(root);
+}
