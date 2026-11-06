@@ -2928,3 +2928,24 @@ select:focus {
 .new-chore-parameters label { flex: 1 1 140px; min-width: 0; display: grid; gap: 5px; }
 .new-chore-parameters select, .new-chore-parameters input { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--foreground); font: inherit; }
 @media (max-width: 540px) { .add-task.add-chore-form { grid-template-columns: minmax(0, 1fr); } .new-chore-parameters label { flex-basis: 110px; } }
+
+/* Soft, borderless chore rows; alternating theme colors separate each task. */
+.chores-shell .workspace-task { border: 0; border-radius: 16px; box-shadow: none; min-height: 50px; padding: 7px 10px; gap: 7px; }
+.chores-shell .workspace-goal .children-list { padding: 8px 0 0; gap: 12px; }
+.chores-shell .chore-task-group, .chores-shell .task-branch, .chores-shell .nested { gap: 6px; }
+.chores-shell .chore-group-heading { border-bottom: 0; padding: 12px 4px 2px; }
+.chores-shell .workspace-task > .icon-button, .chores-shell .workspace-task .task-actions > .icon-button { border: 0; border-radius: 10px; box-shadow: none; }
+.chores-shell .workspace-task .task-settings-toggle { border: 0; border-radius: 12px; background: transparent; min-height: 36px; color: var(--muted); }
+.chores-shell .workspace-task .task-settings-toggle:hover, .chores-shell .workspace-task .task-settings-toggle[aria-expanded='true'] { background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--foreground); }
+.chores-shell .workspace-task > .chore-complete-button { width: 28px; min-height: 36px; height: 36px; margin: 0; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--panel) 82%, transparent); color: var(--muted); }
+.chores-shell .workspace-task > .chore-complete-button.completed-today { background: var(--accent); color: var(--button-ink, #07111f); }
+.chores-shell .workspace-task .task-title { padding: 3px 0; }
+.chores-shell .workspace-task:focus-within { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
+.chores-shell .workspace-task.task-settings-open { padding: 9px 10px; }
+@media (max-width: 760px) {
+  .chores-shell .workspace-task { min-height: 48px; padding: 6px 8px; gap: 6px; border-radius: 14px; }
+  .chores-shell .workspace-task .task-settings-toggle, .chores-shell .workspace-task > .chore-complete-button { min-height: 36px; }
+  .chores-shell .workspace-goal .children-list { gap: 10px; }
+  .chores-shell .chore-task-group, .chores-shell .task-branch, .chores-shell .nested { gap: 6px; }
+  .chores-shell .chore-group-heading { padding-top: 10px; }
+}
