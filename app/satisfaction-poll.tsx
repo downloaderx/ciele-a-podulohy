@@ -25,7 +25,7 @@ export function SatisfactionPoll({ goal, people, activePersonId, onRate, day = g
   if (!schedule.isOpen) return null;
   return <section className="satisfaction-poll" aria-label="Anketa spokojnosti">
     <h3>Ako si s týmto teraz spokojný/á?</h3>
-    <p>Dobrovoľné hodnotenie každú druhú nedeľu. Dnes je dostupné celý deň; dnešnú odpoveď môžeš zmeniť.</p>
+    <p>Dobrovoľné hodnotenie každý tretí deň. Dnes je dostupné celý deň; dnešnú odpoveď môžeš zmeniť.</p>
     {people.map((person) => {
       const lastScore = goal.satisfactionByPerson?.[person.id];
       const lastDay = goal.satisfactionAnsweredOnByPerson?.[person.id];

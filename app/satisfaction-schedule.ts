@@ -1,8 +1,8 @@
 import { gratitudeDay, validGratitudeDay } from './gratitude';
 
-// One shared calendar schedule across browsers; the first check-in is Sunday 25 October 2026.
-export const satisfactionAnchorDay = '2026-10-25';
-const intervalDays = 14;
+// One shared calendar schedule across browsers; every third day, starting with the next check-in on 8 November 2026.
+export const satisfactionAnchorDay = '2026-11-08';
+const intervalDays = 3;
 const dayMillis = 86400000;
 
 export function satisfactionSchedule(day = gratitudeDay()) {

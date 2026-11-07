@@ -528,18 +528,20 @@ test('chore randomizers keep groups separate and skip deleted, non-actionable an
 });
 
 const { satisfactionSchedule } = require('../app/satisfaction-schedule.ts');
-test('relationship satisfaction appears every second Sunday for a full Bratislava calendar day', () => {
-  assert.deepEqual(satisfactionSchedule('2026-10-21'), { isOpen: false, nextDay: '2026-10-25' });
-  assert.deepEqual(satisfactionSchedule('2026-10-25'), { isOpen: true, nextDay: '2026-11-08' });
-  assert.equal(satisfactionSchedule('2026-11-01').isOpen, false);
-  assert.equal(satisfactionSchedule('2026-11-08').isOpen, true);
-  assert.equal(satisfactionSchedule('2026-10-11').isOpen, false);
+test('relationship satisfaction appears every third day for a full Bratislava calendar day', () => {
+  assert.deepEqual(satisfactionSchedule('2026-11-07'), { isOpen: false, nextDay: '2026-11-08' });
+  assert.deepEqual(satisfactionSchedule('2026-11-08'), { isOpen: true, nextDay: '2026-11-11' });
+  assert.equal(satisfactionSchedule('2026-11-09').isOpen, false);
+  assert.deepEqual(satisfactionSchedule('2026-11-10'), { isOpen: false, nextDay: '2026-11-11' });
+  assert.deepEqual(satisfactionSchedule('2026-11-11'), { isOpen: true, nextDay: '2026-11-14' });
+  assert.equal(satisfactionSchedule('2026-11-14').isOpen, true);
   const openAt = (timestamp) => satisfactionSchedule(gratitudeDay(new Date(timestamp))).isOpen;
-  assert.equal(openAt('2026-10-24T21:59:59Z'), false);
-  assert.equal(openAt('2026-10-24T22:00:00Z'), true);
-  assert.equal(openAt('2026-10-25T22:59:59Z'), true);
-  assert.equal(openAt('2026-10-25T23:00:00Z'), false);
+  assert.equal(openAt('2026-11-07T22:59:59Z'), false);
+  assert.equal(openAt('2026-11-07T23:00:00Z'), true);
+  assert.equal(openAt('2026-11-08T22:59:59Z'), true);
+  assert.equal(openAt('2026-11-08T23:00:00Z'), false);
 });
+
 test('dated satisfaction answers validate, protect peers, clear together and survive old clients', () => {
   const day = gratitudeDay();
   const base = state(); base.goals[0].satisfactionByPerson = { 'person-1': 3, 'person-2': 4 };
@@ -565,13 +567,13 @@ test('satisfaction UI hides between check-ins and does not preselect previous-pe
   const item = goal('relationship', { satisfactionByPerson: { 'person-1': 4 }, satisfactionAnsweredOnByPerson: { 'person-1': '2026-10-11' } });
   const props = { goal: item, people: defaultPeople, activePersonId: 'person-1', onRate: () => {} };
   assert.equal(renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-21' })), '');
-  const fresh = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-25' }));
+  const fresh = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-11-08' }));
   assert.ok(fresh.includes('Ako si s týmto teraz spokojný/á?')); assert.equal(fresh.includes('aria-pressed="true"'), false); assert.ok(fresh.includes('Naposledy:'));
-  item.satisfactionAnsweredOnByPerson['person-1'] = '2026-10-25';
-  const answered = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-25' }));
+  item.satisfactionAnsweredOnByPerson['person-1'] = '2026-11-08';
+  const answered = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-11-08' }));
   assert.equal((answered.match(/aria-pressed="true"/g) || []).length, 1); assert.ok(answered.includes('Zrušiť moju dnešnú odpoveď'));
   const summary = renderToStaticMarkup(createElement(SatisfactionSummary, { goal: item, people: defaultPeople }));
-  assert.match(summary, /datetime="2026-10-25"/i); assert.ok(summary.includes('4/5'));
+  assert.match(summary, /datetime="2026-11-08"/i); assert.ok(summary.includes('4/5'));
 });
 
 test('conflict choices can retain different versions of separate fields without losing independent changes', () => {
