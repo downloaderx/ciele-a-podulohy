@@ -1816,6 +1816,7 @@ function ProjectProgressStrip({
 type GoalPanelProps = {
   workspace?: boolean;
   focusGoal?: boolean;
+  editMode?: boolean;
   choreSelection?: { selectedIds: string[]; onToggle: (id: string) => void };
   revealChore?: ChoreReveal | null;
   activePersonId: string;
@@ -1891,8 +1892,8 @@ function GoalPanel(props: GoalPanelProps) {
     {isRelationship && <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />}
     <section className="simple-goal-items" aria-label="Pravidlá a kroky témy">
       <div className="simple-items-heading"><h3>Pravidlá a kroky</h3><span>{props.goal.children.length}</span></div>
-      {props.goal.children.length ? <TaskList {...props} tasks={props.goal.children} parentId={props.goal.id} depth={1} /> : <p className="empty-board">Pridaj dohodu, pravidlo alebo konkrétny krok.</p>}
-      <details className="simple-add-item"><summary>＋ Pridať položku</summary><RelationshipItemForm onSubmit={(title, kind) => props.onAddSubtask(props.goal.id, title, undefined, kind)} /></details>
+      {props.goal.children.length ? <TaskList {...props} editMode={areaSettingsOpen} tasks={props.goal.children} parentId={props.goal.id} depth={1} /> : <p className="empty-board">Pridaj dohodu, pravidlo alebo konkrétny krok.</p>}
+      {areaSettingsOpen && <details className="simple-add-item"><summary>＋ Pridať položku</summary><RelationshipItemForm onSubmit={(title, kind) => props.onAddSubtask(props.goal.id, title, undefined, kind)} /></details>}
     </section>
     <details className="simple-goal-ratings"><summary>Hodnotenie a priority</summary>
       {isRelationship && <SatisfactionSummary goal={props.goal} people={props.people} />}
@@ -1914,14 +1915,14 @@ function GoalPanel(props: GoalPanelProps) {
           {expanded ? '▾' : '▸'}
         </button>}
         <div className="goal-title-block">
-          <EditableInput
+          {props.workspace && !areaSettingsOpen ? <h2 className="chore-area-title">{props.goal.title}</h2> : <EditableInput
             aria-label="Názov cieľa"
             className="title-input"
             value={props.goal.title}
             onCommit={(value) => props.onRename(props.goal.id, value)}
             onKeyDown={saveInputOnEnter}
             title="Klikni a uprav názov"
-          />
+          />}
           {expanded ? <>
           <span className="description-tooltip-wrap">
             <EditableInput
@@ -2079,14 +2080,14 @@ function GoalPanel(props: GoalPanelProps) {
 
         <div className="children-list">
           {props.workspace && <>
-            <details className="workspace-add-task" open={areaSettingsOpen || undefined}><summary>+ Pridať prácu</summary><AddTaskForm chore showDeadline={false} label="Názov novej práce" onSubmit={(title, dueAt, settings) => props.onAddSubtask(props.goal.id, title, dueAt, 'todo', settings?.cadence, settings?.weight, settings?.intervalDays)} /></details>
+            {areaSettingsOpen && <details className="workspace-add-task" open><summary>+ Pridať prácu</summary><AddTaskForm chore showDeadline={false} label="Názov novej práce" onSubmit={(title, dueAt, settings) => props.onAddSubtask(props.goal.id, title, dueAt, 'todo', settings?.cadence, settings?.weight, settings?.intervalDays)} /></details>}
             {choreSelection && <div className="chore-selection-toolbar" role="group" aria-label="Výber položiek na presunutie do koša">
               <label><input type="checkbox" checked={selectedIds.includes(props.goal.id)} onChange={() => choreSelection.onToggle(props.goal.id)} />Vybrať celú oblasť aj s prácami</label>
               <span>{selectedRoots.length ? `Vybrané: ${selectedRoots.length}` : 'Vyber práce pomocou štvorčekov pri ich názvoch.'}</span>
               <button type="button" disabled={!selectedRoots.length} onClick={() => { selectedRoots.forEach(props.onDelete); setSelectedIds([]); }}>Presunúť vybrané do koša</button>
             </div>}
           </>}
-          <TaskList {...props} choreSelection={choreSelection} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
+          <TaskList {...props} editMode={areaSettingsOpen} choreSelection={choreSelection} tasks={props.goal.children} parentId={props.goal.id} depth={1} />
           {!props.workspace && (
           <AddTaskForm
             label="Pridať podúlohu k cieľu"
@@ -2305,7 +2306,9 @@ function ChoreAttentionBadge({ reason, cadence = 'routine' }: { reason: string; 
 
 function TaskRow(props: TaskRowProps) {
   const compact = props.workspace || props.focusGoal;
-  const [taskSettingsOpen, setTaskSettingsOpen] = useState(false);
+  const [settingsRequested, setTaskSettingsOpen] = useState(false);
+  const editAllowed = !compact || Boolean(props.editMode);
+  const taskSettingsOpen = editAllowed && settingsRequested;
   const [adding, setAdding] = useState(false);
   const [manuallyExpanded, setExpanded] = useState(false);
   const [dismissedReveal, setDismissedReveal] = useState<ChoreReveal | null>(null);
@@ -2387,7 +2390,7 @@ function TaskRow(props: TaskRowProps) {
         )}
         <span className={`task-title-tooltip-wrap${attention ? ' has-chore-attention' : ''}`}>
           {attention ? <ChoreAttentionBadge reason={attention} cadence={props.task.choreCadence} /> : null}
-          {props.focusGoal && !taskSettingsOpen ? <span className="relationship-task-copy">{!isCompletable && <span className="relationship-kind">{props.task.kind === 'rule' ? 'Pravidlo' : 'Téma'}</span>}{props.task.title}</span> : <EditableInput
+          {compact && !editAllowed ? <span className="relationship-task-copy task-read-copy">{!isCompletable && <span className="relationship-kind">{props.task.kind === 'rule' ? 'Pravidlo' : 'Téma'}</span>}{props.task.title}</span> : <EditableInput
             aria-label="Názov podúlohy"
             className="task-title"
             value={props.task.title}
@@ -2395,13 +2398,13 @@ function TaskRow(props: TaskRowProps) {
             onKeyDown={saveInputOnEnter}
             title="Klikni a uprav podúlohu"
           />}
-          {props.task.title.trim() ? (
+          {props.task.title.trim() && editAllowed ? (
             <span className="task-title-tooltip" role="tooltip">
               {props.task.title}
             </span>
           ) : null}
         </span>
-        {compact && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy položky' : 'Upraviť položku'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
+        {compact && editAllowed && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy položky' : 'Upraviť položku'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
         {(!compact || taskSettingsOpen) && <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
             <span aria-hidden="true">+</span>
@@ -2479,7 +2482,7 @@ function TaskRow(props: TaskRowProps) {
         </button>}
       </div>
 
-      {splitDraft !== null ? (
+      {editAllowed && splitDraft !== null ? (
         <div className="description-split-preview task-split-preview">
           <label>
             Rozdelenie podúlohy (každý riadok bude samostatná podúloha)
@@ -2501,7 +2504,7 @@ function TaskRow(props: TaskRowProps) {
         </div>
       ) : null}
 
-      {adding ? props.focusGoal ? <RelationshipItemForm onSubmit={(title, kind) => { props.onAddSubtask(props.task.id, title, undefined, kind); setExpanded(true); setAdding(false); }} /> : (
+      {editAllowed && adding ? props.focusGoal ? <RelationshipItemForm onSubmit={(title, kind) => { props.onAddSubtask(props.task.id, title, undefined, kind); setExpanded(true); setAdding(false); }} /> : (
         <AddTaskForm
           showDeadline={!isChore}
           chore={isChore}
