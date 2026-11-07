@@ -3161,3 +3161,6 @@ select:focus {
 .task-row.done .task-read-copy { text-decoration: line-through; color: var(--muted); }
 .workspace-task:not(:has(.task-settings-toggle)):not(.task-settings-open) .task-title-tooltip-wrap { grid-column-end: -1; }
 .chore-area-title { margin: 0; font-size: 23px; overflow-wrap: anywhere; }
+
+.workspace-task .chore-quick-undo { grid-column: 1 / -1; grid-row: 2; justify-self: end; padding: 6px 10px; border-radius: 9px; background: var(--panel); color: var(--foreground); font-size: 12px; min-height: 32px; }
+.workspace-task .chore-quick-undo:hover { background: var(--accent); color: var(--button-ink, var(--ink)); }
