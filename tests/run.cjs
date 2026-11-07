@@ -1099,3 +1099,18 @@ test('shared Rulebook survives validation, normalization, profile authorization 
   const malicious=clone(result);malicious.goals.push(createRule('private-rule-attack','Cudzie','person-1','person-2'));
   assert.throws(()=>authorizedState(result,malicious,'person-1'),/iba na prezeranie/);
 });
+
+
+test('quick chore undo is limited to the latest own execution for thirty seconds', () => {
+  const { quickUndoCompletion } = require('../app/chore-quick-undo.ts');
+  const now=Date.parse('2026-11-07T12:00:00Z');
+  const entry=(id,personId,age,extra={})=>({id,personId,completedAt:new Date(now-age).toISOString(),...extra});
+  const t=task('quick-undo',{choreCompletions:[entry('mine','person-1',1000),entry('older','person-1',40000)]});
+  assert.equal(quickUndoCompletion(t,'person-1',now).id,'mine');
+  assert.equal(quickUndoCompletion(t,'person-2',now),undefined);
+  assert.equal(quickUndoCompletion(t,'person-1',now+29000),undefined);
+  assert.equal(quickUndoCompletion(t,'person-1',now-2000),undefined);
+  assert.equal(quickUndoCompletion({...t,choreCompletions:[...t.choreCompletions,entry('peer','person-2',0)]},'person-1',now),undefined);
+  assert.equal(quickUndoCompletion({...t,choreCompletions:t.choreCompletions.map(e=>({...e,undoneAt:new Date(now).toISOString()}))},'person-1',now),undefined);
+  assert.equal(quickUndoCompletion(task('empty'),'person-1',now),undefined);
+});

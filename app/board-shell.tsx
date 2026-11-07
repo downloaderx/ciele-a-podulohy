@@ -1,5 +1,6 @@
 'use client';
 
+import { quickUndoCompletion, choreQuickUndoMs } from './chore-quick-undo';
 import { purgeTask, selectedTrashRoots } from './trash';
 import { RelationshipWorkspace } from './relationship-workspace';
 import { collectRules, createRule } from './rulebook-model';
@@ -564,6 +565,8 @@ export default function Home() {
     }
 
     if (task && chore) {
+      const recent = quickUndoCompletion(task, activePersonId);
+      if (recent) { undoChoreCompletion(taskId, recent.id); return; }
       setCompletionBurst((current) => current + 1);
       const completion = { id: createId(), personId: activePersonId, completedAt: new Date().toISOString() };
       setGoals((current) => updateTaskTree(current, taskId, (item) => ({ ...item, kind: 'todo', done: false, updatedById: activePersonId,
@@ -2319,6 +2322,17 @@ function TaskRow(props: TaskRowProps) {
   const attention = isChore ? choreAttention(props.task) : undefined;
   const doneToday = isChore && choreElapsedDays(props.task) === 0;
   const completions = (props.task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+  const [undoClock, setUndoClock] = useState(() => Date.now());
+  const recentUndo = isChore ? quickUndoCompletion(props.task, props.activePersonId, undoClock) : undefined;
+  const quickUndoUntil = completions[0] ? Date.parse(completions[0].completedAt) + choreQuickUndoMs : 0;
+  const latestCompletionId = completions[0]?.id;
+  useEffect(() => {
+    if (!isChore) return;
+    const refresh = () => setUndoClock(Date.now());
+    const immediate = window.setTimeout(refresh, 0);
+    const timer = quickUndoUntil > Date.now() ? window.setTimeout(refresh, quickUndoUntil - Date.now() + 20) : undefined;
+    return () => { window.clearTimeout(immediate); if (timer !== undefined) window.clearTimeout(timer); };
+  }, [isChore, quickUndoUntil, latestCompletionId]);
   const completedLabel = (value: string) => new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
   const hasChildren = props.task.children.length > 0;
   const isCompletable = isCompletableTask(props.task);
@@ -2376,7 +2390,7 @@ function TaskRow(props: TaskRowProps) {
           <span aria-hidden="true">{hasChildren ? (expanded ? '▾' : '▸') : '•'}</span>
         </button>}
         {isCompletable && isChore ? (
-          <button type="button" className={`chore-complete-button${doneToday ? ' completed-today' : ''}`} aria-label="Zaznamenať vykonanie podúlohy" title={doneToday ? 'Dnes už vykonané — kliknutím zaznamenáš ďalšie vykonanie' : 'Vykonané teraz — môžeš označiť opakovane'} onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
+          <button type="button" className={`chore-complete-button${doneToday ? ' completed-today' : ''}`} aria-label={recentUndo ? 'Zrušiť posledné vykonanie podúlohy' : 'Zaznamenať vykonanie podúlohy'} title={recentUndo ? 'Kliknutím zrušíš posledné označenie (do 30 sekúnd)' : doneToday ? 'Dnes už vykonané — kliknutím zaznamenáš ďalšie vykonanie' : 'Vykonané teraz — môžeš označiť opakovane'} onClick={() => props.toggleDone(props.task.id)}><span aria-hidden="true">✓</span></button>
         ) : isCompletable ? (
           <label className="checkbox-only" aria-label="Označiť ako hotové">
             <input
@@ -2404,6 +2418,7 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
+        {recentUndo && !editAllowed && <button type="button" className="chore-quick-undo" aria-label={`Zrušiť posledné vykonanie: ${props.task.title}`} title="Zrušiť posledné označenie · dostupné 30 sekúnd" onClick={() => props.undoChoreCompletion(props.task.id, recentUndo.id)}>↶ Späť</button>}
         {compact && editAllowed && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy položky' : 'Upraviť položku'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
         {(!compact || taskSettingsOpen) && <div className="task-actions">
           <button aria-label="Pridať vnorenú podúlohu" title="Pridať vnorenú podúlohu" className="icon-button compact" onClick={() => setAdding(!adding)} type="button">
