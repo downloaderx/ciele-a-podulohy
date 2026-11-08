@@ -14,6 +14,7 @@ type Props = {
 };
 
 export function RoutinesWorkspace({ routines, personName, onSave, onAction, onDelete }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
@@ -26,6 +27,7 @@ export function RoutinesWorkspace({ routines, personName, onSave, onAction, onDe
     setTitle(isNew ? '' : selected?.title ?? '');
     setSteps(isNew ? [{ id: crypto.randomUUID(), title: '' }] : selected?.children.filter((step) => !step.deletedAt).map(({ id, title }) => ({ id, title })) ?? []);
     setEditing(true);
+    setMenuOpen(false);
     setCreating(isNew);
   }
   const [creating, setCreating] = useState(false);
@@ -33,11 +35,12 @@ export function RoutinesWorkspace({ routines, personName, onSave, onAction, onDe
     setSteps((current) => { const next = [...current]; [next[index], next[index + delta]] = [next[index + delta], next[index]]; return next; });
   }
   return <section className="routines-workspace" aria-label="Rutiny">
-    <aside className="routine-menu">
+    <div className="routine-mobile-bar"><button type="button" aria-expanded={menuOpen} aria-controls="routine-menu" onClick={() => setMenuOpen((open) => !open)}>☰ Moje rutiny</button><span>{selected?.title ?? personName}</span></div>
+    <aside id="routine-menu" className={`routine-menu${menuOpen ? ' is-open' : ''}`}>
       <h2>Rutiny · {personName}</h2>
       <p>Malé kroky v tvojom poradí.</p>
       <button type="button" onClick={() => edit(true)}>+ Nová rutina</button>
-      <nav aria-label="Moje rutiny">{routines.map((routine) => <button type="button" key={routine.id} aria-current={!creating && selected?.id === routine.id ? 'page' : undefined} onClick={() => { setSelectedId(routine.id); setEditing(false); setCreating(false); }}>{routine.title}{routine.routineRun?.paused ? <small>Pozastavená</small> : null}</button>)}</nav>
+      <nav aria-label="Moje rutiny">{routines.map((routine) => <button type="button" key={routine.id} aria-current={!creating && selected?.id === routine.id ? 'page' : undefined} onClick={() => { setSelectedId(routine.id); setEditing(false); setCreating(false); setMenuOpen(false); }}>{routine.title}{routine.routineRun?.paused ? <small>Pozastavená</small> : null}</button>)}</nav>
     </aside>
     <div className="routine-content">
       {editing ? <form className="routine-editor" onSubmit={(event) => {

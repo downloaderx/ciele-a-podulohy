@@ -1172,7 +1172,7 @@ export default function Home() {
   }
 
   return (
-    <main className={`app-shell${isChoresPage ? ' chores-shell' : isListsPage ? ' lists-shell' : ''}`} aria-busy={sync.transitioning}>
+    <main className={`app-shell${isChoresPage ? ' chores-shell' : isListsPage ? ' lists-shell' : isRoutinesPage ? ' routines-shell' : ''}`} aria-busy={sync.transitioning}>
       <link rel="preload" as="image" href="/completion-bunny-bubble.svg" />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
