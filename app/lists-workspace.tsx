@@ -8,6 +8,9 @@ import { noteColors } from './lists-model';
 const colorNames: Record<NoteColor, string> = { butter: 'Bledožltá', rose: 'Ružová', mint: 'Mintová', lavender: 'Levanduľová', sky: 'Bledomodrá' };
 type Props = {
   lists: Goal[];
+  spaces: Array<{ id: string; label: string }>;
+  onMove: (id: string, destination: string) => void;
+  moveNotice: string;
   canEdit: boolean;
   spaceLabel: string;
   onCreate: (title: string) => string | undefined;
@@ -42,20 +45,22 @@ export function ListsWorkspace(props: Props) {
       {props.canEdit && creating && <form className="lists-create-form" onSubmit={create}><label>Názov zoznamu<input maxLength={100} required value={name} onChange={(event) => setName(event.target.value)} placeholder="Napr. Nákupy alebo Vybaviť" /></label><div><button disabled={!name.trim()} type="submit">Vytvoriť zoznam</button><button type="button" onClick={() => { setCreating(false); setName(''); }}>Zrušiť</button></div></form>}
     </nav>
     <div className="lists-content">
+      {props.moveNotice && <p className="list-move-notice" role="status">{props.moveNotice}</p>}
       <header className="lists-content-heading"><h1>{selected?.title ?? 'Lists & todos'}</h1><p>{props.spaceLabel} · Jednorazové veci, na ktoré nechceme zabudnúť.</p>{!props.canEdit && <p>Osobné zoznamy druhej líštičky sú na prezeranie.</p>}</header>
       {!props.lists.length ? <div className="lists-empty"><span aria-hidden="true">📝</span><h2>Prvý zoznam čaká na teba</h2><p>Nákupy, telefonáty, čo vziať so sebou… Každý zoznam bude vlastná farebná kartička s úlohami.</p>{props.canEdit && <button type="button" onClick={openCreate}>Vytvoriť prvý zoznam</button>}</div> : <div className={`lists-note-grid${selected ? ' single' : ''}`}>{shown.map((list) => <TodoNote key={list.id} list={list} {...props} />)}</div>}
     </div>
   </section>;
 }
 
-function TodoNote({ list, canEdit, onAddItem, onToggle, onRename, onColor, onDelete }: Props & { list: Goal }) {
+function TodoNote({ list, spaces, onMove, canEdit, onAddItem, onToggle, onRename, onColor, onDelete }: Props & { list: Goal }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [moveTarget, setMoveTarget] = useState('');
   const tasks = list.children.filter((task) => !task.deletedAt && !task.purgedAt);
   const color = list.noteColor && noteColors.includes(list.noteColor) ? list.noteColor : 'butter';
   return <article className={`todo-note note-${color}`} aria-label={`Zoznam: ${list.title}`}>
     <header className="todo-note-heading"><div>{editing ? <EditableInput maxLength={100} aria-label="Názov zoznamu na kartičke" value={list.title} onCommit={(value) => onRename(list.id, value)} /> : <h2>{list.title}</h2>}<span>{tasks.filter((task) => task.done).length} z {tasks.length} hotovo</span></div>{canEdit && <button type="button" aria-label={`${editing ? 'Dokončiť úpravy zoznamu' : 'Upraviť zoznam'}: ${list.title}`} aria-expanded={editing} onClick={() => setEditing((open) => !open)}>{editing ? 'Hotovo' : '⋯'}</button>}</header>
-    {editing && <div className="todo-note-options"><label>Farba kartičky<select value={color} onChange={(event) => onColor(list.id, event.target.value as NoteColor)}>{noteColors.map((value) => <option key={value} value={value}>{colorNames[value]}</option>)}</select></label><button type="button" onClick={() => onDelete(list.id)}>Presunúť zoznam do koša</button></div>}
+    {editing && <div className="todo-note-options"><label>Farba kartičky<select value={color} onChange={(event) => onColor(list.id, event.target.value as NoteColor)}>{noteColors.map((value) => <option key={value} value={value}>{colorNames[value]}</option>)}</select></label><form className="list-move-form" onSubmit={(event) => { event.preventDefault(); if (moveTarget) onMove(list.id, moveTarget); }}><label>Presunúť zoznam do<select aria-label={`Cieľ presunu zoznamu ${list.title}`} value={moveTarget} onChange={(event) => setMoveTarget(event.target.value)}><option value="">Vyber časť…</option>{spaces.filter((space) => space.id !== (list.spaceId ?? 'shared')).map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label><button type="submit" disabled={!moveTarget}>Presunúť zoznam</button></form><button type="button" onClick={() => onDelete(list.id)}>Presunúť zoznam do koša</button></div>}
     <ul className="note-checklist">{tasks.map((task) => <li key={task.id} className={task.done ? 'is-done' : ''}>
       <label className="note-task-check"><input type="checkbox" checked={task.done} disabled={!canEdit} onChange={() => onToggle(task.id)} aria-label={`${task.done ? 'Vrátiť medzi nedokončené' : 'Označiť ako hotové'}: ${task.title}`} />{!editing && <span>{task.title}</span>}</label>
       {editing && <><EditableInput maxLength={2000} aria-label={`Názov úlohy: ${task.title}`} value={task.title} onCommit={(value) => onRename(task.id, value)} /><button type="button" className="note-task-trash" aria-label={`Presunúť úlohu do koša: ${task.title}`} onClick={() => onDelete(task.id)}>Do koša</button></>}

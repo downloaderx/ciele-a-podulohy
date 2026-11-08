@@ -1242,5 +1242,31 @@ test('lists and routines support shared and both personal spaces without relocat
     for(const category of ['list','routine']){const forbidden=clone(s);forbidden.goals.find(g=>g.id===category+'-'+(person==='person-1'?'person-2':'person-1')).title='Partner edit';assert.throws(()=>authorizedState(s,forbidden,person));}
     assert.equal(visibleState(s,person).goals.filter(g=>g.category==='list'||g.category==='routine').length,6);
   }
-  const moved=clone(s);moved.goals.find(g=>g.id==='list-shared').spaceId='person-1';assert.throws(()=>authorizedState(s,moved,'person-1'));
+  const moved=clone(s);moved.goals.find(g=>g.id==='list-shared').spaceId='person-1';assert.equal(authorizedState(s,moved,'person-1').goals.find(g=>g.id==='list-shared').spaceId,'person-1');
+});
+
+test('lists can move between every space from an editable source without duplication or loss', () => {
+  const {createTodoList,canMoveTodoList}=require('../app/lists-model.ts');
+  for(const actor of ['person-1','person-2'])for(const source of ['shared',actor])for(const destination of ['shared','person-1','person-2'].filter(x=>x!==source)){
+    const b=state(),list=createTodoList('moving-list','Keep me',actor,'rose',source);
+    list.children=[task('moving-done',{done:true,children:[task('moving-nested')]}),task('moving-deleted',{deletedAt:'2026-11-08T10:00:00Z'})];b.goals.push(list);
+    const next=clone(b),moved=next.goals.find(g=>g.id===list.id);moved.spaceId=destination;
+    assert.equal(canMoveTodoList(list,moved,actor),true);
+    const saved=authorizedState(b,next,actor),result=saved.goals.find(g=>g.id===list.id);
+    assert.equal(saved.goals.filter(g=>g.id===list.id).length,1);assert.equal(result.spaceId,destination);assert.equal(result.title,list.title);assert.equal(result.noteColor,'rose');assert.equal(result.ownerId,actor);assert.equal(result.deletedAt,undefined);
+    assert.equal(result.children[0].done,true);assert.equal(result.children[0].children[0].id,'moving-nested');assert.equal(result.children[1].deletedAt,list.children[1].deletedAt);assert.equal(isValidState(saved),true);
+    if(destination!=='shared'&&destination!==actor){const stale=clone(saved);stale.goals.find(g=>g.id===list.id).title='Unauthorized';assert.throws(()=>authorizedState(saved,stale,actor));const recipient=clone(saved);recipient.goals.find(g=>g.id===list.id).spaceId='shared';assert.equal(authorizedState(saved,recipient,destination).goals.find(g=>g.id===list.id).spaceId,'shared');}
+  }
+});
+test('list transfers cannot take partner content, move deleted items, or disguise another category', () => {
+  const {createTodoList,canMoveTodoList}=require('../app/lists-model.ts');
+  for(const source of ['person-2','shared'])for(const category of ['list','plan','routine']){
+    const b=state(),list=createTodoList('guard-list','Protected','person-2','sky',source);list.category=category;if(source==='shared'&&category==='list')list.deletedAt='2026-11-08T10:00:00Z';b.goals.push(list);
+    const next=clone(b),moved=next.goals.find(g=>g.id===list.id);moved.spaceId='person-1';moved.category='list';assert.equal(canMoveTodoList(list,moved,'person-1'),false);assert.throws(()=>authorizedState(b,next,'person-1'));
+  }
+});
+test('list transfer merges concurrent task edits and survives export and import', () => {
+  const {createTodoList}=require('../app/lists-model.ts'),{readAppStateData}=require('../app/page-model.ts');const b=state(),list=createTodoList('merge-move','List','person-1');list.children=[task('move-task')];b.goals.push(list);
+  const l=clone(b),r=clone(b);l.goals.at(-1).spaceId='person-1';r.goals.at(-1).children[0].done=true;r.goals.at(-1).children.push(task('move-added'));
+  const m=mergeStates(b,l,r);assert.equal(m.conflicts.length,0);const saved=authorizedState(b,m.state,'person-1'),restored=readAppStateData(JSON.parse(JSON.stringify({version:1,data:saved})));assert.equal(isValidState(restored),true);const moved=restored.goals.find(g=>g.id===list.id);assert.equal(moved.spaceId,'person-1');assert.equal(moved.children[0].done,true);assert.equal(moved.children[1].id,'move-added');
 });
