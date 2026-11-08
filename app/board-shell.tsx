@@ -11,7 +11,7 @@ import { createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
-import { satisfactionSchedule } from './satisfaction-schedule';
+import { satisfactionDateLabel, satisfactionSchedule } from './satisfaction-schedule';
 import { ChoresWorkspace } from './chores-workspace';
 import { splitPantry } from './chores-workspace-model';
 import type { ChoreReveal } from './chore-randomizer-model';
@@ -1317,7 +1317,7 @@ export default function Home() {
         onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
         onRenameRule={renameTask} onDeleteRule={deleteTask}
         renderGoal={renderGoalPanel}
-        overview={<><ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />{boardSpaceId === sharedSpaceId && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. Otázku nájdeš v jednotlivých témach.</p> : null}</>}
+        overview={<><ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />{boardSpaceId === sharedSpaceId && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. V téme otvor tlačidlo Spokojnosť.</p> : null}</>}
         gratitude={<GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
             if (day !== gratitudeDay()) return;
             const entry = { id: activePersonId + ':' + day, personId: activePersonId, day, text };
@@ -1862,6 +1862,7 @@ type GoalPanelProps = {
 
 function GoalPanel(props: GoalPanelProps) {
   const [areaSettingsOpen, setAreaSettingsOpen] = useState(false);
+  const [satisfactionOpen, setSatisfactionOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectedRoots = selectedTrashRoots(props.goal, selectedIds);
   const choreSelection = props.workspace && areaSettingsOpen ? {
@@ -1896,7 +1897,10 @@ function GoalPanel(props: GoalPanelProps) {
   if (props.focusGoal) return <article className="simple-relationship-goal">
     <header className="simple-goal-heading">
       <div><span className="label">{props.boardSpaceId === sharedSpaceId ? 'Vzťahová téma' : 'Osobný projekt'}</span><h2>{props.goal.title}</h2></div>
+      <div className="simple-goal-actions">
+      {isRelationship && <button type="button" className="satisfaction-toggle" aria-expanded={satisfactionOpen} aria-controls={`satisfaction-${props.goal.id}`} onClick={() => setSatisfactionOpen((open) => !open)}>Spokojnosť{!satisfactionOpen && satisfactionSchedule().isOpen && props.goal.satisfactionAnsweredOnByPerson?.[props.activePersonId] !== gratitudeDay() ? <span className="satisfaction-reminder-dot" aria-hidden="true">•</span> : null}</button>}
       <button type="button" className="simple-goal-edit" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>{areaSettingsOpen ? 'Hotovo' : 'Upraviť tému'}</button>
+      </div>
     </header>
     {areaSettingsOpen ? <section className="simple-goal-settings" aria-label="Úprava témy">
       <label>Názov<EditableInput aria-label="Názov cieľa" value={props.goal.title} onCommit={(value) => props.onRename(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
@@ -1906,7 +1910,11 @@ function GoalPanel(props: GoalPanelProps) {
         <button type="button" className="simple-trash" onClick={() => { if (window.confirm('Presunúť túto tému aj s položkami do koša?')) props.onDelete(props.goal.id); }}>Presunúť tému do koša</button>
       </details>
     </section> : props.goal.description.trim() ? <p className="simple-goal-note">{props.goal.description}</p> : null}
-    {isRelationship && <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />}
+    {isRelationship && satisfactionOpen && <div id={`satisfaction-${props.goal.id}`} className="satisfaction-disclosure" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setSatisfactionOpen(false); } }}>
+      <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />
+      {!satisfactionSchedule().isOpen && <p>Ďalšie hodnotenie spokojnosti: {satisfactionDateLabel(satisfactionSchedule().nextDay)}.</p>}
+      <button type="button" className="satisfaction-close" onClick={() => setSatisfactionOpen(false)}>Zavrieť spokojnosť</button>
+    </div>}
     <section className="simple-goal-items" aria-label="Pravidlá a kroky témy">
       <div className="simple-items-heading"><h3>Pravidlá a kroky</h3><span>{props.goal.children.length}</span></div>
       {props.goal.children.length ? <TaskList {...props} editMode={areaSettingsOpen} tasks={props.goal.children} parentId={props.goal.id} depth={1} /> : <p className="empty-board">Pridaj dohodu, pravidlo alebo konkrétny krok.</p>}
