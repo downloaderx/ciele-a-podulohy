@@ -9,7 +9,7 @@ import { collectRules, createRule } from './rulebook-model';
 import { RoutinesWorkspace } from './routines-workspace';
 import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
 import { ListsWorkspace } from './lists-workspace';
-import { createTodoItem, createTodoList, noteColors } from './lists-model';
+import { canMoveTodoList, createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
@@ -364,6 +364,7 @@ export default function Home() {
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [routinesSpaceId, setRoutinesSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const boardSpaceId = isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -537,6 +538,15 @@ export default function Home() {
     setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && getGoalSpaceId(list) === boardSpaceId && !list.deletedAt
       ? { ...list, updatedById: activePersonId, children: [...list.children, item] } : list));
     addActivity('pridal(a) úlohu do zoznamu', item.title);
+  }
+
+  function moveTodoList(listId: string, destination: string) {
+    const list = goals.find((goal) => goal.id === listId);
+    if (!list || getGoalSpaceId(list) !== boardSpaceId || !canMoveTodoList(list, { ...list, spaceId: destination }, activePersonId)) return;
+    setGoals((current) => current.map((goal) => goal.id === listId && canMoveTodoList(goal, { ...goal, spaceId: destination }, activePersonId) ? { ...goal, spaceId: destination, updatedById: activePersonId } : goal));
+    addActivity('presunul(a) zoznam', list.title + ' → ' + (boardSpaces.find((space) => space.id === destination)?.label ?? destination));
+    setListsSpaceId(destination);
+    setListMoveNotice('Zoznam „' + list.title + '“ bol presunutý do časti ' + (boardSpaces.find((space) => space.id === destination)?.label ?? destination) + '.');
   }
 
   function changeListColor(listId: string, color: NoteColor) {
@@ -1304,7 +1314,7 @@ export default function Home() {
               setRandomActivityId(null);
               setChoreReveal(null);
               if (isRoutinesPage) setRoutinesSpaceId(space.id);
-              else if (isListsPage) setListsSpaceId(space.id);
+              else if (isListsPage) { setListsSpaceId(space.id); setListMoveNotice(''); }
               else setBoardSpaceId(space.id);
             }}
             type="button"
@@ -1314,7 +1324,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
