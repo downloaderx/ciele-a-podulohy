@@ -16,6 +16,7 @@ export type ChoreCompletion = {
 };
 
 export type Task = {
+  foodAmount?: string;
   choreCompletions?: ChoreCompletion[];
   id: string;
   title: string;
@@ -41,6 +42,7 @@ export type ChoreWeight = 1 | 3 | 5;
 export type NoteColor = 'butter' | 'rose' | 'mint' | 'lavender' | 'sky';
 
 export type Goal = Task & {
+  foodSelected?: boolean;
   routineRun?: RoutineRun;
   resources?: ProjectResource[];
   noteColor?: NoteColor;
@@ -59,7 +61,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine' | 'pantry' | 'recipe';
 
 export type ActivityItem = {
   id: string;
@@ -256,6 +258,8 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'list', label: 'Lists & todos' },
   { id: 'rulebook', label: 'Rulebook' },
   { id: 'routine', label: 'Rutiny' },
+  { id: 'pantry', label: 'Špajznička' },
+  { id: 'recipe', label: 'Obľúbené jedlá' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },

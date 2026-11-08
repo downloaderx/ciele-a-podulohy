@@ -1292,3 +1292,35 @@ test('bulk uncheck respects personal ownership and never resets chores, routines
   assert.equal(resetTodoList(list,'person-2'),list);assert.equal(resetTodoList(list,'outsider'),list);assert.equal(resetTodoList(list,'person-1').children[0].done,false);
   for(const extra of [{category:'chore'},{category:'routine'},{deletedAt:'2026-11-08T12:00:00Z'}]){const protectedList={...list,...extra};assert.equal(resetTodoList(protectedList,'person-1'),protectedList);}
 });
+
+const foodModel=require('../app/food-model.ts');
+function foodFixture(){const pantry=foodModel.createFoodCollection('food-pantry','Špajznička','pantry','person-1'),recipe=foodModel.createFoodCollection('food-recipe','Palacinky','recipe','person-1');for(const [i,name] of ['Múka','Mlieko','Vajcia','Soľ'].entries()){recipe.children.push(foodModel.createFoodIngredient('recipe-ing-'+i,name,'podľa receptu','person-1'));if(i<3)pantry.children.push(foodModel.createFoodIngredient('pantry-ing-'+i,name.toUpperCase(),'zásoba','person-1',true));}return {pantry,recipe};}
+test('food coverage matches names case/accent-insensitively, separates have/missing and ignores amounts',()=>{
+  const {pantry,recipe}=foodFixture();let coverage=foodModel.recipeAvailability(recipe,[pantry]);assert.equal(coverage.percent,75);assert.deepEqual(coverage.have.map(i=>i.title),['Múka','Mlieko','Vajcia']);assert.deepEqual(coverage.missing.map(i=>i.title),['Soľ']);
+  pantry.children[0].done=false;coverage=foodModel.recipeAvailability(recipe,[pantry]);assert.equal(coverage.percent,50);assert.equal(coverage.missing.length,2);assert.equal(foodModel.ingredientKey('  MÚKA   hladká '),'muka hladka');
+  recipe.children.push(foodModel.createFoodIngredient('duplicate-food','muka','999 kg','person-1'));assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,4);
+});
+test('food coverage ignores deleted/private stock and never reports empty recipes as fully available',()=>{
+  const {pantry,recipe}=foodFixture();pantry.children[0].deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,50);pantry.deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);delete pantry.deletedAt;pantry.spaceId='person-1';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);
+  recipe.children=[];assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,null);assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,0);
+});
+test('food restocking reuses live ingredient IDs and recipe duplicate additions are rejected',()=>{
+  const {pantry,recipe}=foodFixture();pantry.children[0].done=false;const restored=foodModel.addFoodIngredient(pantry,foodModel.createFoodIngredient('new-muka','muka','1 kg','person-2',true));assert.equal(restored.children.length,3);assert.equal(restored.children[0].id,'pantry-ing-0');assert.equal(restored.children[0].done,true);assert.equal(restored.children[0].foodAmount,'1 kg');assert.equal(pantry.children[0].done,false);
+  assert.equal(foodModel.addFoodIngredient(recipe,foodModel.createFoodIngredient('new-recipe-muka','muka','','person-2')),recipe);
+  const deleted={...recipe,deletedAt:'2026-11-08T12:00:00Z'};assert.equal(foodModel.addFoodIngredient(deleted,foodModel.createFoodIngredient('fresh','Syr','','person-1')),deleted);
+});
+test('food schema validates selection and amount notes and survives export/import',()=>{
+  const {pantry,recipe}=foodFixture(),s=state();recipe.foodSelected=true;s.goals.push(pantry,recipe);assert.equal(isValidState(s),true);const restored=require('../app/page-model.ts').readAppStateData(JSON.parse(JSON.stringify({version:1,data:s})));assert.equal(isValidState(restored),true);assert.equal(restored.goals.find(g=>g.id===recipe.id).foodSelected,true);
+  for(const mutate of [s=>s.goals.at(-1).foodSelected='yes',s=>s.goals.at(-1).children[0].foodAmount={bad:true},s=>s.goals.at(-1).children[0].foodAmount='x'.repeat(121)]){const bad=clone(s);mutate(bad);assert.equal(isValidState(bad),false);}
+  assert.equal(foodModel.createFoodIngredient('empty','  ','','person-1'),null);assert.equal(foodModel.createFoodIngredient('huge','Mlieko','x'.repeat(121),'person-1'),null);
+});
+test('food stock and meal selection merge independently, work for either profile and survive older clients',()=>{
+  const {pantry,recipe}=foodFixture(),b=state();b.goals.push(pantry,recipe);const l=clone(b),r=clone(b);l.goals.find(g=>g.id===pantry.id).children[0].done=false;r.goals.find(g=>g.id===recipe.id).foodSelected=true;const merged=mergeStates(b,l,r);assert.equal(merged.conflicts.length,0);
+  const saved=authorizedState(b,merged.state,'person-2');assert.equal(saved.goals.find(g=>g.id===recipe.id).foodSelected,true);assert.equal(saved.goals.find(g=>g.id===pantry.id).children[0].done,false);
+  const oldClient=clone(saved);delete oldClient.goals.find(g=>g.id===recipe.id).foodSelected;delete oldClient.goals.find(g=>g.id===pantry.id).children[0].foodAmount;const retained=authorizedState(saved,oldClient,'person-1');assert.equal(retained.goals.find(g=>g.id===recipe.id).foodSelected,true);assert.equal(retained.goals.find(g=>g.id===pantry.id).children[0].foodAmount,'zásoba');
+  const cleared=clone(retained);cleared.goals.find(g=>g.id===recipe.id).foodSelected=false;cleared.goals.find(g=>g.id===pantry.id).children[0].foodAmount='';const changed=authorizedState(retained,cleared,'person-1');assert.equal(changed.goals.find(g=>g.id===recipe.id).foodSelected,false);assert.equal(changed.goals.find(g=>g.id===pantry.id).children[0].foodAmount,'');
+});
+test('food private content stays protected and permanent purge erases amount notes and selection',()=>{
+  const {pantry,recipe}=foodFixture(),b=state();recipe.spaceId='person-1';recipe.foodSelected=true;b.goals.push(pantry,recipe);const forbidden=clone(b);forbidden.goals.find(g=>g.id===recipe.id).title='Changed';assert.throws(()=>authorizedState(b,forbidden,'person-2'));
+  const purged=require('../app/trash.ts').purgeTask(recipe,'2026-11-08T12:00:00Z');assert.equal(purged.foodSelected,undefined);assert.equal(purged.children[0].foodAmount,undefined);assert.equal(purged.children[0].title,'');
+});

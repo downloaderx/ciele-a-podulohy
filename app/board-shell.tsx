@@ -9,6 +9,8 @@ import { RelationshipWorkspace } from './relationship-workspace';
 import { collectRules, createRule } from './rulebook-model';
 import { RoutinesWorkspace } from './routines-workspace';
 import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
+import { FoodWorkspace } from './food-workspace';
+import { createFoodCollection, createFoodIngredient, ingredientKey, addFoodIngredient } from './food-model';
 import { ListsWorkspace } from './lists-workspace';
 import { canMoveTodoList, createTodoItem, createTodoList, noteColors, resetTodoList } from './lists-model';
 import { BackupPanel } from './backup-panel';
@@ -91,7 +93,7 @@ import {
   type TransferPayload,
 } from './page-model';
 
-const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook' && category.id !== 'routine');
+const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook' && category.id !== 'routine' && category.id !== 'pantry' && category.id !== 'recipe');
 
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
@@ -313,6 +315,7 @@ function splitLongDescription(description: string) {
 
 export default function Home() {
   const pathname = usePathname();
+  const isFoodPage = pathname === '/spajznicka';
   const isChoresPage = pathname === '/chores';
   const isRoutinesPage = pathname === '/rutiny';
   const isListsPage = pathname === '/lists-and-todos';
@@ -367,7 +370,7 @@ export default function Home() {
   const [routinesSpaceId, setRoutinesSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
+  const boardSpaceId = isFoodPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -539,6 +542,44 @@ export default function Home() {
     setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && getGoalSpaceId(list) === boardSpaceId && !list.deletedAt
       ? { ...list, updatedById: activePersonId, children: [...list.children, item] } : list));
     addActivity('pridal(a) úlohu do zoznamu', item.title);
+  }
+
+  function addRecipe(title: string) {
+    const recipe = createFoodCollection(createId(), title, 'recipe', activePersonId);
+    if (!recipe) return;
+    setGoals((current) => [...current, recipe]);
+    addActivity('pridal(a) obľúbené jedlo', recipe.title);
+  }
+
+  function addFoodStock(title: string, amount: string): string | undefined {
+    const item = createFoodIngredient(createId(), title, amount, activePersonId, true);
+    if (!item) return 'Napíš názov suroviny (najviac 200 znakov).';
+    const pantryId = createId();
+    setGoals((current) => {
+      const pantries = current.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId && !goal.deletedAt);
+      const target = pantries.find((goal) => goal.children.some((child) => !child.deletedAt && ingredientKey(child.title) === ingredientKey(item.title))) ?? pantries[0];
+      return target ? current.map((goal) => goal.id === target.id ? addFoodIngredient(goal, item) : goal) : [...current, addFoodIngredient(createFoodCollection(pantryId, 'Špajznička', 'pantry', activePersonId)!, item)];
+    });
+    addActivity('doplnil(a) zásoby', item.title);
+  }
+
+  function addRecipeIngredient(recipeId: string, title: string, amount: string): string | undefined {
+    const recipe = goals.find((goal) => goal.id === recipeId && goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId && !goal.deletedAt);
+    const item = createFoodIngredient(createId(), title, amount, activePersonId);
+    if (!recipe || !item) return 'Napíš názov suroviny (najviac 200 znakov).';
+    if (addFoodIngredient(recipe, item) === recipe) return 'Táto surovina už v jedle je.';
+    setGoals((current) => current.map((goal) => goal.id === recipeId ? addFoodIngredient(goal, item) : goal));
+    addActivity('pridal(a) surovinu do jedla', recipe.title + ' · ' + item.title);
+  }
+
+  function editFoodIngredient(id: string, title: string, amount: string) {
+    const root = goals.find((goal) => ['pantry', 'recipe'].includes(goal.category ?? '') && getGoalSpaceId(goal) === sharedSpaceId && !goal.deletedAt && goal.children.some((child) => child.id === id && !child.deletedAt));
+    if (!root || !title.trim() || title.trim().length > 200 || amount.trim().length > 120) return;
+    setGoals((current) => current.map((goal) => goal.id === root.id ? { ...goal, updatedById: activePersonId, children: goal.children.map((item) => item.id === id ? { ...item, title: title.trim(), foodAmount: amount.trim(), updatedById: activePersonId } : item) } : goal));
+  }
+
+  function toggleFood(id: string, recipe: boolean) {
+    setGoals((current) => current.map((goal) => getGoalSpaceId(goal) !== sharedSpaceId || goal.deletedAt ? goal : recipe ? goal.id === id && goal.category === 'recipe' ? { ...goal, foodSelected: !goal.foodSelected, updatedById: activePersonId } : goal : goal.category === 'pantry' ? { ...goal, children: goal.children.map((item) => item.id === id && !item.deletedAt ? { ...item, done: !item.done, updatedById: activePersonId } : item) } : goal));
   }
 
   function resetList(listId: string) {
@@ -1196,7 +1237,7 @@ export default function Home() {
   }
 
   return (
-    <main className={`app-shell${isChoresPage ? ' chores-shell' : isListsPage ? ' lists-shell' : isRoutinesPage ? ' routines-shell' : ''}`} aria-busy={sync.transitioning}>
+    <main className={`app-shell${isChoresPage ? ' chores-shell' : isListsPage ? ' lists-shell' : isRoutinesPage ? ' routines-shell' : isFoodPage ? ' food-shell' : ''}`} aria-busy={sync.transitioning}>
       <link rel="preload" as="image" href="/completion-bunny-bubble.svg" />
       {completionBurst > 0 && <CompletionBubbles key={completionBurst} onFinish={clearCompletionBurst} />}
       <fieldset className="sync-transition-guard" disabled={sync.transitioning}>
@@ -1309,10 +1350,11 @@ export default function Home() {
         <Link href="/chores" aria-current={isChoresPage ? 'page' : undefined}>Chores</Link>
         <Link href="/lists-and-todos" aria-current={isListsPage ? 'page' : undefined}>Lists &amp; todos</Link>
         <Link href="/rutiny" aria-current={isRoutinesPage ? 'page' : undefined}>Rutiny</Link>
-        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage ? 'page' : undefined}>Vzťahové ciele</Link>
+        <Link href="/spajznicka" aria-current={isFoodPage ? 'page' : undefined}>Špajznička &amp; jedlá</Link>
+        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage && !isFoodPage ? 'page' : undefined}>Vzťahové ciele</Link>
       </nav>
-      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : 'Vzťahové ciele'}</h2>
-      {!isChoresPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : 'Vzťahové ciele'}</h2>
+      {!isChoresPage && !isFoodPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1332,7 +1374,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isFoodPage ? <FoodWorkspace pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={(id) => toggleFood(id, false)} onSelectRecipe={(id) => toggleFood(id, true)} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}

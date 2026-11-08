@@ -25,6 +25,7 @@ export function isValidState(value: unknown): value is AppStateData {
     if (++count > 10000 || depth > 30 || !record(task) || !string(task.id, 200) || !task.id || ids.has(task.id) ||
         !string(task.title) || !personIds.includes(String(task.ownerId)) ||
         (task.updatedById !== undefined && !personIds.includes(String(task.updatedById))) ||
+        (task.foodAmount !== undefined && !string(task.foodAmount, 120)) ||
         typeof task.done !== 'boolean' || typeof task.expanded !== 'boolean' ||
         (task.kind !== undefined && !['todo', 'rule', 'topic'].includes(String(task.kind))) ||
         (task.choreCadence !== undefined && !['routine', 'occasional'].includes(String(task.choreCadence))) ||
@@ -45,7 +46,8 @@ export function isValidState(value: unknown): value is AppStateData {
   }
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
-        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'care'].includes(String(goal.category))) ||
+        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'pantry', 'recipe', 'care'].includes(String(goal.category))) ||
+        (goal.foodSelected !== undefined && typeof goal.foodSelected !== 'boolean') ||
         (goal.routineRun !== undefined && !validRoutineRun(goal.routineRun)) ||
         (goal.resources !== undefined && !validProjectResources(goal.resources)) ||
         (goal.noteColor !== undefined && !noteColors.some((color) => color === goal.noteColor)) ||
