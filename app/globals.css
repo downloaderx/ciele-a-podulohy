@@ -3004,10 +3004,10 @@ select:focus {
 .note-checklist { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 2px; max-height: 320px; overflow: auto; }
 .note-checklist li { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .note-task-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; padding: 4px 0; line-height: 1.4; }
-.note-task-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: #466a58; }
+.note-task-check input { width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: #466a58; }
 .note-task-check span { overflow-wrap: anywhere; }
 .note-checklist .is-done .note-task-check span { text-decoration: line-through; opacity: .55; }
-.note-checklist li:has(.note-task-trash) .note-task-check { flex: 0; }
+.note-checklist li:has(.note-task-trash) .note-task-check { flex: 0 0 28px; min-height: 32px; justify-content: center; }
 .note-task-trash { flex-shrink: 0; padding: 6px; font-size: 11px; color: var(--note-ink); }
 .todo-note-empty { margin: 4px 0 28px; opacity: .65; line-height: 1.5; }
 .note-add-task { display: flex; align-items: center; gap: 8px; margin-top: auto; }
