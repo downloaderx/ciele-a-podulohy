@@ -1,3 +1,4 @@
+import type { RoutineRun } from './routines-model';
 import type { ProjectResource } from './project-resources-model';
 import { gratitudeDay } from './gratitude';
 export type Person = {
@@ -40,6 +41,7 @@ export type ChoreWeight = 1 | 3 | 5;
 export type NoteColor = 'butter' | 'rose' | 'mint' | 'lavender' | 'sky';
 
 export type Goal = Task & {
+  routineRun?: RoutineRun;
   resources?: ProjectResource[];
   noteColor?: NoteColor;
   satisfactionByPerson?: Record<string, number>;
@@ -57,7 +59,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine';
 
 export type ActivityItem = {
   id: string;
@@ -253,6 +255,7 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'activity', label: 'Activities' },
   { id: 'list', label: 'Lists & todos' },
   { id: 'rulebook', label: 'Rulebook' },
+  { id: 'routine', label: 'Rutiny' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },

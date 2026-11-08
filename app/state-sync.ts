@@ -1,3 +1,4 @@
+import { validRoutineRun } from './routines-model';
 import { validProjectResources } from './project-resources-model';
 import { noteColors } from './lists-model';
 import { purgeTask } from './trash';
@@ -44,7 +45,8 @@ export function isValidState(value: unknown): value is AppStateData {
   }
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
-        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'care'].includes(String(goal.category))) ||
+        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'care'].includes(String(goal.category))) ||
+        (goal.routineRun !== undefined && !validRoutineRun(goal.routineRun)) ||
         (goal.resources !== undefined && !validProjectResources(goal.resources)) ||
         (goal.noteColor !== undefined && !noteColors.some((color) => color === goal.noteColor)) ||
         (goal.spaceId !== undefined && !['shared', ...personIds].includes(String(goal.spaceId))) ||
@@ -130,6 +132,10 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
     if (erased) return purgeTask(erased as Task, (erased as Task).purgedAt!);
     if (same(l, b)) return r;
     if (same(r, b) || same(l, r)) return l;
+    if (path.endsWith('/routineRun') && record(l) && record(r) && l.id !== r.id) {
+      conflicts.push({ path, local: l, remote: r });
+      return choice(path) === 'local' ? l : r;
+    }
     if (record(b) && record(l) && record(r) && typeof b.id === 'string' &&
         ((l.deletedAt !== b.deletedAt && !same(r, b)) || (r.deletedAt !== b.deletedAt && !same(l, b)))) {
       conflicts.push({ path, local: l, remote: r });

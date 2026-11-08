@@ -77,6 +77,7 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
       : satisfaction[personId] !== old?.satisfactionByPerson?.[personId] || requestedDay === today ? today : oldDay;
     const answerDays = Object.fromEntries([[personId, ownDay], [otherId, old?.satisfactionAnsweredOnByPerson?.[otherId]]].filter(([, day]) => day !== undefined));
     return { ...goal, ...stamped,
+      ...(goal.routineRun ?? old?.routineRun ? { routineRun: goal.routineRun ?? old?.routineRun } : {}),
       ...(goal.resources !== undefined || old?.resources !== undefined ? { resources: retainProjectResources(old?.resources, goal.resources).map((resource) => { const previous = old?.resources?.find((item) => item.id === resource.id); return { ...resource, ownerId: previous?.ownerId ?? personId, createdAt: previous?.createdAt ?? resource.createdAt }; }) } : {}),
       ...(Object.keys(answerDays).length || old?.satisfactionAnsweredOnByPerson !== undefined || goal.satisfactionAnsweredOnByPerson !== undefined ? { satisfactionAnsweredOnByPerson: answerDays } : {}),
       ...(satisfaction !== undefined ? { satisfactionByPerson: Object.fromEntries([

@@ -1176,3 +1176,47 @@ test('project file API stores private files with board backups and restricts upl
     jar.clear();assert.equal((await get()).status,401);
   }finally{global.fetch=originalFetch;process.env.APP_AUTH_MODE='supabase';jar.clear();}
 });
+
+const { createRoutine, startRoutine, advanceRoutine, routineProgress, validRoutineRun } = require('../app/routines-model.ts');
+const routineFixture = () => createRoutine('routine-test', 'Ráno', [{id:'step-a',title:'Zuby'},{id:'step-b',title:'Sprcha'}], 'person-1');
+const routineNow = '2026-11-08T09:00:00.000Z';
+test('routines support completion, skip, back, pause, resume and fresh runs', () => {
+  const g = routineFixture(); let run = startRoutine(g,'run-a',routineNow);
+  assert.equal(routineProgress(run).index,0);
+  run = advanceRoutine(run,'done','event-a',routineNow);
+  assert.equal(routineProgress(run).index,1);
+  run = advanceRoutine(run,'pause','unused',routineNow);
+  assert.equal(advanceRoutine(run,'done','blocked',routineNow),run);
+  run = advanceRoutine(run,'resume','unused',routineNow);
+  run = advanceRoutine(run,'skipped','event-b',routineNow);
+  assert.deepEqual([routineProgress(run).index,routineProgress(run).done,routineProgress(run).skipped],[-1,1,1]);
+  run = advanceRoutine(run,'back','event-c',routineNow);
+  assert.equal(routineProgress(run).index,1);
+  run = advanceRoutine(run,'back','event-d',routineNow);
+  assert.equal(routineProgress(run).index,0);
+  assert.equal(validRoutineRun(run),true);
+  assert.equal(startRoutine(g,'run-b',routineNow).events.length,0);
+});
+test('routine snapshot survives definition edits and backup roundtrip; invalid events are rejected', () => {
+  const g=routineFixture();g.routineRun=startRoutine(g,'run-a',routineNow);
+  g.children[0].title='Iný názov';g.children.reverse();
+  assert.equal(g.routineRun.steps[0].title,'Zuby');
+  const s=state();s.goals.push(g);assert.equal(isValidState(JSON.parse(JSON.stringify(s))),true);
+  for(const mutate of [r=>r.steps.push({...r.steps[0]}),r=>r.events.push({id:'bad',stepId:'missing',outcome:'done',at:routineNow}),r=>r.startedAt='bad',r=>r.events.push(null)]){const r=clone(g.routineRun);mutate(r);assert.equal(validRoutineRun(r),false);}
+});
+test('routine synchronization merges same-run events and never combines different runs', () => {
+  const b=state(),g=routineFixture();g.routineRun=startRoutine(g,'run-a',routineNow);b.goals.push(g);
+  let l=clone(b),r=clone(b);
+  l.goals.at(-1).routineRun=advanceRoutine(g.routineRun,'done','local-event',routineNow);
+  r.goals.at(-1).routineRun=advanceRoutine(g.routineRun,'skipped','remote-event','2026-11-08T09:01:00Z');
+  let m=mergeStates(b,l,r);assert.equal(m.conflicts.length,0);assert.equal(m.state.goals.at(-1).routineRun.events.length,2);assert.equal(validRoutineRun(m.state.goals.at(-1).routineRun),true);
+  l.goals.at(-1).routineRun=startRoutine(g,'new-local',routineNow);r.goals.at(-1).routineRun=startRoutine(g,'new-remote',routineNow);
+  m=mergeStates(b,l,r);assert.equal(m.conflicts.length,1);assert.equal(m.state.goals.at(-1).routineRun.id,'new-local');
+});
+test('routine progress is retained from old clients and partner routines cannot be edited', () => {
+  const b=state(),g=routineFixture();g.routineRun=startRoutine(g,'run-a',routineNow);b.goals.push(g);
+  const old=clone(b);delete old.goals.at(-1).routineRun;
+  assert.deepEqual(authorizedState(b,old,'person-1').goals.find(x=>x.id===g.id).routineRun,g.routineRun);
+  const partner=clone(b);partner.goals.at(-1).title='Changed by partner';assert.throws(()=>authorizedState(b,partner,'person-2'));
+  assert.equal(authorizedState(b,clone(b),'person-2').goals.find(x=>x.id===g.id).title,g.title);
+});

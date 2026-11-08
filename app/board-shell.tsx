@@ -6,6 +6,8 @@ import { quickUndoCompletion, choreQuickUndoMs } from './chore-quick-undo';
 import { purgeTask, selectedTrashRoots } from './trash';
 import { RelationshipWorkspace } from './relationship-workspace';
 import { collectRules, createRule } from './rulebook-model';
+import { RoutinesWorkspace } from './routines-workspace';
+import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
 import { ListsWorkspace } from './lists-workspace';
 import { createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
@@ -88,7 +90,7 @@ import {
   type TransferPayload,
 } from './page-model';
 
-const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook');
+const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook' && category.id !== 'routine');
 
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
@@ -311,6 +313,7 @@ function splitLongDescription(description: string) {
 export default function Home() {
   const pathname = usePathname();
   const isChoresPage = pathname === '/chores';
+  const isRoutinesPage = pathname === '/rutiny';
   const isListsPage = pathname === '/lists-and-todos';
   const [choreReveal, setChoreReveal] = useState<ChoreReveal | null>(null);
   useEffect(() => {
@@ -360,7 +363,7 @@ export default function Home() {
   const [completionBurst, setCompletionBurst] = useState(0);
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isChoresPage || isListsPage ? sharedSpaceId : relationshipBoardSpaceId;
+  const boardSpaceId = isRoutinesPage ? activePersonId : isChoresPage || isListsPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -500,6 +503,18 @@ export default function Home() {
     setNewGoalDescription('');
     setNewGoalCategory('plan');
     return goalId;
+  }
+
+  function saveRoutine(id: string | undefined, title: string, steps: Array<{ id: string; title: string }>) {
+    const routineId = id ?? createId();
+    const draft = createRoutine(routineId, title, steps, activePersonId);
+    setGoals((current) => id ? current.map((goal) => goal.id === id && goal.category === 'routine' && goal.spaceId === activePersonId ? { ...goal, title: draft.title, updatedById: activePersonId, children: [...draft.children, ...goal.children.filter((step) => !steps.some((item) => item.id === step.id)).map((step) => ({ ...step, deletedAt: step.deletedAt ?? new Date().toISOString() }))] } : goal) : [...current, draft]);
+    return routineId;
+  }
+
+  function routineAction(id: string, action: 'start' | 'done' | 'skipped' | 'back' | 'pause' | 'resume') {
+    const eventId = createId(), now = new Date().toISOString();
+    setGoals((current) => current.map((goal) => goal.id === id && goal.category === 'routine' && goal.spaceId === activePersonId && !goal.deletedAt ? { ...goal, updatedById: activePersonId, routineRun: action === 'start' ? startRoutine(goal, eventId, now) : goal.routineRun ? advanceRoutine(goal.routineRun, action, eventId, now) : undefined } : goal));
   }
 
   function addTodoList(title: string) {
@@ -1269,10 +1284,11 @@ export default function Home() {
       <nav className="board-section-nav" aria-label="Sekcie tabule">
         <Link href="/chores" aria-current={isChoresPage ? 'page' : undefined}>Chores</Link>
         <Link href="/lists-and-todos" aria-current={isListsPage ? 'page' : undefined}>Lists &amp; todos</Link>
-        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage ? 'page' : undefined}>Vzťahové ciele</Link>
+        <Link href="/rutiny" aria-current={isRoutinesPage ? 'page' : undefined}>Rutiny</Link>
+        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage ? 'page' : undefined}>Vzťahové ciele</Link>
       </nav>
-      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : 'Vzťahové ciele'}</h2>
-      {!isChoresPage && !isListsPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : 'Vzťahové ciele'}</h2>
+      {!isChoresPage && !isListsPage && !isRoutinesPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1290,7 +1306,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isListsPage ? <ListsWorkspace lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isRoutinesPage ? <RoutinesWorkspace key={activePersonId} personName={people.find((person) => person.id === activePersonId)?.name ?? 'Moje'} routines={activeGoals.filter((goal) => goal.category === 'routine' && goal.spaceId === activePersonId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
