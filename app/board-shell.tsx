@@ -11,7 +11,7 @@ import { createTodoItem, createTodoList, noteColors } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
-import { satisfactionDateLabel, satisfactionSchedule } from './satisfaction-schedule';
+import { satisfactionSchedule } from './satisfaction-schedule';
 import { ChoresWorkspace } from './chores-workspace';
 import { splitPantry } from './chores-workspace-model';
 import type { ChoreReveal } from './chore-randomizer-model';
@@ -861,7 +861,7 @@ export default function Home() {
   }
 
   function rateGoalSatisfaction(goalId: string, score: number | null) {
-    if (!satisfactionSchedule().isOpen || (score !== null && clampImportance(score) !== score)) return;
+    if (score !== null && clampImportance(score) !== score) return;
     const goal = goals.find((item) => item.id === goalId);
     if (!goal || getGoalSpaceId(goal) !== sharedSpaceId || normalizeGoalCategory(goal.category) !== 'plan') return;
     setGoals((current) => current.map((item) => item.id !== goalId ? item : { ...item,
@@ -1317,7 +1317,7 @@ export default function Home() {
         onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
         onRenameRule={renameTask} onDeleteRule={deleteTask}
         renderGoal={renderGoalPanel}
-        overview={<><ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />{boardSpaceId === sharedSpaceId && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes je deň hodnotenia spokojnosti. V téme otvor tlačidlo Spokojnosť.</p> : null}</>}
+        overview={<><ProjectProgressStrip key={boardSpaceId + '-plans-' + goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.id).join(',')} subtitle={[...new Set(goalSnapshots.filter((goal) => !goal.isChore).map((goal) => goal.categoryLabel))].join(' · ') || getCategoryLabel('plan', boardSpaceId)} goals={goalSnapshots.filter((goal) => !goal.isChore)} people={people} />{boardSpaceId === sharedSpaceId && satisfactionSchedule(choreDay).isOpen ? <p className="satisfaction-day-note">Dnes pripomíname spokojnosť. V téme otvor tlačidlo Spokojnosť; odpovedať môžeš aj inokedy.</p> : null}</>}
         gratitude={<GratitudePanel entries={gratitudeEntries} people={people} activePersonId={activePersonId} onSave={(day, text) => {
             if (day !== gratitudeDay()) return;
             const entry = { id: activePersonId + ':' + day, personId: activePersonId, day, text };
@@ -1912,7 +1912,6 @@ function GoalPanel(props: GoalPanelProps) {
     </section> : props.goal.description.trim() ? <p className="simple-goal-note">{props.goal.description}</p> : null}
     {isRelationship && satisfactionOpen && <div id={`satisfaction-${props.goal.id}`} className="satisfaction-disclosure" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setSatisfactionOpen(false); } }}>
       <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />
-      {!satisfactionSchedule().isOpen && <p>Ďalšie hodnotenie spokojnosti: {satisfactionDateLabel(satisfactionSchedule().nextDay)}.</p>}
       <button type="button" className="satisfaction-close" onClick={() => setSatisfactionOpen(false)}>Zavrieť spokojnosť</button>
     </div>}
     <section className="simple-goal-items" aria-label="Pravidlá a kroky témy">

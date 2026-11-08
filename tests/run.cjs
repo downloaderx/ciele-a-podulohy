@@ -528,7 +528,7 @@ test('chore randomizers keep groups separate and skip deleted, non-actionable an
 });
 
 const { satisfactionSchedule } = require('../app/satisfaction-schedule.ts');
-test('relationship satisfaction appears every third day for a full Bratislava calendar day', () => {
+test('relationship satisfaction reminders occur every third Bratislava calendar day', () => {
   assert.deepEqual(satisfactionSchedule('2026-11-07'), { isOpen: false, nextDay: '2026-11-08' });
   assert.deepEqual(satisfactionSchedule('2026-11-08'), { isOpen: true, nextDay: '2026-11-11' });
   assert.equal(satisfactionSchedule('2026-11-09').isOpen, false);
@@ -561,12 +561,15 @@ test('dated satisfaction answers validate, protect peers, clear together and sur
   assert.equal(JSON.parse(JSON.stringify(saved)).goals[0].satisfactionAnsweredOnByPerson['person-1'], day);
 });
 require.extensions['.tsx'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
-test('satisfaction UI hides between check-ins and does not preselect previous-period answers', () => {
+test('satisfaction is available between reminders and does not preselect previous-day answers', () => {
   const { SatisfactionPoll, SatisfactionSummary } = require('../app/satisfaction-poll.tsx');
   const { createElement } = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
   const item = goal('relationship', { satisfactionByPerson: { 'person-1': 4 }, satisfactionAnsweredOnByPerson: { 'person-1': '2026-10-11' } });
   const props = { goal: item, people: defaultPeople, activePersonId: 'person-1', onRate: () => {} };
-  assert.equal(renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-10-21' })), '');
+  const between = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-11-09' }));
+  assert.ok(between.includes('Odpovedať môžeš kedykoľvek'));
+  assert.ok(between.includes('Ďalšia pripomienka:'));
+  assert.equal((between.match(/aria-pressed="true"/g) || []).length, 0);
   const fresh = renderToStaticMarkup(createElement(SatisfactionPoll, { ...props, day: '2026-11-08' }));
   assert.ok(fresh.includes('Ako si s týmto teraz spokojný/á?')); assert.equal(fresh.includes('aria-pressed="true"'), false); assert.ok(fresh.includes('Naposledy:'));
   item.satisfactionAnsweredOnByPerson['person-1'] = '2026-11-08';
