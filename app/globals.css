@@ -3014,7 +3014,6 @@ html:has(.lists-shell) { scrollbar-gutter: stable; }
 .note-add-task button { width: 36px; min-height: 36px; flex-shrink: 0; border-radius: 10px; background: #ffffff60; color: var(--note-ink); }
 .todo-note-options { display: grid; gap: 10px; margin: 0 0 12px; padding: 10px; border-radius: 10px; background: #ffffff30; }
 .todo-note-options label { display: grid; gap: 4px; font-size: 12px; }
-.todo-note-options > button { padding: 8px; text-align: left; font-size: 12px; color: var(--note-ink); }
 .lists-workspace button:focus-visible, .lists-workspace input:focus-visible, .lists-workspace select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 :root[data-theme='dark'] .todo-note { --note-paper: #4d452b; --note-ink: #fff5dc; }
 :root[data-theme='dark'] .note-rose { --note-paper: #503646; }
@@ -3227,3 +3226,8 @@ html:has(.lists-shell) { scrollbar-gutter: stable; }
 .list-move-control label { display: grid; gap: 6px; min-width: 0; flex: 1 1 160px; }
 .list-move-control select { width: 100%; min-height: 40px; }
 .list-move-notice { padding: 12px 16px; border-radius: 12px; background: var(--panel-soft); color: var(--foreground); margin: 0 0 16px; overflow-wrap: anywhere; }
+
+.todo-note-trash-area { margin-top: 24px; padding-top: 12px; }
+.todo-note-trash-area button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px; border-radius: 10px; background: transparent; color: var(--note-ink); font-size: 12px; text-align: left; }
+.todo-note-trash-area button:hover { background: #ffffff40; }
+.todo-note-trash-area svg { flex-shrink: 0; }
