@@ -276,3 +276,8 @@ test('personal routine progress survives autosave and switching both profiles', 
   const { createRoutine, startRoutine, advanceRoutine } = require('../app/routines-model.ts');
   const h=harness();try{await h.ready();const g=createRoutine('morning-routine','Ráno',[{id:'brush',title:'Zuby'},{id:'shower',title:'Sprcha'}],'person-1');g.routineRun=advanceRoutine(startRoutine(g,'run-test','2026-11-08T09:00:00Z'),'done','event-test','2026-11-08T09:01:00Z');await h.edit(s=>s.goals.push(g));await h.api.chooseProfile('person-2');await tick();assert.deepEqual(h.server.data.goals.find(x=>x.id===g.id).routineRun,g.routineRun);await h.api.chooseProfile('person-1');await tick();assert.deepEqual(h.data.goals.find(x=>x.id===g.id).routineRun,g.routineRun);}finally{await h.close();}
 });
+
+test('all shared and personal lists and routines remain intact across profile switches', async () => {
+  const {createRoutine,startRoutine}=require('../app/routines-model.ts');const {createTodoList}=require('../app/lists-model.ts');
+  const h=harness();try{await h.ready();const items=[];for(const space of ['shared','person-1','person-2']){const owner=space==='person-2'?'person-2':'person-1';const r=createRoutine('r-'+space,'Routine '+space,[{id:'rs-'+space,title:'Step'}],owner,space);r.routineRun=startRoutine(r,'run-'+space,'2026-11-08T09:00:00Z');items.push(r,createTodoList('l-'+space,'List '+space,owner,'butter',space));}await h.edit(s=>s.goals.push(...items));await h.api.retry();for(const person of ['person-2','person-1']){await h.api.chooseProfile(person);await tick();for(const item of items)assert.deepEqual(h.data.goals.find(g=>g.id===item.id),item);}for(const item of items)assert.deepEqual(h.server.data.goals.find(g=>g.id===item.id),item);}finally{await h.close();}
+});

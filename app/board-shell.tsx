@@ -363,7 +363,9 @@ export default function Home() {
   const [completionBurst, setCompletionBurst] = useState(0);
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isRoutinesPage ? activePersonId : isChoresPage || isListsPage ? sharedSpaceId : relationshipBoardSpaceId;
+  const [routinesSpaceId, setRoutinesSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const boardSpaceId = isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -398,7 +400,7 @@ export default function Home() {
     () => activeGoals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && enabledGoalCategories.some((category) => category.id === normalizeGoalCategory(goal.category))),
     [activeGoals, boardSpaceId],
   );
-  const todoLists = useMemo(() => activeGoals.filter((goal) => goal.category === 'list' && getGoalSpaceId(goal) === sharedSpaceId), [activeGoals]);
+  const todoLists = useMemo(() => activeGoals.filter((goal) => goal.category === 'list' && getGoalSpaceId(goal) === boardSpaceId), [activeGoals, boardSpaceId]);
   const activityGoals = useMemo(
     () => visibleGoals.filter((goal) => normalizeGoalCategory(goal.category) === 'activity'),
     [visibleGoals],
@@ -506,19 +508,22 @@ export default function Home() {
   }
 
   function saveRoutine(id: string | undefined, title: string, steps: Array<{ id: string; title: string }>) {
+    if (!canEditBoard) return;
     const routineId = id ?? createId();
-    const draft = createRoutine(routineId, title, steps, activePersonId);
-    setGoals((current) => id ? current.map((goal) => goal.id === id && goal.category === 'routine' && goal.spaceId === activePersonId ? { ...goal, title: draft.title, updatedById: activePersonId, children: [...draft.children, ...goal.children.filter((step) => !steps.some((item) => item.id === step.id)).map((step) => ({ ...step, deletedAt: step.deletedAt ?? new Date().toISOString() }))] } : goal) : [...current, draft]);
+    const draft = createRoutine(routineId, title, steps, activePersonId, boardSpaceId);
+    setGoals((current) => id ? current.map((goal) => goal.id === id && goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId ? { ...goal, title: draft.title, updatedById: activePersonId, children: [...draft.children, ...goal.children.filter((step) => !steps.some((item) => item.id === step.id)).map((step) => ({ ...step, deletedAt: step.deletedAt ?? new Date().toISOString() }))] } : goal) : [...current, draft]);
     return routineId;
   }
 
   function routineAction(id: string, action: 'start' | 'done' | 'skipped' | 'back' | 'pause' | 'resume') {
+    if (!canEditBoard) return;
     const eventId = createId(), now = new Date().toISOString();
-    setGoals((current) => current.map((goal) => goal.id === id && goal.category === 'routine' && goal.spaceId === activePersonId && !goal.deletedAt ? { ...goal, updatedById: activePersonId, routineRun: action === 'start' ? startRoutine(goal, eventId, now) : goal.routineRun ? advanceRoutine(goal.routineRun, action, eventId, now) : undefined } : goal));
+    setGoals((current) => current.map((goal) => goal.id === id && goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId && !goal.deletedAt ? { ...goal, updatedById: activePersonId, routineRun: action === 'start' ? startRoutine(goal, eventId, now) : goal.routineRun ? advanceRoutine(goal.routineRun, action, eventId, now) : undefined } : goal));
   }
 
   function addTodoList(title: string) {
-    const list = createTodoList(createId(), title, activePersonId, noteColors[todoLists.length % noteColors.length]);
+    if (!canEditBoard) return;
+    const list = createTodoList(createId(), title, activePersonId, noteColors[todoLists.length % noteColors.length], boardSpaceId);
     if (!list) return;
     setGoals((current) => [...current, list]);
     addActivity('pridal(a) zoznam', list.title);
@@ -526,16 +531,17 @@ export default function Home() {
   }
 
   function addTodoItem(listId: string, title: string) {
+    if (!canEditBoard) return;
     const item = createTodoItem(createId(), title, activePersonId);
     if (!item) return;
-    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && !list.deletedAt
+    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && getGoalSpaceId(list) === boardSpaceId && !list.deletedAt
       ? { ...list, updatedById: activePersonId, children: [...list.children, item] } : list));
     addActivity('pridal(a) úlohu do zoznamu', item.title);
   }
 
   function changeListColor(listId: string, color: NoteColor) {
-    if (!noteColors.includes(color)) return;
-    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list'
+    if (!canEditBoard || !noteColors.includes(color)) return;
+    setGoals((current) => current.map((list) => list.id === listId && list.category === 'list' && getGoalSpaceId(list) === boardSpaceId
       ? { ...list, noteColor: color, updatedById: activePersonId } : list));
   }
 
@@ -1288,7 +1294,7 @@ export default function Home() {
         <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage ? 'page' : undefined}>Vzťahové ciele</Link>
       </nav>
       <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : 'Vzťahové ciele'}</h2>
-      {!isChoresPage && !isListsPage && !isRoutinesPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      {!isChoresPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1297,7 +1303,9 @@ export default function Home() {
             onClick={() => {
               setRandomActivityId(null);
               setChoreReveal(null);
-              setBoardSpaceId(space.id);
+              if (isRoutinesPage) setRoutinesSpaceId(space.id);
+              else if (isListsPage) setListsSpaceId(space.id);
+              else setBoardSpaceId(space.id);
             }}
             type="button"
           >
@@ -1306,7 +1314,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isRoutinesPage ? <RoutinesWorkspace key={activePersonId} personName={people.find((person) => person.id === activePersonId)?.name ?? 'Moje'} routines={activeGoals.filter((goal) => goal.category === 'routine' && goal.spaceId === activePersonId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
