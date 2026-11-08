@@ -271,3 +271,8 @@ test('today gratitude appears locally immediately and survives autosave and prof
     assert.deepEqual(h.data.gratitudeEntries,[entry]);
   } finally { await h.close(); }
 });
+
+test('personal routine progress survives autosave and switching both profiles', async () => {
+  const { createRoutine, startRoutine, advanceRoutine } = require('../app/routines-model.ts');
+  const h=harness();try{await h.ready();const g=createRoutine('morning-routine','Ráno',[{id:'brush',title:'Zuby'},{id:'shower',title:'Sprcha'}],'person-1');g.routineRun=advanceRoutine(startRoutine(g,'run-test','2026-11-08T09:00:00Z'),'done','event-test','2026-11-08T09:01:00Z');await h.edit(s=>s.goals.push(g));await h.api.chooseProfile('person-2');await tick();assert.deepEqual(h.server.data.goals.find(x=>x.id===g.id).routineRun,g.routineRun);await h.api.chooseProfile('person-1');await tick();assert.deepEqual(h.data.goals.find(x=>x.id===g.id).routineRun,g.routineRun);}finally{await h.close();}
+});
