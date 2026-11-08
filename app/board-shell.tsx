@@ -1,5 +1,7 @@
 'use client';
 
+import { ProjectResources } from './project-resources';
+import type { ProjectResource } from './project-resources-model';
 import { quickUndoCompletion, choreQuickUndoMs } from './chore-quick-undo';
 import { purgeTask, selectedTrashRoots } from './trash';
 import { RelationshipWorkspace } from './relationship-workspace';
@@ -1094,6 +1096,16 @@ export default function Home() {
                     goal={goal}
                     key={goal.id}
                     boardSpaceId={boardSpaceId}
+                    onSaveResource={(goalId, resource) => {
+                      if (!canEditBoard) return;
+                      setGoals((current) => current.map((item) => item.id === goalId ? { ...item, updatedById: activePersonId, resources: [...(item.resources ?? []).filter((entry) => entry.id !== resource.id), resource] } : item));
+                      addActivity('uložil(a) podklad', goal.title);
+                    }}
+                    onRemoveResource={(goalId, id) => {
+                      if (!canEditBoard) return;
+                      setGoals((current) => current.map((item) => item.id === goalId ? { ...item, updatedById: activePersonId, resources: item.resources?.map((entry) => entry.id === id ? { ...entry, deletedAt: new Date().toISOString() } : entry) } : item));
+                      addActivity('odobral(a) podklad', goal.title);
+                    }}
                     onAddSubtask={addSubtask}
                     onChangeCategory={changeGoalCategory}
                     onChangeRecurrence={changeGoalRecurrence}
@@ -1820,6 +1832,8 @@ type GoalPanelProps = {
   workspace?: boolean;
   focusGoal?: boolean;
   editMode?: boolean;
+  onSaveResource: (goalId: string, resource: ProjectResource) => void;
+  onRemoveResource: (goalId: string, resourceId: string) => void;
   choreSelection?: { selectedIds: string[]; onToggle: (id: string) => void };
   revealChore?: ChoreReveal | null;
   activePersonId: string;
@@ -1881,7 +1895,7 @@ function GoalPanel(props: GoalPanelProps) {
 
   if (props.focusGoal) return <article className="simple-relationship-goal">
     <header className="simple-goal-heading">
-      <div><span className="label">Vzťahová téma</span><h2>{props.goal.title}</h2></div>
+      <div><span className="label">{props.boardSpaceId === sharedSpaceId ? 'Vzťahová téma' : 'Osobný projekt'}</span><h2>{props.goal.title}</h2></div>
       <button type="button" className="simple-goal-edit" aria-expanded={areaSettingsOpen} onClick={() => setAreaSettingsOpen((open) => !open)}>{areaSettingsOpen ? 'Hotovo' : 'Upraviť tému'}</button>
     </header>
     {areaSettingsOpen ? <section className="simple-goal-settings" aria-label="Úprava témy">
@@ -1898,6 +1912,7 @@ function GoalPanel(props: GoalPanelProps) {
       {props.goal.children.length ? <TaskList {...props} editMode={areaSettingsOpen} tasks={props.goal.children} parentId={props.goal.id} depth={1} /> : <p className="empty-board">Pridaj dohodu, pravidlo alebo konkrétny krok.</p>}
       {areaSettingsOpen && <details className="simple-add-item"><summary>＋ Pridať položku</summary><RelationshipItemForm onSubmit={(title, kind) => props.onAddSubtask(props.goal.id, title, undefined, kind)} /></details>}
     </section>
+    <ProjectResources goalId={props.goal.id} resources={props.goal.resources} editMode={areaSettingsOpen} personId={props.activePersonId} onSave={(resource) => props.onSaveResource(props.goal.id, resource)} onRemove={(id) => props.onRemoveResource(props.goal.id, id)} />
     <details className="simple-goal-ratings"><summary>Hodnotenie a priority</summary>
       {isRelationship && <SatisfactionSummary goal={props.goal} people={props.people} />}
       <ImportancePanel activePersonId={props.activePersonId} feasibilityByPerson={feasibilityByPerson} goalId={props.goal.id} importanceByPerson={importanceByPerson} onRateFeasibility={props.onRateFeasibility} onRateImportance={props.onRateImportance} people={props.people} />
@@ -2276,6 +2291,7 @@ function ReadOnlyGoal({ goal, people, open }: { goal: Goal; people: Person[]; op
     <summary><h3>{goal.title}</h3><span>{normalizeGoalCategory(goal.category) === 'chore' ? 'Priebežná starostlivosť' : `${progress.percent}%`}</span></summary>
     <p>{goal.description}</p>
     {normalizeGoalCategory(goal.category) !== 'chore' ? <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p> : null}
+    <ProjectResources goalId={goal.id} resources={goal.resources} />
     <ReadOnlyTasks tasks={goal.children} isChore={normalizeGoalCategory(goal.category) === 'chore'} />
   </details></article>;
 }

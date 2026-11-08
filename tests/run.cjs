@@ -1116,3 +1116,60 @@ test('quick chore undo is limited to the latest own execution for thirty seconds
   assert.equal(quickUndoCompletion({...t,choreCompletions:t.choreCompletions.map(e=>({...e,undoneAt:new Date(now).toISOString()}))},'person-1',now),undefined);
   assert.equal(quickUndoCompletion(task('empty'),'person-1',now),undefined);
 });
+
+
+const resource=(id,kind='note',content='Naše poznámky')=>({id,kind,title:'Podklad '+id,content,ownerId:'person-1',createdAt:'2026-11-08T10:00:00Z'});
+test('project resources validate safe links, notes and files and survive independent merge and old clients',()=>{
+  const {validProjectResources,resourceUrl}=require('../app/project-resources-model.ts');
+  assert.equal(resourceUrl('javascript:alert(1)'),undefined);assert.equal(resourceUrl('file:///C:/secret.txt'),undefined);assert.equal(resourceUrl('https://user:pass@example.com'),undefined);
+  assert.equal(validProjectResources([resource('a'),resource('b','document','https://example.com/document')]),true);
+  assert.equal(validProjectResources([resource('a'),resource('a')]),false);
+  assert.equal(validProjectResources([resource('a','link','data:text/html,test')]),false);
+  const base=state(),a=clone(base),b=clone(base);a.goals[0].resources=[resource('a')];b.goals[0].resources=[resource('b','link','https://example.com')];
+  const merged=mergeStates(base,a,b);assert.deepEqual(merged.conflicts,[]);assert.equal(merged.state.goals[0].resources.length,2);assert.equal(isValidState(merged.state),true);
+  const saved=authorizedState(base,merged.state,'person-1'),oldClient=clone(saved);delete oldClient.goals[0].resources;
+  assert.deepEqual(authorizedState(saved,oldClient,'person-1').goals[0].resources,saved.goals[0].resources);
+  const removed=clone(saved);removed.goals[0].resources[0].deletedAt='2026-11-08T11:00:00Z';
+  const after=authorizedState(saved,removed,'person-1');assert.ok(after.goals[0].resources[0].deletedAt);
+  assert.deepEqual(readTransferData({data:after}).goals[0].resources,after.goals[0].resources);
+  const privateBoard=state();privateBoard.goals[2].resources=[resource('private')];const attack=clone(privateBoard);attack.goals[2].resources[0].content='Changed';
+  assert.throws(()=>authorizedState(privateBoard,attack,'person-1'),/iba na prezeranie/);
+});
+
+test('file resources reject invalid metadata and purge clears project attachments',()=>{
+  const {validProjectResources}=require('../app/project-resources-model.ts');const {purgeTask}=require('../app/trash.ts');
+  const file={...resource('12345678-1234-1234-1234-123456789abc','document',''),localPath:'C:/Docs/Test.pdf',file:{key:'a'.repeat(64)+'/12345678-1234-1234-1234-123456789abc',name:'Test.pdf',size:15,mime:'application/pdf'}};
+  assert.equal(validProjectResources([file]),true);
+  for(const f of [{...file,file:{...file.file,size:3000001}},{...file,file:{...file.file,name:'test.exe',mime:undefined}},{...file,file:{...file.file,key:'../private'}},{...file,localPath:'bad\npath'}])assert.equal(validProjectResources([f]),false);
+  const purged=purgeTask(goal('purge-project',{deletedAt:'2026-11-08T11:00:00Z',resources:[file]}),'2026-11-08T12:00:00Z');assert.equal(purged.resources,undefined);
+});
+
+test('project file API stores private files with board backups and restricts upload and download',async()=>{
+  process.env.APP_AUTH_MODE='profiles';process.env.SUPABASE_URL='https://example.invalid';process.env.SUPABASE_SERVICE_ROLE_KEY='test-service';
+  const originalFetch=global.fetch;let stored={data:state(),revision:17},bucketExists=false,publicBucket=false,collision=true,backupFailure=false;const files=new Map(),history=[];
+  global.fetch=async(raw,init={})=>{const url=new URL(raw),method=init.method??'GET';
+    if(url.pathname==='/rest/v1/app_state') { if(method==='POST'){if(backupFailure)return new Response(null,{status:503});history.push(JSON.parse(init.body));return new Response(null,{status:201});} return Response.json([clone(stored)]); }
+    if(url.pathname==='/rest/v1/rpc/save_app_state'){const body=JSON.parse(init.body);if(collision){collision=false;stored.revision++;stored.data.goals[0].description='Concurrent edit';return Response.json({ok:false});}stored={data:body.p_data,revision:stored.revision+1};return Response.json({ok:true,revision:stored.revision});}
+    if(url.pathname==='/storage/v1/bucket/foxies-project-files')return bucketExists?Response.json({public:publicBucket}):new Response(null,{status:404});
+    if(url.pathname==='/storage/v1/bucket'&&method==='POST'){const body=JSON.parse(init.body);assert.equal(body.public,false);assert.equal(body.file_size_limit,3000000);bucketExists=true;return Response.json({});}
+    if(url.pathname.startsWith('/storage/v1/object/authenticated/foxies-project-files/')){const key=url.pathname.split('/foxies-project-files/')[1];return files.has(key)?new Response(files.get(key)):new Response(null,{status:404});}
+    if(url.pathname.startsWith('/storage/v1/object/foxies-project-files/')&&method==='POST'){assert.equal(init.headers['x-upsert'],'false');files.set(url.pathname.split('/foxies-project-files/')[1],init.body);return Response.json({});}
+    throw Error('Unexpected test request '+url.pathname);
+  };
+  try{
+    const api=require('../app/api/project-files/route.ts');const upload=(goalId='shared',name='Test.pdf',body='test-document',extra={})=>{const form=new FormData();form.set('goalId',goalId);form.set('file',new File([body],name));form.set('localPath','C:/Docs/Test.pdf');return new Request('https://foxies.test/api/project-files',{method:'POST',headers:{origin:'https://foxies.test',...extra},body:form});};
+    jar.clear();assert.equal((await api.POST(upload())).status,401);jar.set('acorns-profile','person-1');
+    assert.equal((await api.POST(upload('private-2'))).status,403);assert.equal(files.size,0);
+    assert.equal((await api.POST(upload('shared','bad.exe'))).status,400);
+    assert.equal((await api.POST(upload('shared','big.pdf','a'.repeat(3000001)))).status,413);
+    assert.equal((await api.POST(upload('shared','Test.pdf','test',{'x-acorns-person-id':'person-2'}))).status,409);
+    const response=await api.POST(upload());assert.equal(response.status,200);const {resource:attached}=await response.json();assert.equal(attached.file.name,'Test.pdf');assert.equal(attached.localPath,'C:/Docs/Test.pdf');assert.equal(isValidState(stored.data),true);assert.equal(stored.data.goals[0].description,'Concurrent edit');assert.equal(history.length,2);assert.equal(files.size,1);
+    const get=()=>api.GET(new Request('https://foxies.test/api/project-files?goalId=shared&resourceId='+attached.id));
+    const download=await get();assert.equal(download.status,200);assert.equal(await download.text(),'test-document');assert.match(download.headers.get('content-disposition'),/attachment/);
+    jar.set('acorns-profile','person-2');assert.equal((await get()).status,200);
+    stored.data.goals[0].resources[0].deletedAt='2026-11-08T12:00:00Z';assert.equal((await get()).status,404);
+    publicBucket=true;assert.equal((await api.POST(upload())).status,503);
+    publicBucket=false;backupFailure=true;assert.equal((await api.POST(upload())).status,503);
+    jar.clear();assert.equal((await get()).status,401);
+  }finally{global.fetch=originalFetch;process.env.APP_AUTH_MODE='supabase';jar.clear();}
+});

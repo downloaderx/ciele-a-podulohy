@@ -1,3 +1,4 @@
+import type { ProjectResource } from './project-resources-model';
 import { gratitudeDay } from './gratitude';
 export type Person = {
   id: string;
@@ -39,6 +40,7 @@ export type ChoreWeight = 1 | 3 | 5;
 export type NoteColor = 'butter' | 'rose' | 'mint' | 'lavender' | 'sky';
 
 export type Goal = Task & {
+  resources?: ProjectResource[];
   noteColor?: NoteColor;
   satisfactionByPerson?: Record<string, number>;
   satisfactionAnsweredOnByPerson?: Record<string, string>;

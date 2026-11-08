@@ -1,3 +1,4 @@
+import { validProjectResources } from './project-resources-model';
 import { noteColors } from './lists-model';
 import { purgeTask } from './trash';
 import { validGratitudeDay } from './gratitude';
@@ -44,6 +45,7 @@ export function isValidState(value: unknown): value is AppStateData {
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
         (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'care'].includes(String(goal.category))) ||
+        (goal.resources !== undefined && !validProjectResources(goal.resources)) ||
         (goal.noteColor !== undefined && !noteColors.some((color) => color === goal.noteColor)) ||
         (goal.spaceId !== undefined && !['shared', ...personIds].includes(String(goal.spaceId))) ||
         (goal.satisfactionByPerson !== undefined && !ratings(goal.satisfactionByPerson)) ||
