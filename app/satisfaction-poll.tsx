@@ -22,10 +22,9 @@ export function SatisfactionPoll({ goal, people, activePersonId, onRate, day = g
   onRate: (goalId: string, score: number | null) => void;
 }) {
   const schedule = satisfactionSchedule(day);
-  if (!schedule.isOpen) return null;
   return <section className="satisfaction-poll" aria-label="Anketa spokojnosti">
     <h3>Ako si s týmto teraz spokojný/á?</h3>
-    <p>Dobrovoľné hodnotenie každý tretí deň. Dnes je dostupné celý deň; dnešnú odpoveď môžeš zmeniť.</p>
+    <p>Odpovedať môžeš kedykoľvek. Každé tri dni ti to len nenápadne pripomenieme; dnešnú odpoveď môžeš zmeniť.</p>
     {people.map((person) => {
       const lastScore = goal.satisfactionByPerson?.[person.id];
       const lastDay = goal.satisfactionAnsweredOnByPerson?.[person.id];
@@ -45,6 +44,6 @@ export function SatisfactionPoll({ goal, people, activePersonId, onRate, day = g
       </div>;
     })}
     <p>1 = vôbec nie · 5 = veľmi. Odpovede sa nepriemerujú a neovplyvňujú poradie v ankete priorít.</p>
-    <p>Ďalšie hodnotenie: {satisfactionDateLabel(schedule.nextDay)}.</p>
+    <p>Ďalšia pripomienka: {satisfactionDateLabel(schedule.nextDay)}.</p>
   </section>;
 }
