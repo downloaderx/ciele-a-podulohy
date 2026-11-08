@@ -2,6 +2,23 @@ import type { Goal, NoteColor, Task } from './page-model';
 
 export const noteColors: NoteColor[] = ['butter', 'rose', 'mint', 'lavender', 'sky'];
 
+export function hasCompletedTodoItems(item: Task): boolean {
+  return !item.deletedAt && !item.purgedAt && (item.done || item.children.some(hasCompletedTodoItems));
+}
+
+export function resetTodoList(list: Goal, personId: string): Goal {
+  if (list.category !== 'list' || list.deletedAt || list.purgedAt ||
+      !['person-1', 'person-2'].includes(personId) ||
+      (list.spaceId && list.spaceId !== 'shared' && list.spaceId !== personId)) return list;
+  const reset = (item: Task): Task => {
+    if (item.deletedAt || item.purgedAt) return item;
+    const children = item.children.map(reset);
+    if (!item.done && children.every((child, index) => child === item.children[index])) return item;
+    return { ...item, done: false, updatedById: personId, children };
+  };
+  return reset(list) as Goal;
+}
+
 // Moving a list is allowed from a shared space or the actor's own personal space.
 // The destination may belong to either person, without granting further edit access.
 export function canMoveTodoList(previous: Goal | undefined, next: Goal, personId: string): boolean {

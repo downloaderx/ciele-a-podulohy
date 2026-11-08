@@ -3266,3 +3266,6 @@ html:has(.lists-shell), html:has(.routines-shell) { scrollbar-gutter: stable; }
 .workspace-task.chore-dated-task .task-settings-toggle { grid-column: -3 / -2; }
 .chore-last-date { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: center; white-space: nowrap; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; text-decoration: none; }
 @media (max-width: 760px) { .chore-last-date { font-size: 11px; } }
+
+.todo-note .note-reset-button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin: -4px 0 10px; padding: 5px 8px; border-radius: 9px; background: #ffffff45; color: var(--note-ink); font-size: 12px; }
+.todo-note .note-reset-button:disabled { opacity: .45; cursor: default; }
