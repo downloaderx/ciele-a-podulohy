@@ -1,10 +1,10 @@
 import type { Goal, NoteColor, Task } from './page-model';
 
 export const noteColors: NoteColor[] = ['butter', 'rose', 'mint', 'lavender', 'sky'];
-export function createTodoList(id: string, title: string, ownerId: string, noteColor: NoteColor = 'butter'): Goal | null {
+export function createTodoList(id: string, title: string, ownerId: string, noteColor: NoteColor = 'butter', spaceId: string = 'shared'): Goal | null {
   const name = title.trim();
   if (!name || name.length > 100 || !noteColors.includes(noteColor)) return null;
-  return { id, title: name, ownerId, updatedById: ownerId, category: 'list', spaceId: 'shared',
+  return { id, title: name, ownerId, updatedById: ownerId, category: 'list', spaceId,
     description: '', importanceByPerson: {}, noteColor, done: false, expanded: false, kind: 'todo', children: [] };
 }
 export function createTodoItem(id: string, title: string, ownerId: string): Task | null {

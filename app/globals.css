@@ -3221,3 +3221,4 @@ select:focus {
   .routine-menu nav { display: grid; overflow-x: visible; }
   .routine-menu nav button { max-width: none; width: 100%; }
 }
+.routine-player { border: 0; min-width: 0; }

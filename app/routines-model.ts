@@ -30,8 +30,8 @@ export function advanceRoutine(run: RoutineRun, action: 'done' | 'skipped' | 'ba
   return { ...run, events: [...run.events, { id, stepId: run.steps[target].id, outcome: action === 'back' ? 'pending' : action, at }] };
 }
 
-export function createRoutine(id: string, title: string, steps: Array<{ id: string; title: string }>, ownerId: string): Goal {
-  return { id, title: title.trim(), ownerId, spaceId: ownerId, category: 'routine', description: '', importanceByPerson: {}, done: false, expanded: false,
+export function createRoutine(id: string, title: string, steps: Array<{ id: string; title: string }>, ownerId: string, spaceId: string = ownerId): Goal {
+  return { id, title: title.trim(), ownerId, spaceId, category: 'routine', description: '', importanceByPerson: {}, done: false, expanded: false,
     children: steps.map((step): Task => ({ id: step.id, title: step.title.trim(), ownerId, done: false, expanded: false, kind: 'todo', children: [] })) };
 }
 

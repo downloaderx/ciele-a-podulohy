@@ -1220,3 +1220,27 @@ test('routine progress is retained from old clients and partner routines cannot 
   const partner=clone(b);partner.goals.at(-1).title='Changed by partner';assert.throws(()=>authorizedState(b,partner,'person-2'));
   assert.equal(authorizedState(b,clone(b),'person-2').goals.find(x=>x.id===g.id).title,g.title);
 });
+
+test('lists and routines support shared and both personal spaces without relocating legacy content', () => {
+  const {createTodoList}=require('../app/lists-model.ts');
+  assert.equal(createTodoList('old-list','Old list','person-1').spaceId,'shared');
+  assert.equal(routineFixture().spaceId,'person-1');
+  const s=state();
+  for(const space of ['shared','person-1','person-2']){
+    const owner=space==='person-2'?'person-2':'person-1';
+    s.goals.push(createTodoList('list-'+space,'List '+space,owner,'mint',space));
+    s.goals.push(createRoutine('routine-'+space,'Routine '+space,[{id:'step-'+space,title:'First step'}],owner,space));
+  }
+  assert.equal(isValidState(s),true);
+  for(const person of ['person-1','person-2']){
+    const incoming=clone(s);incoming.goals.find(g=>g.id==='list-shared').title='Shared edit by '+person;
+    const routine=incoming.goals.find(g=>g.id==='routine-shared');routine.routineRun=startRoutine(routine,'shared-run-'+person,routineNow);
+    const saved=authorizedState(s,incoming,person);
+    assert.equal(saved.goals.find(g=>g.id==='list-shared').title,'Shared edit by '+person);
+    assert.equal(saved.goals.find(g=>g.id==='routine-shared').routineRun.id,'shared-run-'+person);
+    const own=clone(s);own.goals.find(g=>g.id==='list-'+person).title='My list';assert.equal(authorizedState(s,own,person).goals.find(g=>g.id==='list-'+person).title,'My list');
+    for(const category of ['list','routine']){const forbidden=clone(s);forbidden.goals.find(g=>g.id===category+'-'+(person==='person-1'?'person-2':'person-1')).title='Partner edit';assert.throws(()=>authorizedState(s,forbidden,person));}
+    assert.equal(visibleState(s,person).goals.filter(g=>g.category==='list'||g.category==='routine').length,6);
+  }
+  const moved=clone(s);moved.goals.find(g=>g.id==='list-shared').spaceId='person-1';assert.throws(()=>authorizedState(s,moved,'person-1'));
+});
