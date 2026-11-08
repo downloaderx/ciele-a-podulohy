@@ -2961,7 +2961,7 @@ select:focus {
 .chores-menu .chores-area-link[data-empty]:not([aria-current='page']) { background: var(--panel-soft); }
 
 /* A separate shared home for one-off checklists. */
-html:has(.lists-shell) { scrollbar-gutter: stable; }
+html:has(.lists-shell), html:has(.routines-shell) { scrollbar-gutter: stable; }
 .lists-shell .board-section-title { display: none; }
 .board-section-nav a[aria-current='page'] { color: var(--button-ink, #07111f); }
 .lists-workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto; align-items: start; }
@@ -3231,3 +3231,26 @@ html:has(.lists-shell) { scrollbar-gutter: stable; }
 .todo-note-trash-area button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px; border-radius: 10px; background: transparent; color: var(--note-ink); font-size: 12px; text-align: left; }
 .todo-note-trash-area button:hover { background: #ffffff40; }
 .todo-note-trash-area svg { flex-shrink: 0; }
+
+.routines-workspace { gap: 24px; }
+.routine-content { background: transparent; padding: 0; border-radius: 0; }
+.routine-menu .routine-new-button { margin-top: 12px; }
+.routine-note .routine-step-list { margin-bottom: 18px; flex-shrink: 0; }
+.routine-step-list li { padding: 6px 4px; gap: 10px; border-radius: 9px; align-items: flex-start; }
+.routine-step-list li[aria-current='step'] { background: #ffffff65; }
+.routine-step-number { display: grid; place-items: center; flex: 0 0 22px; min-height: 22px; border-radius: 50%; background: #ffffff60; font-size: 12px; }
+.routine-step-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.routine-step-title small { display: block; font-size: 10px; opacity: .7; }
+.routine-step-done .routine-step-title { opacity: .6; }
+.routine-step-skipped .routine-step-title { opacity: .7; }
+.routine-note-controls { border: 0; padding: 0; min-width: 0; margin: auto 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.routine-note-controls > p { flex-basis: 100%; font-size: 12px; margin: 0 0 4px; }
+.routine-note .routine-actions { gap: 6px; margin: 0; flex-basis: 100%; }
+.routine-note button { min-height: 36px; padding: 7px 10px; background: #ffffff50; color: var(--note-ink); font-size: 12px; }
+.routine-note .routine-done, .routine-note .routine-start { background: var(--accent); color: var(--button-ink, #07111f); font-size: 12px; }
+.routine-note .routine-manage { font-size: 11px; margin-top: 18px; }
+.routine-note.routine-editor { gap: 12px; }
+.routine-editor h2 { margin: 0; font-size: 20px; }
+.routine-note.routine-editor input { padding: 8px 4px; }
+.routine-note.routine-editor .routine-actions { margin-top: 6px; }
+@media (max-width: 760px) { .routines-workspace { gap: 16px; } }
