@@ -68,7 +68,7 @@ export function RelationshipWorkspace(props: Props) {
           <button type="button" onClick={() => navigate('rulebook')}><strong>Rulebook</strong><span>{props.rules.length} pravidiel →</span></button>
         </div>
       </>}
-      {selectedGoal && <fieldset disabled={!props.canEdit} className="board-edit-controls">{props.renderGoal(selectedGoal)}</fieldset>}
+      {selectedGoal && <div className="board-edit-controls">{props.renderGoal(selectedGoal)}</div>}
       {current === 'add' && props.canEdit && <section><h2>Pridať tému</h2>{props.addForm((id, category) => navigate(category === 'activity' ? 'activities' : 'topic:' + id))}</section>}
       {current === 'rulebook' && <Rulebook rules={props.rules} canEdit={props.canEdit} onAdd={props.onAddRule} onRename={props.onRenameRule} onDelete={props.onDeleteRule} onOpenTopic={(id) => navigate('topic:' + id)} />}
       {current === 'poll' && props.poll}

@@ -3164,3 +3164,34 @@ select:focus {
 
 .workspace-task .chore-quick-undo { grid-column: 1 / -1; grid-row: 2; justify-self: end; padding: 6px 10px; border-radius: 9px; background: var(--panel); color: var(--foreground); font-size: 12px; min-height: 32px; }
 .workspace-task .chore-quick-undo:hover { background: var(--accent); color: var(--button-ink, var(--ink)); }
+
+.project-resources { margin-top: 24px; }
+.resources-empty { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.resource-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+.resource-list > li { display: grid; gap: 5px; min-width: 0; padding: 12px 14px; background: var(--panel-soft); border-radius: 14px; }
+.resource-type { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.resource-list a, .resource-note summary, .resource-title { color: var(--foreground); font-size: 14px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.resource-list a { text-decoration: underline; text-underline-offset: 3px; }
+.resource-host { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.resource-note summary { cursor: pointer; }
+.resource-note p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: 14px; margin: 10px 0 0; }
+.resource-actions { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 6px; }
+.resource-actions button, .resource-removed button { color: var(--muted); font-size: 12px; padding: 5px 0; }
+.resource-add, .resource-copy-path { justify-self: start; color: var(--foreground); background: var(--panel-soft); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+.resource-local-path { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.resource-list .resource-backup { font-size: 12px; font-weight: 500; padding-top: 5px; }
+.resource-form { display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: var(--panel-soft); }
+.resource-form label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.resource-form input, .resource-form textarea, .resource-form select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 10px; background: var(--panel); color: var(--foreground); font: inherit; }
+.resource-form textarea { resize: vertical; }
+.resource-form > div { display: flex; gap: 10px; flex-wrap: wrap; }
+.resource-form button { padding: 9px 12px; background: var(--panel); color: var(--foreground); border-radius: 10px; }
+.resource-form button[type='submit'] { background: var(--accent); color: var(--button-ink, var(--ink)); }
+.resource-form p, .resource-message { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0; }
+.resource-form input[type='file'] { font-size: 12px; }
+.resource-removed { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.resource-removed summary { cursor: pointer; }
+.resource-removed ul { list-style: none; padding: 0; }
+.resource-removed li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; }
+.resource-removed li > span { overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 760px) { .resource-list > li { padding: 11px 12px; } .resource-form { padding: 12px; } }
