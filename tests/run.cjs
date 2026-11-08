@@ -1278,3 +1278,17 @@ test('short chore dates follow Bratislava calendar days without spaces or years'
   assert.equal(shortChoreDate('2026-12-31T23:30:00Z'),'1.1.');
   assert.equal(shortChoreDate('invalid'),'—');
 });
+
+test('resetting a todo list clears only live completion flags, preserving items, nested content and trash', () => {
+  const {createTodoList,resetTodoList,hasCompletedTodoItems}=require('../app/lists-model.ts');
+  const list=createTodoList('reset-list','Shopping','person-1','mint');list.children=[task('reset-done',{done:true}),task('reset-pending'),task('reset-parent',{children:[task('reset-nested',{done:true})]}),task('reset-deleted',{done:true,deletedAt:'2026-11-08T12:00:00Z',children:[task('deleted-nested',{done:true})]})];
+  const before=clone(list),reset=resetTodoList(list,'person-2');assert.equal(hasCompletedTodoItems(list),true);assert.equal(hasCompletedTodoItems(reset),false);assert.deepEqual(list,before);
+  assert.deepEqual(reset.children.map(t=>t.id),list.children.map(t=>t.id));assert.equal(reset.children[0].done,false);assert.equal(reset.children[0].updatedById,'person-2');assert.equal(reset.children[0].ownerId,'person-1');assert.equal(reset.children[1],list.children[1]);assert.equal(reset.children[2].children[0].done,false);assert.deepEqual(reset.children[3],list.children[3]);assert.equal(reset.noteColor,'mint');assert.equal(reset.spaceId,'shared');assert.equal(reset.title,'Shopping');assert.equal(resetTodoList(reset,'person-1'),reset);
+  const s=state();s.goals.push(list);const incoming=clone(s);incoming.goals[incoming.goals.length-1]=reset;const saved=authorizedState(s,incoming,'person-2');assert.equal(saved.goals.find(g=>g.id===list.id).children[0].done,false);assert.equal(saved.goals.find(g=>g.id===list.id).children[3].done,true);
+});
+test('bulk uncheck respects personal ownership and never resets chores, routines or deleted lists', () => {
+  const {createTodoList,resetTodoList}=require('../app/lists-model.ts');
+  const list=createTodoList('personal-reset','Mine','person-1','rose','person-1');list.children=[task('personal-done',{done:true})];
+  assert.equal(resetTodoList(list,'person-2'),list);assert.equal(resetTodoList(list,'outsider'),list);assert.equal(resetTodoList(list,'person-1').children[0].done,false);
+  for(const extra of [{category:'chore'},{category:'routine'},{deletedAt:'2026-11-08T12:00:00Z'}]){const protectedList={...list,...extra};assert.equal(resetTodoList(protectedList,'person-1'),protectedList);}
+});
