@@ -2961,6 +2961,7 @@ select:focus {
 .chores-menu .chores-area-link[data-empty]:not([aria-current='page']) { background: var(--panel-soft); }
 
 /* A separate shared home for one-off checklists. */
+html:has(.lists-shell) { scrollbar-gutter: stable; }
 .lists-shell .board-section-title { display: none; }
 .board-section-nav a[aria-current='page'] { color: var(--button-ink, #07111f); }
 .lists-workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto; align-items: start; }
@@ -2986,8 +2987,7 @@ select:focus {
 .lists-empty > span { font-size: 36px; }
 .lists-empty h2, .lists-empty p { margin: 0; }
 .lists-empty p { line-height: 1.65; color: var(--muted); }
-.lists-note-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 24px; align-items: start; }
-.lists-note-grid.single { display: block; max-width: 520px; }
+.lists-note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 24px; align-items: start; }
 .todo-note { --note-paper: #fff0ad; --note-ink: #3e3829; position: relative; display: flex; flex-direction: column; min-height: 310px; min-width: 0; padding: 24px 20px 20px; border-radius: 5px 5px 18px 5px; background: var(--note-paper); color: var(--note-ink); box-shadow: 0 7px 20px #131c3020; }
 .todo-note::before { content: ''; position: absolute; top: -7px; left: 50%; width: 64px; height: 16px; transform: translateX(-50%) rotate(-3deg); background: #ffffff70; pointer-events: none; }
 .note-rose { --note-paper: #f8dce5; }
