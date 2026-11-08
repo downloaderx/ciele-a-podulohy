@@ -1,4 +1,5 @@
 'use client';
+import { shortChoreDate } from './chore-date';
 
 import { ProjectResources } from './project-resources';
 import type { ProjectResource } from './project-resources-model';
@@ -2378,7 +2379,7 @@ function TaskRow(props: TaskRowProps) {
   const isChore = normalizeGoalCategory(props.goal.category) === 'chore';
   const attention = isChore ? choreAttention(props.task) : undefined;
   const doneToday = isChore && choreElapsedDays(props.task) === 0;
-  const completions = (props.task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+  const completions = (props.task.choreCompletions ?? []).filter((entry) => !entry.undoneAt).sort((a, b) => Date.parse(b.completedAt) - Date.parse(a.completedAt));
   const [undoClock, setUndoClock] = useState(() => Date.now());
   const recentUndo = isChore ? quickUndoCompletion(props.task, props.activePersonId, undoClock) : undefined;
   const quickUndoUntil = completions[0] ? Date.parse(completions[0].completedAt) + choreQuickUndoMs : 0;
@@ -2428,6 +2429,7 @@ function TaskRow(props: TaskRowProps) {
         'task-row',
         props.focusGoal ? 'relationship-task' : '',
         compact ? 'workspace-task' : '',
+        compact && isChore ? 'chore-dated-task' : '',
         compact && !hasChildren ? 'workspace-task-leaf' : '',
         props.choreSelection ? 'workspace-task-selecting' : '',
         taskSettingsOpen ? 'task-settings-open' : '',
@@ -2475,6 +2477,7 @@ function TaskRow(props: TaskRowProps) {
             </span>
           ) : null}
         </span>
+        {compact && isChore && <span className="chore-last-date">{completions[0] ? <time dateTime={completions[0].completedAt} title={'Naposledy vykonané: ' + new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(completions[0].completedAt))} aria-label={'Naposledy vykonané: ' + new Intl.DateTimeFormat('sk-SK', { timeZone: 'Europe/Bratislava', dateStyle: 'long' }).format(new Date(completions[0].completedAt))}>{shortChoreDate(completions[0].completedAt)}</time> : <span title="Zatiaľ bez záznamu vykonania" aria-label="Zatiaľ bez záznamu vykonania">—</span>}</span>}
         {recentUndo && !editAllowed && <button type="button" className="chore-quick-undo" aria-label={`Zrušiť posledné vykonanie: ${props.task.title}`} title="Zrušiť posledné označenie · dostupné 30 sekúnd" onClick={() => props.undoChoreCompletion(props.task.id, recentUndo.id)}>↶ Späť</button>}
         {compact && editAllowed && <button type="button" className="task-settings-toggle" aria-label={`${taskSettingsOpen ? 'Zavrieť úpravy položky' : 'Upraviť položku'}: ${props.task.title}`} aria-expanded={taskSettingsOpen} title={taskSettingsOpen ? 'Dokončiť úpravy a zbaliť detaily' : 'Detaily a nastavenia práce'} onClick={() => taskSettingsOpen ? closeTaskSettings() : setTaskSettingsOpen(true)}>{taskSettingsOpen ? 'Hotovo' : <span aria-hidden="true">⋯</span>}</button>}
         {(!compact || taskSettingsOpen) && <div className="task-actions">

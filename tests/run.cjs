@@ -1270,3 +1270,11 @@ test('list transfer merges concurrent task edits and survives export and import'
   const l=clone(b),r=clone(b);l.goals.at(-1).spaceId='person-1';r.goals.at(-1).children[0].done=true;r.goals.at(-1).children.push(task('move-added'));
   const m=mergeStates(b,l,r);assert.equal(m.conflicts.length,0);const saved=authorizedState(b,m.state,'person-1'),restored=readAppStateData(JSON.parse(JSON.stringify({version:1,data:saved})));assert.equal(isValidState(restored),true);const moved=restored.goals.find(g=>g.id===list.id);assert.equal(moved.spaceId,'person-1');assert.equal(moved.children[0].done,true);assert.equal(moved.children[1].id,'move-added');
 });
+
+test('short chore dates follow Bratislava calendar days without spaces or years', () => {
+  const {shortChoreDate}=require('../app/chore-date.ts');
+  assert.equal(shortChoreDate('2026-11-07T23:30:00Z'),'8.11.');
+  assert.equal(shortChoreDate('2026-06-30T22:30:00Z'),'1.7.');
+  assert.equal(shortChoreDate('2026-12-31T23:30:00Z'),'1.1.');
+  assert.equal(shortChoreDate('invalid'),'—');
+});
