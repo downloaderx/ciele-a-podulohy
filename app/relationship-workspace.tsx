@@ -39,7 +39,7 @@ export function RelationshipWorkspace(props: Props) {
   ];
   const pages = groups.flatMap((group) => group.pages);
   const current = selectedGoal || ['overview', 'add', ...pages.map((page) => page.id)].includes(view) ? view : 'overview';
-  const addLabel = props.personal ? 'Pridať osobný cieľ' : 'Pridať tému';
+  const addLabel = props.personal ? 'Pridať osobný cieľ' : 'Pridať spoločný cieľ';
   const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? addLabel : 'Prehľad');
   function navigate(next: string) { setView(next); setMenuOpen(false); }
 
@@ -54,7 +54,6 @@ export function RelationshipWorkspace(props: Props) {
         <h3 id={`relationship-menu-${group.id}-heading`}>{group.label}</h3>
         {group.id === 'topics' && <>
           {props.goals.map((goal) => <button type="button" key={goal.id} aria-current={selectedGoal?.id === goal.id ? 'page' : undefined} onClick={() => navigate('topic:' + goal.id)}>{goal.title}</button>)}
-          {props.canEdit && !props.personal && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ {addLabel}</button>}
         </>}
         {group.pages.map((page) => <button type="button" key={page.id} aria-current={current === page.id ? 'page' : undefined} onClick={() => navigate(page.id)}>{page.label}</button>)}
       </section>)}
@@ -62,7 +61,7 @@ export function RelationshipWorkspace(props: Props) {
     </nav>
     <div className="chores-content relationship-content">
       {!props.canEdit && <p className="personal-readonly-note">Ak chceš pridať cieľ na túto tabuľu, najprv prepni líštičku hore.</p>}
-      {props.personal && props.canEdit && current !== 'add' && <div className="chores-content-heading">
+      {props.canEdit && current !== 'add' && <div className="chores-content-heading">
         <button type="button" onClick={() => navigate('add')}>＋ {addLabel}</button>
       </div>}
       {current === 'overview' && <>
