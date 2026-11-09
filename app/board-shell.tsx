@@ -395,8 +395,6 @@ export default function Home() {
 
   const boardSpaces = useMemo(() => getBoardSpaces(people), [people]);
   const canEditBoard = boardSpaceId === sharedSpaceId || boardSpaceId === activePersonId;
-  const boardSpaceLabel =
-    boardSpaces.find((space) => space.id === boardSpaceId)?.label ?? 'Spoločné';
   const activeGoals = useMemo(
     () => goals.filter((goal) => !goal.deletedAt).map(liveGoal).map((goal) => normalizeGoalCategory(goal.category) === 'chore' ? choreView(goal, choreDay) : goal),
     [goals, choreDay],
@@ -1434,7 +1432,7 @@ export default function Home() {
         changes={<><RecentActivityPanel activityLog={recentActivity} people={people} /><CompletedWorkPanel completedItems={completedItems} people={people} /></>}
         addForm={(onCreated) => <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={(event) => { const id = addGoal(event); if (id) onCreated(id, creationCategory); }}>
           <label>
-            {boardSpaceId === sharedSpaceId ? 'Nová téma v tabuľke ' + boardSpaceLabel : 'Názov osobného cieľa'}
+            {boardSpaceId === sharedSpaceId ? 'Názov spoločného cieľa' : 'Názov osobného cieľa'}
             <input
               required
               onChange={(event) => setNewGoalTitle(event.target.value)}
@@ -1463,7 +1461,7 @@ export default function Home() {
               ))}
             </select>
           </label>}
-          <button type="submit">{boardSpaceId === sharedSpaceId ? 'Pridať tému' : 'Pridať osobný cieľ'}</button>
+          <button type="submit">{boardSpaceId === sharedSpaceId ? 'Pridať spoločný cieľ' : 'Pridať osobný cieľ'}</button>
         </form></fieldset>}
       />}
       </fieldset>
