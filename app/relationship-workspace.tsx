@@ -8,6 +8,7 @@ import { pickRule, type RuleEntry } from './rulebook-model';
 type Props = {
   goals: Goal[];
   canEdit: boolean;
+  personal: boolean;
   rules: RuleEntry[];
   renderGoal: (goal: Goal) => ReactNode;
   addForm: (onCreated: (id: string, category: GoalCategory) => void) => ReactNode;
@@ -38,7 +39,8 @@ export function RelationshipWorkspace(props: Props) {
   ];
   const pages = groups.flatMap((group) => group.pages);
   const current = selectedGoal || ['overview', 'add', ...pages.map((page) => page.id)].includes(view) ? view : 'overview';
-  const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? 'Pridať tému' : 'Prehľad');
+  const addLabel = props.personal ? 'Pridať osobný cieľ' : 'Pridať tému';
+  const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? addLabel : 'Prehľad');
   function navigate(next: string) { setView(next); setMenuOpen(false); }
 
   return <section className="chores-workspace relationship-workspace" aria-label="Pracovný priestor vzťahových cieľov">
@@ -52,16 +54,19 @@ export function RelationshipWorkspace(props: Props) {
         <h3 id={`relationship-menu-${group.id}-heading`}>{group.label}</h3>
         {group.id === 'topics' && <>
           {props.goals.map((goal) => <button type="button" key={goal.id} aria-current={selectedGoal?.id === goal.id ? 'page' : undefined} onClick={() => navigate('topic:' + goal.id)}>{goal.title}</button>)}
-          {props.canEdit && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ Pridať tému</button>}
+          {props.canEdit && !props.personal && <button type="button" className="chores-add-area" aria-current={current === 'add' ? 'page' : undefined} onClick={() => navigate('add')}>＋ {addLabel}</button>}
         </>}
         {group.pages.map((page) => <button type="button" key={page.id} aria-current={current === page.id ? 'page' : undefined} onClick={() => navigate(page.id)}>{page.label}</button>)}
       </section>)}
 
     </nav>
     <div className="chores-content relationship-content">
-      {!props.canEdit && <p className="personal-readonly-note">Osobná tabuľa druhej osoby — iba na prezeranie.</p>}
+      {!props.canEdit && <p className="personal-readonly-note">Ak chceš pridať cieľ na túto tabuľu, najprv prepni líštičku hore.</p>}
+      {props.personal && props.canEdit && current !== 'add' && <div className="chores-content-heading">
+        <button type="button" onClick={() => navigate('add')}>＋ {addLabel}</button>
+      </div>}
       {current === 'overview' && <>
-        <header className="chores-content-heading"><h2>Vzťahové ciele</h2><p>Každá téma má svoj priestor. Vyber ju v menu alebo otvor Rulebook.</p></header>
+        <header className="chores-content-heading"><h2>{props.personal ? 'Osobné ciele' : 'Vzťahové ciele'}</h2><p>{props.personal ? 'Svoje ciele nájdeš aj v menu.' : 'Každá téma má svoj priestor. Vyber ju v menu alebo otvor Rulebook.'}</p></header>
         {props.overview}
         <div className="chores-area-list relationship-topic-list">
           {props.goals.map((goal) => <button type="button" key={goal.id} onClick={() => navigate('topic:' + goal.id)}><strong>{goal.title}</strong><span>Otvoriť →</span></button>)}
@@ -69,7 +74,7 @@ export function RelationshipWorkspace(props: Props) {
         </div>
       </>}
       {selectedGoal && <div className="board-edit-controls">{props.renderGoal(selectedGoal)}</div>}
-      {current === 'add' && props.canEdit && <section><h2>Pridať tému</h2>{props.addForm((id, category) => navigate(category === 'activity' ? 'activities' : 'topic:' + id))}</section>}
+      {current === 'add' && props.canEdit && <section><h2>{addLabel}</h2>{props.addForm((id, category) => navigate(category === 'activity' ? 'activities' : 'topic:' + id))}</section>}
       {current === 'rulebook' && <Rulebook rules={props.rules} canEdit={props.canEdit} onAdd={props.onAddRule} onRename={props.onRenameRule} onDelete={props.onDeleteRule} onOpenTopic={(id) => navigate('topic:' + id)} />}
       {current === 'poll' && props.poll}
       {current === 'gratitude' && props.gratitude}

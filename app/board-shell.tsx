@@ -459,7 +459,7 @@ export default function Home() {
     event.preventDefault();
     const title = newGoalTitle.trim();
 
-    if (!title) {
+    if (!canEditBoard || !title) {
       return;
     }
 
@@ -1396,7 +1396,7 @@ export default function Home() {
           <button type="submit">Pridať oblasť</button>
         </form>}
       /> : <RelationshipWorkspace key={boardSpaceId}
-        goals={rankedActiveGoals} canEdit={canEditBoard}
+        goals={rankedActiveGoals} canEdit={canEditBoard} personal={boardSpaceId !== sharedSpaceId}
         rules={collectRules(activeGoals, boardSpaceId)}
         onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
         onRenameRule={renameTask} onDeleteRule={deleteTask}
@@ -1434,10 +1434,11 @@ export default function Home() {
         changes={<><RecentActivityPanel activityLog={recentActivity} people={people} /><CompletedWorkPanel completedItems={completedItems} people={people} /></>}
         addForm={(onCreated) => <fieldset disabled={!canEditBoard} className="board-edit-controls"><form className="new-goal" onSubmit={(event) => { const id = addGoal(event); if (id) onCreated(id, creationCategory); }}>
           <label>
-            Nová téma v tabuľke {boardSpaceLabel}
+            {boardSpaceId === sharedSpaceId ? 'Nová téma v tabuľke ' + boardSpaceLabel : 'Názov osobného cieľa'}
             <input
+              required
               onChange={(event) => setNewGoalTitle(event.target.value)}
-              placeholder={isChoresPage ? 'Napr. Kuchyňa alebo Pranie' : 'Napr. spoločný čas'}
+              placeholder={boardSpaceId === sharedSpaceId ? 'Napr. spoločný čas' : 'Napr. naučiť sa kresliť'}
               value={newGoalTitle}
             />
           </label>
@@ -1462,7 +1463,7 @@ export default function Home() {
               ))}
             </select>
           </label>}
-          <button type="submit">Pridať tému</button>
+          <button type="submit">{boardSpaceId === sharedSpaceId ? 'Pridať tému' : 'Pridať osobný cieľ'}</button>
         </form></fieldset>}
       />}
       </fieldset>
