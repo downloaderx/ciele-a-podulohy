@@ -600,8 +600,14 @@ export default function Home() {
     setGoals((current) => current.map((goal) => goal.id === root.id ? { ...goal, updatedById: activePersonId, children: goal.children.map((item) => item.id === id ? { ...item, title: title.trim(), foodAmount: amount.trim(), updatedById: activePersonId } : item) } : goal));
   }
 
-  function toggleFood(id: string, recipe: boolean) {
-    setGoals((current) => current.map((goal) => getGoalSpaceId(goal) !== sharedSpaceId || goal.deletedAt ? goal : recipe ? goal.id === id && goal.category === 'recipe' ? { ...goal, foodSelected: !goal.foodSelected, updatedById: activePersonId } : goal : goal.category === 'pantry' ? { ...goal, children: goal.children.map((item) => item.id === id && !item.deletedAt ? { ...item, done: !item.done, updatedById: activePersonId } : item) } : goal));
+  function toggleFoodStock(id: string) {
+    setGoals((current) => current.map((goal) => {
+      if (goal.category !== 'pantry' || getGoalSpaceId(goal) !== sharedSpaceId || goal.deletedAt) return goal;
+      const children = goal.children.map((item) => item.id === id && !item.deletedAt
+        ? { ...item, done: !item.done, updatedById: activePersonId }
+        : item);
+      return { ...goal, children };
+    }));
   }
 
   function resetList(listId: string) {
@@ -1430,7 +1436,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isFoodPage ? <FoodWorkspace personId={activePersonId} onSaveResource={saveGoalResource} onRemoveResource={removeGoalResource} pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={(id) => toggleFood(id, false)} onSelectRecipe={(id) => toggleFood(id, true)} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} saveStatus={sync.status} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isFoodPage ? <FoodWorkspace personId={activePersonId} onSaveResource={saveGoalResource} onRemoveResource={removeGoalResource} pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={toggleFoodStock} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} saveStatus={sync.status} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={boardActivity}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
