@@ -108,6 +108,12 @@ function getGoalSpaceId(goal: Goal) {
   return goal.spaceId ?? sharedSpaceId;
 }
 
+const sharedGoalPlaceholder = 'Malý spoločný plán bez veľkého tlaku.';
+
+function goalDescription(goal: Goal) {
+  return getGoalSpaceId(goal) !== sharedSpaceId && goal.description === sharedGoalPlaceholder ? '' : goal.description;
+}
+
 function getCategoryLabel(category: GoalCategory, boardSpaceId: BoardSpaceId) {
   if (category === 'plan' && boardSpaceId !== sharedSpaceId) {
     return 'Projekty';
@@ -476,7 +482,7 @@ export default function Home() {
         id: goalId,
         title,
         category: creationCategory,
-        description: newGoalDescription.trim() || 'Malý spoločný plán bez veľkého tlaku.',
+        description: newGoalDescription.trim() || (boardSpaceId === sharedSpaceId ? sharedGoalPlaceholder : ''),
         feasibilityByPerson: people.reduce<Record<string, number>>((ratings, person) => {
           ratings[person.id] = 3;
 
@@ -1365,9 +1371,9 @@ export default function Home() {
         <Link href="/lists-and-todos" aria-current={isListsPage ? 'page' : undefined}>Lists &amp; todos</Link>
         <Link href="/rutiny" aria-current={isRoutinesPage ? 'page' : undefined}>Rutiny</Link>
         <Link href="/spajznicka" aria-current={isFoodPage ? 'page' : undefined}>Špajznička &amp; jedlá</Link>
-        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage && !isFoodPage ? 'page' : undefined}>Vzťahové ciele</Link>
+        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage && !isFoodPage ? 'page' : undefined}>Ciele</Link>
       </nav>
-      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : 'Vzťahové ciele'}</h2>
+      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>
       {!isChoresPage && !isFoodPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
@@ -1643,7 +1649,7 @@ function ActivityWheelPanel({ activitiesOpen, activities, onToggleActivities, on
     </div>
     {activities.length > 0 ? <button className="activity-list-toggle" onClick={onToggleActivities} type="button">{activitiesOpen ? 'Skryť aktivity' : 'Ukázať aktivity'}</button> : null}
     {activitiesOpen ? <div className="activity-options">{activities.map((activity) => <span key={activity.id}>{activity.title}</span>)}</div> : null}
-    {!spinning && selectedActivity ? <div className="activity-result" role="status"><span>Vybrané</span><strong>{selectedActivity.title}</strong><p>{selectedActivity.description}</p></div> : null}
+    {!spinning && selectedActivity ? <div className="activity-result" role="status"><span>Vybrané</span><strong>{selectedActivity.title}</strong><p>{goalDescription(selectedActivity)}</p></div> : null}
   </section>;
 }
 
@@ -2006,12 +2012,12 @@ function GoalPanel(props: GoalPanelProps) {
     </header>
     {areaSettingsOpen ? <section className="simple-goal-settings" aria-label="Úprava témy">
       <label>Názov<EditableInput aria-label="Názov cieľa" value={props.goal.title} onCommit={(value) => props.onRename(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
-      <label>Poznámka<EditableInput aria-label="Poznámka k cieľu" value={props.goal.description} onCommit={(value) => props.onRenameDescription(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
+      <label>Poznámka<EditableInput aria-label="Poznámka k cieľu" value={goalDescription(props.goal)} onCommit={(value) => props.onRenameDescription(props.goal.id, value)} onKeyDown={saveInputOnEnter} /></label>
       <details><summary>Ďalšie možnosti</summary><label>Termín (voliteľný)<input aria-label="Termín plánu" type="datetime-local" value={deadlineInput(props.goal.dueAt)} onChange={(event) => props.onChangeDeadline(props.goal.id, event.target.value)} /></label>
         <ItemMeta createdById={props.goal.ownerId} people={props.people} updatedById={props.goal.updatedById} />
         <button type="button" className="simple-trash" onClick={() => { if (window.confirm('Presunúť túto tému aj s položkami do koša?')) props.onDelete(props.goal.id); }}>Presunúť tému do koša</button>
       </details>
-    </section> : props.goal.description.trim() ? <p className="simple-goal-note">{props.goal.description}</p> : null}
+    </section> : goalDescription(props.goal).trim() ? <p className="simple-goal-note">{goalDescription(props.goal)}</p> : null}
     {isRelationship && satisfactionOpen && <div id={`satisfaction-${props.goal.id}`} className="satisfaction-disclosure" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setSatisfactionOpen(false); } }}>
       <SatisfactionPoll goal={props.goal} people={props.people} activePersonId={props.activePersonId} onRate={props.onRateSatisfaction} />
       <button type="button" className="satisfaction-close" onClick={() => setSatisfactionOpen(false)}>Zavrieť spokojnosť</button>
@@ -2398,7 +2404,7 @@ function ReadOnlyGoal({ goal, people, open }: { goal: Goal; people: Person[]; op
   const progress = calculateProgress(goal);
   return <article className="goal-panel readonly-goal"><details open={open}>
     <summary><h3>{goal.title}</h3><span>{normalizeGoalCategory(goal.category) === 'chore' ? 'Priebežná starostlivosť' : `${progress.percent}%`}</span></summary>
-    <p>{goal.description}</p>
+    <p>{goalDescription(goal)}</p>
     {normalizeGoalCategory(goal.category) !== 'chore' ? <p>{people.map((person) => person.name + ': dôležitosť ' + (goal.importanceByPerson[person.id] ?? 2) + '/5 · reálnosť ' + (goal.feasibilityByPerson?.[person.id] ?? 3) + '/5').join(' · ')}</p> : null}
     <ProjectResources goalId={goal.id} resources={goal.resources} />
     <ReadOnlyTasks tasks={goal.children} isChore={normalizeGoalCategory(goal.category) === 'chore'} />

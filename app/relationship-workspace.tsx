@@ -29,10 +29,10 @@ export function RelationshipWorkspace(props: Props) {
   const selectedGoal = props.goals.find((goal) => 'topic:' + goal.id === view);
   const groups = [
     { id: 'topics', label: 'Témy a ciele', pages: [{ id: 'poll', label: 'Anketa priorít' }] },
-    { id: 'agreements', label: 'Pravidlá a dohody', pages: [{ id: 'rulebook', label: 'Rulebook' }] },
-    { id: 'moments', label: 'Spoločné chvíle', pages: [
+    { id: 'agreements', label: props.personal ? 'Pravidlá' : 'Pravidlá a dohody', pages: [{ id: 'rulebook', label: 'Rulebook' }] },
+    { id: 'moments', label: props.personal ? 'Aktivity a vďačnosť' : 'Spoločné chvíle', pages: [
       { id: 'gratitude', label: 'Vďačnosť' },
-      { id: 'activities', label: 'Spoločné aktivity' },
+      { id: 'activities', label: props.personal ? 'Osobné aktivity' : 'Spoločné aktivity' },
       ...(props.calendar ? [{ id: 'calendar', label: 'Kalendár' }] : []),
     ] },
     { id: 'history', label: 'História', pages: [{ id: 'changes', label: 'Zmeny' }] },
@@ -43,12 +43,12 @@ export function RelationshipWorkspace(props: Props) {
   const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? addLabel : 'Prehľad');
   function navigate(next: string) { setView(next); setMenuOpen(false); }
 
-  return <section className="chores-workspace relationship-workspace" aria-label="Pracovný priestor vzťahových cieľov">
+  return <section className="chores-workspace relationship-workspace" aria-label={props.personal ? 'Pracovný priestor osobných cieľov' : 'Pracovný priestor vzťahových cieľov'}>
     <div className="chores-mobile-bar">
-      <button type="button" aria-expanded={menuOpen} aria-controls="relationship-menu" onClick={() => setMenuOpen((open) => !open)}>☰ Menu vzťahu</button>
+      <button type="button" aria-expanded={menuOpen} aria-controls="relationship-menu" onClick={() => setMenuOpen((open) => !open)}>☰ {props.personal ? 'Menu osobných cieľov' : 'Menu vzťahu'}</button>
       <span>{title}</span>
     </div>
-    <nav id="relationship-menu" className={`chores-menu${menuOpen ? ' is-open' : ''}`} aria-label="Menu vzťahových cieľov">
+    <nav id="relationship-menu" className={`chores-menu${menuOpen ? ' is-open' : ''}`} aria-label={props.personal ? 'Menu osobných cieľov' : 'Menu vzťahových cieľov'}>
       <button type="button" aria-current={current === 'overview' ? 'page' : undefined} onClick={() => navigate('overview')}>Prehľad</button>
       {groups.map((group) => <section key={group.id} className={`relationship-menu-group relationship-menu-${group.id}`} aria-labelledby={`relationship-menu-${group.id}-heading`}>
         <h3 id={`relationship-menu-${group.id}-heading`}>{group.label}</h3>
@@ -93,14 +93,14 @@ function Rulebook({ rules, canEdit, onAdd, onRename, onDelete, onOpenTopic }: {
   const [editingId, setEditingId] = useState<string>();
   const selected = rules.find((rule) => rule.id === pickedId);
   return <section className="rulebook" aria-label="Rulebook">
-    <header className="chores-content-heading"><h2>Rulebook</h2><p>Naše pravidlá a dohody, ku ktorým sa môžeme vrátiť.</p></header>
+    <header className="chores-content-heading"><h2>Rulebook</h2><p>Pravidlá, ku ktorým sa dá vrátiť.</p></header>
     <div className="rulebook-pick">
       <span className="label">Jedno pravidlo na pripomenutie</span>
-      <div aria-live="polite" aria-atomic="true">{selected ? <><blockquote>{selected.text}</blockquote>{selected.sourceTitle && <p>Z témy: {selected.sourceTitle}</p>}</> : <p>Nechaj si náhodne vybrať jedno z našich pravidiel.</p>}</div>
+      <div aria-live="polite" aria-atomic="true">{selected ? <><blockquote>{selected.text}</blockquote>{selected.sourceTitle && <p>Z témy: {selected.sourceTitle}</p>}</> : <p>Nechaj si náhodne vybrať jedno pravidlo.</p>}</div>
       <button type="button" disabled={!rules.length} onClick={() => setPickedId(pickRule(rules, pickedId)?.id)}>🔀 {selected ? 'Vybrať ďalšie pravidlo' : 'Vybrať náhodné pravidlo'}</button>
     </div>
     {canEdit && <form className="rulebook-add" onSubmit={(event) => { event.preventDefault(); if (!text.trim()) return; onAdd(text); setText(''); }}>
-      <label>Nové pravidlo<textarea required maxLength={4000} rows={3} placeholder="Na čom sa chceme dohodnúť…" value={text} onChange={(event) => setText(event.target.value)} /></label>
+      <label>Nové pravidlo<textarea required maxLength={4000} rows={3} placeholder="Čo má pravidlo pripomínať…" value={text} onChange={(event) => setText(event.target.value)} /></label>
       <button type="submit" disabled={!text.trim()}>Pridať pravidlo</button>
     </form>}
     <h3>Všetky pravidlá <span className="rulebook-count">{rules.length}</span></h3>
