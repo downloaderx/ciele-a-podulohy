@@ -29,6 +29,17 @@ export function canMoveTodoList(previous: Goal | undefined, next: Goal, personId
     ['person-1', 'person-2'].includes(personId) && (source === 'shared' || source === personId) &&
     ['shared', 'person-1', 'person-2'].includes(destination) && source !== destination);
 }
+
+export function canConvertTodoList(list: Goal | undefined, personId: string): list is Goal {
+  const source = list?.spaceId ?? 'shared';
+  return Boolean(list && list.category === 'list' && !list.deletedAt && !list.purgedAt &&
+    ['person-1', 'person-2'].includes(personId) && (source === 'shared' || source === personId));
+}
+
+export function convertTodoListToRecipe(list: Goal, personId: string): Goal {
+  return { ...list, category: 'recipe', spaceId: 'shared', foodSelected: false, updatedById: personId };
+}
+
 export function createTodoList(id: string, title: string, ownerId: string, noteColor: NoteColor = 'butter', spaceId: string = 'shared'): Goal | null {
   const name = title.trim();
   if (!name || name.length > 100 || !noteColors.includes(noteColor)) return null;

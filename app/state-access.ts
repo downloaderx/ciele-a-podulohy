@@ -1,5 +1,5 @@
 import { retainProjectResources } from './project-resources-model';
-import { canMoveTodoList } from './lists-model';
+import { canConvertTodoList, canMoveTodoList } from './lists-model';
 import { purgeTask } from './trash';
 import { gratitudeDay } from './gratitude';
 import { normalizeGoals } from './page-model';
@@ -35,7 +35,11 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   for (const goal of incoming.goals) {
     const old = previous.goals.find((item) => item.id === goal.id);
     const movingList = canMoveTodoList(old, goal, personId);
-    if (old && (old.spaceId ?? 'shared') !== (goal.spaceId ?? 'shared') && !movingList) throw new ApiError(403, 'Túto položku nie je možné presunúť do iného priestoru.');
+    const convertingList = old?.category === 'list' && goal.category === 'recipe';
+    if (convertingList && (!canConvertTodoList(old, personId) || goal.spaceId !== 'shared' || goal.deletedAt || goal.purgedAt)) {
+      throw new ApiError(403, 'Do obľúbených jedál možno presunúť iba vlastný alebo spoločný zoznam.');
+    }
+    if (old && (old.spaceId ?? 'shared') !== (goal.spaceId ?? 'shared') && !movingList && !convertingList) throw new ApiError(403, 'Túto položku nie je možné presunúť do iného priestoru.');
     if (!allowedSpace(goal.spaceId) && !movingList) {
       if (!old || stableJson(normalizeGoals([old], previous.people)) !== stableJson(normalizeGoals([goal], previous.people))) throw new ApiError(403, 'Osobné ciele druhej osoby sú iba na prezeranie.');
       continue;

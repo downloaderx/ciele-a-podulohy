@@ -1271,6 +1271,51 @@ test('list transfer merges concurrent task edits and survives export and import'
   const m=mergeStates(b,l,r);assert.equal(m.conflicts.length,0);const saved=authorizedState(b,m.state,'person-1'),restored=readAppStateData(JSON.parse(JSON.stringify({version:1,data:saved})));assert.equal(isValidState(restored),true);const moved=restored.goals.find(g=>g.id===list.id);assert.equal(moved.spaceId,'person-1');assert.equal(moved.children[0].done,true);assert.equal(moved.children[1].id,'move-added');
 });
 
+test('an editable list becomes one shared recipe with its original ingredients and trash history', () => {
+  const { createTodoList, convertTodoListToRecipe } = require('../app/lists-model.ts');
+  for (const space of ['shared', 'person-1', 'person-2']) {
+    const actor = space === 'person-2' ? 'person-2' : 'person-1';
+    const before = state();
+    const list = createTodoList('meal-list', 'Carbonara', actor, 'mint', space);
+    list.children = [task('eggs', { title: 'Vajcia', done: true }), task('removed', { deletedAt: '2026-11-08T10:00:00Z' })];
+    before.goals.push(list);
+    const incoming = clone(before);
+    const recipe = convertTodoListToRecipe(list, actor);
+    incoming.goals[incoming.goals.length - 1] = recipe;
+    const saved = authorizedState(before, incoming, actor);
+    const meals = saved.goals.filter(goal => goal.id === list.id);
+    assert.equal(meals.length, 1);
+    assert.equal(meals[0].category, 'recipe');
+    assert.equal(meals[0].spaceId, 'shared');
+    assert.equal(meals[0].title, list.title);
+    assert.deepEqual(foodModel.liveFoodIngredients(meals).map(item => item.id), ['eggs']);
+    assert.equal(meals[0].children[1].deletedAt, list.children[1].deletedAt);
+    assert.equal(isValidState(saved), true);
+    if (space !== 'shared') {
+      assert.throws(() => authorizedState(before, incoming, actor === 'person-1' ? 'person-2' : 'person-1'));
+    }
+  }
+});
+
+test('a concurrent list transfer cannot strand a converted recipe on a personal board', () => {
+  const { createTodoList, convertTodoListToRecipe } = require('../app/lists-model.ts');
+  const before = state();
+  const list = createTodoList('moving-meal', 'Večera', 'person-1');
+  before.goals.push(list);
+  const converted = clone(before), moved = clone(before);
+  converted.goals[converted.goals.length - 1] = convertTodoListToRecipe(list, 'person-1');
+  moved.goals.at(-1).spaceId = 'person-2';
+  moved.goals.at(-1).children.push(task('concurrent-ingredient'));
+
+  const rejectedMove = mergeStates(before, converted, moved).state.goals.at(-1);
+  assert.equal(rejectedMove.category, 'list');
+  assert.equal(rejectedMove.spaceId, 'person-2');
+  const savedRecipe = mergeStates(before, moved, converted).state.goals.at(-1);
+  assert.equal(savedRecipe.category, 'recipe');
+  assert.equal(savedRecipe.spaceId, 'shared');
+  assert.equal(savedRecipe.children[0].id, 'concurrent-ingredient');
+});
+
 test('short chore dates follow Bratislava calendar days without spaces or years', () => {
   const {shortChoreDate}=require('../app/chore-date.ts');
   assert.equal(shortChoreDate('2026-11-07T23:30:00Z'),'8.11.');
