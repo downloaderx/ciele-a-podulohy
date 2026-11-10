@@ -34,6 +34,12 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
   };
   for (const goal of incoming.goals) {
     const old = previous.goals.find((item) => item.id === goal.id);
+    if (goal.category === 'agreement' && old && ![undefined, 'plan', 'agreement'].includes(old.category)) {
+      throw new ApiError(403, 'Do Hľadania dohody možno presunúť iba spoločný vzťahový cieľ.');
+    }
+    if (old?.category === 'agreement' && goal.category !== 'agreement') {
+      throw new ApiError(403, 'Téma dohody musí zostať v spoločnej sekcii.');
+    }
     const movingList = canMoveTodoList(old, goal, personId);
     const convertingList = old?.category === 'list' && goal.category === 'recipe';
     if (convertingList && (!canConvertTodoList(old, personId) || goal.spaceId !== 'shared' || goal.deletedAt || goal.purgedAt)) {
@@ -81,7 +87,18 @@ export function authorizedState(previous: AppStateData, incoming: AppStateData, 
     const ownDay = satisfaction?.[personId] === undefined ? undefined
       : satisfaction[personId] !== old?.satisfactionByPerson?.[personId] || requestedDay === today ? today : oldDay;
     const answerDays = Object.fromEntries([[personId, ownDay], [otherId, old?.satisfactionAnsweredOnByPerson?.[otherId]]].filter(([, day]) => day !== undefined));
+    const agreementEntries = new Map((old?.agreementEntries ?? []).map((entry) => [entry.id, entry]));
+    for (const entry of goal.agreementEntries ?? []) {
+      const prior = agreementEntries.get(entry.id);
+      if (stableJson(prior) === stableJson(entry)) continue;
+      if (entry.personId !== personId || (prior && (prior.personId !== personId || prior.kind !== entry.kind ||
+        ('proposalId' in prior ? prior.proposalId : undefined) !== ('proposalId' in entry ? entry.proposalId : undefined)))) {
+        throw new ApiError(403, 'Upravovať môžeš iba vlastné body dohody.');
+      }
+      agreementEntries.set(entry.id, entry);
+    }
     return { ...goal, ...stamped,
+      ...(goal.agreementEntries || old?.agreementEntries ? { agreementEntries: [...agreementEntries.values()] } : {}),
       ...((goal.foodSelected ?? old?.foodSelected) !== undefined ? { foodSelected: goal.foodSelected ?? old?.foodSelected } : {}),
       ...(goal.routineRun ?? old?.routineRun ? { routineRun: goal.routineRun ?? old?.routineRun } : {}),
       ...(goal.resources !== undefined || old?.resources !== undefined ? { resources: retainProjectResources(old?.resources, goal.resources).map((resource) => { const previous = old?.resources?.find((item) => item.id === resource.id); return { ...resource, ownerId: previous?.ownerId ?? personId, createdAt: previous?.createdAt ?? resource.createdAt }; }) } : {}),

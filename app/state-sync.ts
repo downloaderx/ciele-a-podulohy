@@ -12,6 +12,19 @@ const date = (value: unknown) => value === undefined || (string(value, 64) && Nu
 const ratings = (value: unknown) => record(value) && Object.entries(value).every(([key, score]) =>
   personIds.includes(key) && typeof score === 'number' && Number.isInteger(score) && score >= 1 && score <= 5);
 
+function validAgreementEntries(value: unknown) {
+  if (!Array.isArray(value) || value.length > 500) return false;
+  const ids = new Set<string>();
+  const proposals = new Set(value.filter((entry) => record(entry) && entry.kind === 'proposal').map((entry) => entry.id));
+  return value.every((entry) => {
+    if (!record(entry) || !string(entry.id, 200) || !entry.id || ids.has(entry.id) ||
+        !personIds.includes(String(entry.personId)) || !string(entry.text, 4000) || !entry.text.trim() || !date(entry.deletedAt)) return false;
+    ids.add(entry.id);
+    if (entry.kind === 'need' || entry.kind === 'proposal' || entry.kind === 'context') return entry.proposalId === undefined;
+    return ['works', 'concern', 'condition'].includes(String(entry.kind)) && proposals.has(entry.proposalId);
+  });
+}
+
 export function isValidState(value: unknown): value is AppStateData {
   if (!record(value) || !personIds.includes(String(value.activePersonId)) || !Array.isArray(value.people) ||
       value.people.length !== 2 || !Array.isArray(value.goals) || !Array.isArray(value.activityLog) ||
@@ -46,7 +59,9 @@ export function isValidState(value: unknown): value is AppStateData {
   }
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
-        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'pantry', 'recipe', 'care'].includes(String(goal.category))) ||
+        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'pantry', 'recipe', 'agreement', 'care'].includes(String(goal.category))) ||
+        (goal.category === 'agreement' && goal.spaceId !== 'shared') ||
+        (goal.agreementEntries !== undefined && (goal.category !== 'agreement' || !validAgreementEntries(goal.agreementEntries))) ||
         (goal.foodSelected !== undefined && typeof goal.foodSelected !== 'boolean') ||
         (goal.routineRun !== undefined && !validRoutineRun(goal.routineRun)) ||
         (goal.resources !== undefined && !validProjectResources(goal.resources)) ||

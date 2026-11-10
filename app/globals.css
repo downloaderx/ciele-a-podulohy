@@ -3280,6 +3280,27 @@ html:has(.food-shell) { scrollbar-gutter: stable; }
 .food-recipes-heading > button { padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--foreground); font-size: 12px; }
 .food-recipes .lists-note-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 296px), 296px)); }
 .food-note { width: 100%; }
+
+.agreement-topic-bar, .agreement-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.agreement-workspace button, .agreement-move button { padding: 8px 12px; border-radius: 10px; }
+.agreement-topic-bar button[aria-pressed='true'] { background: var(--accent); color: var(--button-ink, var(--ink)); }
+.agreement-topic, .agreement-context, .agreement-proposals, .agreement-proposal, .agreement-move { margin-top: 18px; }
+.agreement-topic h3, .agreement-topic h4, .agreement-topic h5 { margin: 0 0 8px; overflow-wrap: anywhere; }
+.agreement-topic p, .agreement-topic h5 { white-space: pre-wrap; overflow-wrap: anywhere; }
+.agreement-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.agreement-side, .agreement-proposal { min-width: 0; padding: 14px; border-radius: 14px; background: var(--panel-soft); }
+.agreement-side { border-inline-start: 3px solid var(--line); }
+.agreement-proposal > .agreement-columns { margin-top: 10px; }
+.agreement-proposal .agreement-side { background: var(--panel); }
+.agreement-entry, .agreement-reason { margin-bottom: 10px; }
+.agreement-entry p { margin: 0 0 6px; }
+.agreement-entry-actions button, .agreement-add { font-size: 13px; }
+.agreement-form { display: grid; gap: 8px; margin: 8px 0; }
+.agreement-form label { display: grid; gap: 4px; }
+.agreement-form textarea { width: 100%; resize: vertical; }
+.agreement-context summary, .agreement-move summary { cursor: pointer; }
+.agreement-move button { margin-top: 8px; }
+@media (max-width: 760px) { .agreement-columns { grid-template-columns: minmax(0, 1fr); } }
 .food-recipe-details .project-resources { margin-top: 8px; min-width: 0; }
 .food-note h2 { font-size: 20px; margin: 0; overflow-wrap: anywhere; }
 .food-note-hint, .food-empty-note > p, p.food-empty-note { font-size: 12px; line-height: 1.6; opacity: .8; margin: 0 0 14px; }
