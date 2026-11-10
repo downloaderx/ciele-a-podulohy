@@ -5,11 +5,19 @@ import { saveServerBackup } from '../../server-backups';
 import { authorizedState } from '../../state-access';
 import { isValidState } from '../../state-sync';
 import { projectFileMaxBytes, projectFileMime, type ProjectResource } from '../../project-resources-model';
+import type { Goal } from '../../page-model';
 
 export const dynamic = 'force-dynamic';
 const bucket = 'foxies-project-files';
 const prefix = (goalId: string) => createHash('sha256').update(goalId).digest('hex');
 const objectPath = (key: string) => key.split('/').map(encodeURIComponent).join('/');
+
+function canAttachFile(goal: Goal, personId: string) {
+  const space = goal.spaceId ?? 'shared';
+  if (goal.deletedAt || goal.purgedAt) return false;
+  if (goal.category === 'recipe') return space === 'shared';
+  return (!goal.category || goal.category === 'plan') && (space === 'shared' || space === personId);
+}
 
 async function ensureBucket() {
   const found = await supabase(`/storage/v1/bucket/${bucket}`);
@@ -35,16 +43,16 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const goalId = form.get('goalId');
     const file = form.get('file');
-    if (typeof goalId !== 'string' || !(file instanceof File)) throw new ApiError(400, 'Vyber dokument a projekt.');
+    if (typeof goalId !== 'string' || !(file instanceof File)) throw new ApiError(400, 'Vyber súbor, ktorý chceš pridať.');
     if (file.size < 1 || file.size > projectFileMaxBytes) throw new ApiError(413, 'Súbor musí byť neprázdny a mať najviac 3 MB.');
     const localPath = String(form.get('localPath') ?? '').trim();
     if (localPath.length > 1000 || /[\r\n\x00]/.test(localPath)) throw new ApiError(400, 'Neplatná cesta k lokálnemu súboru.');
     const mime = projectFileMime(file.name);
     if (!mime || file.name.length > 255 || /[\r\n\x00]/.test(file.name)) throw new ApiError(400, 'Podporované sú PDF, Office dokumenty, obrázky a textové súbory.');
     const initial = await readBoard(personId);
-    const allowed = initial.data.goals.find((goal) => goal.id === goalId && !goal.deletedAt && (!goal.category || goal.category === 'plan'));
-    if (!allowed || (allowed.spaceId && !['shared', personId].includes(allowed.spaceId))) throw new ApiError(403, 'Do tohto projektu nemôžeš pridávať súbory.');
-    if ((allowed.resources?.length ?? 0) >= 100) throw new ApiError(400, 'Projekt už má maximálny počet podkladov.');
+    const allowed = initial.data.goals.find((goal) => goal.id === goalId && canAttachFile(goal, personId));
+    if (!allowed) throw new ApiError(403, 'K tejto položke nemôžeš pridávať súbory.');
+    if ((allowed.resources?.length ?? 0) >= 100) throw new ApiError(400, 'Táto položka už má maximálny počet podkladov.');
     await ensureBucket();
     const id = randomUUID(), key = `${prefix(goalId)}/${id}`;
     const uploaded = await supabase(`/storage/v1/object/${bucket}/${objectPath(key)}`, { method: 'POST', headers: { 'content-type': mime, 'x-upsert': 'false' }, body: await file.arrayBuffer() });
@@ -53,17 +61,17 @@ export async function POST(request: Request) {
       content: '', ...(localPath ? { localPath } : {}), ownerId: personId, createdAt: new Date().toISOString(), file: { key, name: file.name, size: file.size, mime } };
     for (let attempt = 0; attempt < 3; attempt++) {
       const previous = attempt ? await readBoard(personId) : initial;
-      const target = previous.data.goals.find((goal) => goal.id === goalId && !goal.deletedAt);
-      if (!target || (target.spaceId && !['shared', personId].includes(target.spaceId))) throw new ApiError(409, 'Projekt sa medzitým zmenil. Obnov stránku a skús to znova.');
+      const target = previous.data.goals.find((goal) => goal.id === goalId && canAttachFile(goal, personId));
+      if (!target) throw new ApiError(409, 'Položka sa medzitým zmenila. Obnov stránku a skús to znova.');
       const incoming = { ...previous.data, goals: previous.data.goals.map((goal) => goal.id === goalId ? { ...goal, resources: [...(goal.resources ?? []), resource] } : goal) };
       const data = authorizedState(previous.data, incoming, personId);
-      if (!isValidState(data)) throw new ApiError(400, 'Projekt má príliš veľa podkladov.');
+      if (!isValidState(data)) throw new ApiError(400, 'Táto položka má príliš veľa podkladov.');
       await saveServerBackup(previous);
       const saved = await supabase('/rest/v1/rpc/save_app_state', { method: 'POST', body: JSON.stringify({ p_id: stateKey, p_expected_revision: previous.revision, p_data: data }) });
-      if (!saved.ok) throw new ApiError(503, 'Dokument sa nahral, ale pripojenie k projektu zlyhalo. Skús znova.');
+      if (!saved.ok) throw new ApiError(503, 'Dokument sa nahral, ale pripojenie k položke zlyhalo. Skús znova.');
       if ((await saved.json() as { ok: boolean }).ok) return Response.json({ resource }, { headers: { 'cache-control': 'no-store' } });
     }
-    throw new ApiError(409, 'Projekt práve upravuje aj niekto iný. Skús dokument pridať znova.');
+    throw new ApiError(409, 'Položku práve upravuje aj niekto iný. Skús dokument pridať znova.');
   } catch (error) { return errorResponse(error); }
 }
 

@@ -3280,6 +3280,7 @@ html:has(.food-shell) { scrollbar-gutter: stable; }
 .food-recipes-heading > button { padding: 5px 10px; border-radius: 10px; background: var(--panel); color: var(--foreground); font-size: 12px; }
 .food-recipes .lists-note-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 296px), 296px)); }
 .food-note { width: 100%; }
+.food-recipe-details .project-resources { margin-top: 8px; min-width: 0; }
 .food-note h2 { font-size: 20px; margin: 0; overflow-wrap: anywhere; }
 .food-note-hint, .food-empty-note > p, p.food-empty-note { font-size: 12px; line-height: 1.6; opacity: .8; margin: 0 0 14px; }
 .food-note button { color: var(--note-ink); }
