@@ -1313,6 +1313,18 @@ test('food coverage matches descriptive names and word prefixes without ignoring
   assert.equal(coverage.percent, 60);
 });
 
+test('food coverage matches known Slovak ingredient forms without merging different ingredients', () => {
+  const { pantry, recipe } = foodFixture();
+  pantry.children = ['Vajcia', 'Paradajky', 'Kokosové mlieko', 'Maslo'].map((name, i) =>
+    foodModel.createFoodIngredient(`forms-stock-${i}`, name, '', 'person-1', true));
+  recipe.children = ['Vajco', 'Vajce', 'Paradajka', 'Kokosového mlieka', 'Ovsené mlieko', 'Maslová tekvica'].map((name, i) =>
+    foodModel.createFoodIngredient(`forms-recipe-${i}`, name, '', 'person-1'));
+
+  const { have, missing } = foodModel.recipeAvailability(recipe, [pantry]);
+  assert.deepEqual(have.map(item => item.title), ['Vajco', 'Vajce', 'Paradajka', 'Kokosového mlieka']);
+  assert.deepEqual(missing.map(item => item.title), ['Ovsené mlieko', 'Maslová tekvica']);
+});
+
 test('food coverage ignores deleted/private stock and never reports empty recipes as fully available',()=>{
   const {pantry,recipe}=foodFixture();pantry.children[0].deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,50);pantry.deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);delete pantry.deletedAt;pantry.spaceId='person-1';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);
   recipe.children=[];assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,null);assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,0);
