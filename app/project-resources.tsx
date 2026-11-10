@@ -92,7 +92,7 @@ function ResourceForm({ resource, goalId, personId, onSave, onCancel }: {
     <label>Typ podkladu<select disabled={busy || Boolean(resource?.file)} value={fileMode ? 'file' : kind} onChange={(event) => { setFileMode(event.target.value === 'file'); if (event.target.value !== 'file') setKind(event.target.value as ProjectResource['kind']); setError(''); }}>
       <option value="link">Odkaz</option><option value="document">Dokument – odkaz</option><option value="file">Súbor zo zariadenia</option><option value="note">Poznámka</option>
     </select></label>
-    <label>Názov (voliteľný)<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Napr. Rozpočet alebo naše nápady" /></label>
+    <label>Názov (voliteľný)<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Napr. Rozpočet alebo nápady" /></label>
     {fileMode ? <>
       {!resource?.file && <label>Záložná kópia súboru<input type="file" disabled={busy} required accept=".pdf,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>}
       <label>Cesta k originálu v PC (voliteľná)<input maxLength={1000} value={localPath} onChange={(event) => setLocalPath(event.target.value)} placeholder="C:\\Users\\…\\Dokument.docx" /></label>

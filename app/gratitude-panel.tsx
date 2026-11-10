@@ -67,7 +67,7 @@ function GratitudeEditor({ entry, day, onSave }: { entry?: GratitudeEntry; day: 
   if (!editing && entry) return <button type="button" className="gratitude-edit" onClick={() => setEditing(true)}>Upraviť môj dnešný zápis</button>;
   return <form className="gratitude-form" onSubmit={submit}>
     <label htmlFor="gratitude-text">Za čo si dnes vďačný/á?</label>
-    <textarea id="gratitude-text" value={text} maxLength={1000} rows={3} placeholder="Napríklad za spoločnú večeru alebo chvíľu pokoja…" onChange={(event) => setText(event.target.value)} />
+    <textarea id="gratitude-text" value={text} maxLength={1000} rows={3} placeholder="Napríklad za dobrú večeru alebo chvíľu pokoja…" onChange={(event) => setText(event.target.value)} />
     {error ? <p role="alert">{error}</p> : null}
     <div className="gratitude-actions">
       <button type="submit" disabled={!text.trim() || text.trim() === entry?.text}>{entry ? 'Uložiť úpravu' : 'Uložiť dnešný zápis'}</button>
