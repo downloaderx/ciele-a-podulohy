@@ -1171,6 +1171,15 @@ test('project file API stores private files with board backups and restricts upl
     const download=await get();assert.equal(download.status,200);assert.equal(await download.text(),'test-document');assert.match(download.headers.get('content-disposition'),/attachment/);
     jar.set('acorns-profile','person-2');assert.equal((await get()).status,200);
     stored.data.goals[0].resources[0].deletedAt='2026-11-08T12:00:00Z';assert.equal((await get()).status,404);
+    stored.data.goals.push(goal('shared-recipe', { category: 'recipe', spaceId: 'shared' }));
+    const recipeUpload = await api.POST(upload('shared-recipe', 'Postup.txt', 'Skúšobný recept'));
+    assert.equal(recipeUpload.status, 200);
+    const { resource: recipeFile } = await recipeUpload.json();
+    assert.equal(stored.data.goals.find(item => item.id === 'shared-recipe').resources[0].id, recipeFile.id);
+    jar.set('acorns-profile', 'person-1');
+    const recipeDownload = await api.GET(new Request('https://foxies.test/api/project-files?goalId=shared-recipe&resourceId=' + recipeFile.id));
+    assert.equal(recipeDownload.status, 200);
+    assert.equal(await recipeDownload.text(), 'Skúšobný recept');
     publicBucket=true;assert.equal((await api.POST(upload())).status,503);
     publicBucket=false;backupFailure=true;assert.equal((await api.POST(upload())).status,503);
     jar.clear();assert.equal((await get()).status,401);

@@ -9,20 +9,21 @@ type Props = {
   resources?: ProjectResource[];
   editMode?: boolean;
   personId?: string;
+  recipe?: boolean;
   onSave?: (resource: ProjectResource) => void;
   onRemove?: (id: string) => void;
 };
 
 const labels = { link: 'Odkaz', document: 'Dokument', note: 'Poznámka' };
 
-export function ProjectResources({ goalId, resources = [], editMode = false, personId, onSave, onRemove }: Props) {
+export function ProjectResources({ goalId, resources = [], editMode = false, personId, recipe = false, onSave, onRemove }: Props) {
   const [editor, setEditor] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState('');
   const live = resources.filter((resource) => !resource.deletedAt);
   const selected = live.find((resource) => resource.id === editor);
-  return <section className="project-resources" aria-label="Podklady projektu">
-    <div className="simple-items-heading"><h3>Podklady</h3><span>{live.length}</span></div>
-    {!live.length && <p className="resources-empty">Odkazy, dokumenty a poznámky k tomuto projektu na jednom mieste.</p>}
+  return <section className="project-resources" aria-label={recipe ? 'Podklady receptu' : 'Podklady projektu'}>
+    {!recipe && <div className="simple-items-heading"><h3>Podklady</h3><span>{live.length}</span></div>}
+    {!live.length && <p className="resources-empty">{recipe ? 'Pridaj odkaz na recept, nahraj súbor alebo napíš vlastný postup.' : 'Odkazy, dokumenty a poznámky k tomuto projektu na jednom mieste.'}</p>}
     <ul className="resource-list">{live.map((resource) => <li key={resource.id}>
       <span className="resource-type">{labels[resource.kind]}</span>
       {resource.kind === 'note' ? <details className="resource-note"><summary>{resource.title}</summary><p>{resource.content}</p></details> : <>
@@ -46,7 +47,7 @@ export function ProjectResources({ goalId, resources = [], editMode = false, per
     </li>)}</ul>
     {copyMessage && <p role="status" className="resource-message">{copyMessage}</p>}
     {editMode && personId && onSave && <>
-      {editor !== null ? <ResourceForm key={selected?.id ?? 'new'} resource={selected} goalId={goalId} personId={personId}
+      {editor !== null ? <ResourceForm key={selected?.id ?? 'new'} resource={selected} goalId={goalId} personId={personId} recipe={recipe}
         onSave={(resource) => { onSave(resource); setEditor(null); }} onCancel={() => setEditor(null)} /> :
         <button type="button" disabled={resources.length >= 100} className="resource-add" onClick={() => setEditor('new')}>＋ Pridať podklad</button>}
       {resources.some((resource) => resource.deletedAt) && <details className="resource-removed"><summary>Odobraté podklady</summary><ul>{resources.filter((resource) => resource.deletedAt).map((resource) => <li key={resource.id}><span>{resource.title}</span><button type="button" onClick={() => { const restored = { ...resource }; delete restored.deletedAt; onSave(restored); }}>Obnoviť</button></li>)}</ul></details>}
@@ -54,8 +55,8 @@ export function ProjectResources({ goalId, resources = [], editMode = false, per
   </section>;
 }
 
-function ResourceForm({ resource, goalId, personId, onSave, onCancel }: {
-  resource?: ProjectResource; goalId: string; personId: string; onSave: (resource: ProjectResource) => void; onCancel: () => void;
+function ResourceForm({ resource, goalId, personId, recipe, onSave, onCancel }: {
+  resource?: ProjectResource; goalId: string; personId: string; recipe: boolean; onSave: (resource: ProjectResource) => void; onCancel: () => void;
 }) {
   const [kind, setKind] = useState<ProjectResource['kind']>(resource?.kind ?? 'link');
   const [title, setTitle] = useState(resource?.title ?? '');
@@ -90,14 +91,16 @@ function ResourceForm({ resource, goalId, personId, onSave, onCancel }: {
   }
   return <form className="resource-form" onSubmit={submit} aria-label={resource ? 'Upraviť podklad' : 'Pridať podklad'}>
     <label>Typ podkladu<select disabled={busy || Boolean(resource?.file)} value={fileMode ? 'file' : kind} onChange={(event) => { setFileMode(event.target.value === 'file'); if (event.target.value !== 'file') setKind(event.target.value as ProjectResource['kind']); setError(''); }}>
-      <option value="link">Odkaz</option><option value="document">Dokument – odkaz</option><option value="file">Súbor zo zariadenia</option><option value="note">Poznámka</option>
+      <option value="link">{recipe ? 'Odkaz na recept' : 'Odkaz'}</option><option value="document">Dokument – odkaz</option><option value="file">Súbor zo zariadenia</option><option value="note">{recipe ? 'Postup alebo poznámka' : 'Poznámka'}</option>
     </select></label>
-    <label>Názov (voliteľný)<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Napr. Rozpočet alebo nápady" /></label>
+    <label>Názov (voliteľný)<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={recipe ? 'Napr. Postup prípravy' : 'Napr. Rozpočet alebo nápady'} /></label>
     {fileMode ? <>
-      {!resource?.file && <label>Záložná kópia súboru<input type="file" disabled={busy} required accept=".pdf,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>}
-      <label>Cesta k originálu v PC (voliteľná)<input maxLength={1000} value={localPath} onChange={(event) => setLocalPath(event.target.value)} placeholder="C:\\Users\\…\\Dokument.docx" /></label>
-      <p>Originál zostáva v PC. Cestu môžeš skopírovať do Prieskumníka; nahratá kópia v appke je samostatná záloha k okamihu nahratia. Zmeny v origináli sa do nej neprenášajú automaticky. Najviac 3 MB.</p>
-    </> : kind === 'note' ? <label>Text poznámky<textarea required rows={4} maxLength={10000} value={content} onChange={(event) => setContent(event.target.value)} /></label> :
+      {!resource?.file && <label>{recipe ? 'Súbor receptu' : 'Záložná kópia súboru'}<input type="file" disabled={busy} required accept=".pdf,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>}
+      {recipe ? <p>Najviac 3 MB.</p> : <>
+        <label>Cesta k originálu v PC (voliteľná)<input maxLength={1000} value={localPath} onChange={(event) => setLocalPath(event.target.value)} placeholder="C:\\Users\\…\\Dokument.docx" /></label>
+        <p>Originál zostáva v PC. Cestu môžeš skopírovať do Prieskumníka; nahratá kópia v appke je samostatná záloha k okamihu nahratia. Zmeny v origináli sa do nej neprenášajú automaticky. Najviac 3 MB.</p>
+      </>}
+    </> : kind === 'note' ? <label>{recipe ? 'Postup alebo poznámka' : 'Text poznámky'}<textarea required rows={4} maxLength={10000} value={content} onChange={(event) => setContent(event.target.value)} /></label> :
       <label>{kind === 'document' ? 'Odkaz na dokument' : 'Webová adresa'}<input type="url" required maxLength={2048} value={content} onChange={(event) => setContent(event.target.value)} placeholder="https://…" /></label>}
     {!fileMode && kind === 'document' && <p>Odkaz napríklad na Google Drive, OneDrive alebo iné miesto, kde máte dokument.</p>}
     {error && <p role="alert">{error}</p>}

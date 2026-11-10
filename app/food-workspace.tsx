@@ -4,10 +4,15 @@ import { useState } from 'react';
 import type { Goal, Task } from './page-model';
 import { EditableInput } from './editable-input';
 import { ingredientKey, liveFoodIngredients, recipeAvailability } from './food-model';
+import { ProjectResources } from './project-resources';
+import type { ProjectResource } from './project-resources-model';
 
 type Props = {
   pantries: Goal[];
   recipes: Goal[];
+  personId: string;
+  onSaveResource: (recipeId: string, resource: ProjectResource) => void;
+  onRemoveResource: (recipeId: string, resourceId: string) => void;
   onAddRecipe: (title: string) => void;
   onAddStock: (name: string, amount: string) => string | undefined;
   onAddIngredient: (recipeId: string, name: string, amount: string) => string | undefined;
@@ -54,7 +59,7 @@ export function FoodWorkspace(props: Props) {
   </section>;
 }
 
-function RecipeNote({ recipe, color, pantries, onSelectRecipe, onAddIngredient, onEditIngredient, onRename, onDelete }: Props & { recipe: Goal; color: string }) {
+function RecipeNote({ recipe, color, pantries, personId, onSelectRecipe, onAddIngredient, onEditIngredient, onRename, onDelete, onSaveResource, onRemoveResource }: Props & { recipe: Goal; color: string }) {
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(recipe.children.length === 0);
   const availability = recipeAvailability(recipe, pantries);
@@ -69,6 +74,11 @@ function RecipeNote({ recipe, color, pantries, onSelectRecipe, onAddIngredient, 
     </> : <ul className="food-ingredient-list note-checklist">{ingredients.map((item) => <li key={item.id}>{editing ? <><IngredientEditor item={item} onEdit={onEditIngredient} /><TrashButton label={`Presunúť surovinu jedla do koša: ${item.title}`} onClick={() => onDelete(item.id)} /></> : <><span>{item.title}</span>{item.foodAmount && <small>{item.foodAmount}</small>}</>}</li>)}</ul>}
     {!ingredients.length && !recipe.foodSelected && <p className="food-empty-note">Zatiaľ bez surovín.</p>}
     <details className="food-add-ingredient" open={adding || editing} onToggle={(event) => { if (!editing) setAdding(event.currentTarget.open); }}><summary>+ Pridať surovinu</summary><IngredientForm label={`Pridať surovinu do ${recipe.title}`} onAdd={(title, amount) => onAddIngredient(recipe.id, title, amount)} /></details>
+    <details className="food-add-ingredient food-recipe-details">
+      <summary>Postup a prílohy</summary>
+      <ProjectResources goalId={recipe.id} resources={recipe.resources} editMode personId={personId} recipe
+        onSave={(resource) => onSaveResource(recipe.id, resource)} onRemove={(id) => onRemoveResource(recipe.id, id)} />
+    </details>
     {editing && <footer className="todo-note-trash-area"><TrashButton label={`Presunúť jedlo do koša: ${recipe.title}`} text="Presunúť jedlo do koša" onClick={() => onDelete(recipe.id)} /></footer>}
   </article>;
 }
