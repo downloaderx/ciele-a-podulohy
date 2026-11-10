@@ -20,6 +20,22 @@ export function liveFoodIngredients(collections: Goal[]): Task[] {
   return collections.filter((goal) => !goal.deletedAt && !goal.purgedAt).flatMap((goal) => goal.children.filter((item) => !item.deletedAt && !item.purgedAt));
 }
 
+// Use known forms so unrelated ingredients with similar endings stay distinct.
+const ingredientForms = new Map([
+  ['vajce', 'vajco', 'vajcia', 'vajec', 'vajcu', 'vajcom', 'vajci', 'vajciam', 'vajciach', 'vajcami'],
+  ['paradajka', 'paradajky', 'paradajok', 'paradajku', 'paradajkou', 'paradajkam', 'paradajkach', 'paradajkami'],
+  ['cibula', 'cibule', 'cibul', 'cibulu', 'cibulou', 'cibuli', 'cibuliam', 'cibuliach', 'cibulami'],
+  ['uhorka', 'uhorky', 'uhoriek', 'uhorku', 'uhorkou', 'uhorkam', 'uhorkach', 'uhorkami'],
+  ['mrkva', 'mrkvy', 'mrkiev', 'mrkvu', 'mrkvou', 'mrkve', 'mrkvam', 'mrkvach', 'mrkvami'],
+  ['paprika', 'papriky', 'paprik', 'papriku', 'paprikou', 'paprike', 'paprikam', 'paprikach', 'paprikami'],
+  ['jablko', 'jablka', 'jablk', 'jablku', 'jablkom', 'jablkach', 'jablkami'],
+  ['mlieko', 'mlieka', 'mlieku', 'mliekom'],
+  ['maslo', 'masla', 'maslu', 'maslom'],
+  ['muka', 'muky', 'muku', 'mukou', 'muke'],
+  ['ryza', 'ryze', 'ryzu', 'ryzou', 'ryzi'],
+  ['sol', 'soli', 'solou'],
+].flatMap(([base, ...forms]) => [base, ...forms].map((form) => [form, base] as const)));
+
 function ingredientWords(key: string): string[] {
   return key.match(/[\p{L}\p{N}]+/gu) ?? [];
 }
@@ -30,7 +46,10 @@ function matchesIngredientWords(first: string[], second: string[]): boolean {
 
   return longer.some((_, start) => start + shorter.length <= longer.length && shorter.every((word, offset) => {
     const other = longer[start + offset];
-    return word === other || (Math.min(word.length, other.length) >= 4 && (word.startsWith(other) || other.startsWith(word)));
+    if ((ingredientForms.get(word) ?? word) === (ingredientForms.get(other) ?? other)) return true;
+
+    const [prefix, full] = word.length <= other.length ? [word, other] : [other, word];
+    return prefix.length >= 4 && !ingredientForms.has(prefix) && full.startsWith(prefix);
   }));
 }
 
