@@ -41,7 +41,18 @@ export type ChoreWeight = 1 | 3 | 5;
 
 export type NoteColor = 'butter' | 'rose' | 'mint' | 'lavender' | 'sky';
 
+export type AgreementEntry = {
+  id: string;
+  personId: string;
+  text: string;
+  deletedAt?: string;
+} & ({ kind: 'need' | 'proposal' | 'context' } | {
+  kind: 'works' | 'concern' | 'condition';
+  proposalId: string;
+});
+
 export type Goal = Task & {
+  agreementEntries?: AgreementEntry[];
   foodSelected?: boolean;
   routineRun?: RoutineRun;
   resources?: ProjectResource[];
@@ -61,7 +72,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine' | 'pantry' | 'recipe';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine' | 'pantry' | 'recipe' | 'agreement';
 
 export type ActivityItem = {
   id: string;
@@ -260,6 +271,7 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'routine', label: 'Rutiny' },
   { id: 'pantry', label: 'Špajznička' },
   { id: 'recipe', label: 'Obľúbené jedlá' },
+  { id: 'agreement', label: 'Hľadanie dohody' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },

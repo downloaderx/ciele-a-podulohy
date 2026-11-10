@@ -1395,6 +1395,41 @@ test('a stocked vegetable mix covers a recipe that asks for any vegetable', () =
   assert.equal(foodModel.recipeAvailability(recipe, [pantry]).percent, 0);
 });
 
+test('moving a shared goal to agreements preserves its contents and both profiles can add their own entries', () => {
+  const before = state();
+  before.goals[0].children = [task('original-step')];
+  const moved = clone(before);
+  Object.assign(moved.goals[0], { category: 'agreement', spaceId: 'shared' });
+  const saved = authorizedState(before, moved, 'person-1');
+  assert.equal(isValidState(saved), true);
+  assert.equal(saved.goals[0].children[0].id, 'original-step');
+
+  const first = visibleState(clone(saved), 'person-1');
+  first.goals[0].agreementEntries = [{ id: 'proposal', kind: 'proposal', personId: 'person-1', text: 'Vyskúšať inú možnosť' }];
+  const withProposal = authorizedState(saved, first, 'person-1');
+  const left = visibleState(clone(withProposal), 'person-1');
+  const right = visibleState(clone(withProposal), 'person-2');
+  left.goals[0].agreementEntries.push({ id: 'reason-a', kind: 'works', proposalId: 'proposal', personId: 'person-1', text: 'Môže mi to pomôcť.' });
+  right.goals[0].agreementEntries.push({ id: 'reason-b', kind: 'concern', proposalId: 'proposal', personId: 'person-2', text: 'Potrebujem viac času.' });
+  const remote = authorizedState(withProposal, right, 'person-2');
+  const { state: combined, conflicts } = mergeStates(withProposal, left, remote);
+  assert.deepEqual(conflicts, []);
+  const result = authorizedState(remote, combined, 'person-1');
+  assert.equal(isValidState(result), true);
+  assert.deepEqual(result.goals[0].agreementEntries.map(entry => entry.id).sort(), ['proposal', 'reason-a', 'reason-b']);
+  const tampered = clone(combined);
+  tampered.goals[0].agreementEntries.find(entry => entry.id === 'reason-b').text = 'Cudzia úprava';
+  assert.throws(() => authorizedState(remote, tampered, 'person-1'), /vlastné body dohody/);
+  const invalid = clone(result);
+  invalid.goals[0].agreementEntries.push({ id: 'orphan', kind: 'concern', proposalId: 'missing', personId: 'person-1', text: 'Dôvod' });
+  assert.equal(isValidState(invalid), false);
+  const personal = clone(result);
+  personal.goals[0].spaceId = 'person-1';
+  assert.equal(isValidState(personal), false);
+  const purged = require('../app/trash.ts').purgeTask(result.goals[0], '2026-11-10T10:00:00Z');
+  assert.equal(purged.agreementEntries, undefined);
+});
+
 test('food coverage ignores deleted/private stock and never reports empty recipes as fully available',()=>{
   const {pantry,recipe}=foodFixture();pantry.children[0].deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,50);pantry.deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);delete pantry.deletedAt;pantry.spaceId='person-1';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);
   recipe.children=[];assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,null);assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,0);

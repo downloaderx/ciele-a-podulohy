@@ -6,6 +6,7 @@ import type { ProjectResource } from './project-resources-model';
 import { quickUndoCompletion, choreQuickUndoMs } from './chore-quick-undo';
 import { purgeTask, selectedTrashRoots } from './trash';
 import { RelationshipWorkspace } from './relationship-workspace';
+import { AgreementWorkspace } from './agreement-workspace';
 import { collectRules, createRule } from './rulebook-model';
 import { RoutinesWorkspace } from './routines-workspace';
 import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
@@ -82,6 +83,7 @@ import {
   type GratitudeEntry,
   type BoardSpaceId,
   type CompletedItem,
+  type AgreementEntry,
   type Goal,
   type NoteColor,
   type GoalCategory,
@@ -93,7 +95,7 @@ import {
   type TransferPayload,
 } from './page-model';
 
-const enabledGoalCategories = goalCategories.filter((category) => category.id !== 'errand' && category.id !== 'habit' && category.id !== 'list' && category.id !== 'rulebook' && category.id !== 'routine' && category.id !== 'pantry' && category.id !== 'recipe');
+const enabledGoalCategories = goalCategories.filter((category) => ['plan', 'chore', 'activity'].includes(category.id));
 
 function saveInputOnEnter(event: KeyboardEvent<HTMLInputElement>) {
   if (event.key !== 'Enter' || event.nativeEvent.isComposing) {
@@ -468,6 +470,37 @@ export default function Home() {
       })),
     [rankedActiveGoals, boardGoals, boardSpaceId],
   );
+  function addAgreementTopic(title: string) {
+    if (boardSpaceId !== sharedSpaceId || !title.trim() || title.length > 200) return;
+    const topic: Goal = { id: createId(), title: title.trim(), category: 'agreement', spaceId: sharedSpaceId,
+      description: '', importanceByPerson: {}, ownerId: activePersonId, updatedById: activePersonId, done: false, expanded: false, children: [] };
+    return sync.saveChanges((current) => ({ ...current, goals: [...current.goals, topic] })) ? topic.id : undefined;
+  }
+
+  function moveGoalToAgreement(id: string) {
+    if (boardSpaceId !== sharedSpaceId) return false;
+    return sync.saveChanges((current) => {
+      const source = current.goals.find((goal) => goal.id === id && !goal.deletedAt && getGoalSpaceId(goal) === sharedSpaceId && normalizeGoalCategory(goal.category) === 'plan');
+      if (!source) return current;
+      return { ...current, goals: current.goals.map((goal) => goal === source
+        ? { ...goal, category: 'agreement', spaceId: sharedSpaceId, updatedById: current.activePersonId }
+        : goal) };
+    });
+  }
+
+  function saveAgreementEntry(topicId: string, entry: AgreementEntry) {
+    if (boardSpaceId !== sharedSpaceId) return false;
+    return sync.saveChanges((current) => {
+      const topic = current.goals.find((goal) => goal.id === topicId && goal.category === 'agreement' && !goal.deletedAt);
+      if (!topic || entry.personId !== current.activePersonId) return current;
+      const entries = topic.agreementEntries ?? [];
+      const previous = entries.find((item) => item.id === entry.id);
+      if (previous ? previous.personId !== entry.personId : entries.length >= 500) return current;
+      const agreementEntries = previous ? entries.map((item) => item.id === entry.id ? entry : item) : [...entries, entry];
+      return { ...current, goals: current.goals.map((goal) => goal === topic ? { ...goal, agreementEntries, updatedById: current.activePersonId } : goal) };
+    });
+  }
+
   function addGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = newGoalTitle.trim();
@@ -1460,6 +1493,11 @@ export default function Home() {
         </form>}
       /> : <RelationshipWorkspace key={boardSpaceId}
         goals={rankedActiveGoals} canEdit={canEditBoard} personal={boardSpaceId !== sharedSpaceId}
+        onMoveToAgreement={moveGoalToAgreement}
+        agreements={boardSpaceId === sharedSpaceId ? (selectedId, onOpen) => <AgreementWorkspace key={activePersonId}
+          topics={activeGoals.filter((goal) => goal.category === 'agreement' && getGoalSpaceId(goal) === sharedSpaceId)}
+          selectedId={selectedId} people={people} personId={activePersonId} onOpen={onOpen}
+          onCreate={addAgreementTopic} onSave={saveAgreementEntry} /> : undefined}
         rules={collectRules(activeGoals, boardSpaceId)}
         onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
         onRenameRule={renameTask} onDeleteRule={deleteTask}
