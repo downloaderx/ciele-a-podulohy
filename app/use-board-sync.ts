@@ -207,6 +207,19 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
     return flight;
   }, [runSynchronize]);
 
+  function saveChanges(update: (current: AppStateData) => AppStateData) {
+    if (!identity.current || initializing.current || transitionRef.current) return false;
+    const current = latest.current;
+    const next = update(current);
+    if (next === current) return false;
+
+    replace(next);
+    setStatus('Ukladám zmeny…');
+    persist();
+    void synchronize();
+    return true;
+  }
+
   useEffect(() => { syncRef.current = synchronize; }, [synchronize]);
   useEffect(() => {
     if (!authenticated) return;
@@ -269,5 +282,5 @@ export function useBoardSync(state: AppStateData, apply: (state: AppStateData) =
       return true;
     } finally { transitionRef.current = false; setTransitioning(false); }
   }
-  return { loaded, authenticated, transitioning, mode, status, conflicts: [], recovery, login, chooseProfile, logout, retry: synchronize };
+  return { loaded, authenticated, transitioning, mode, status, conflicts: [], recovery, login, chooseProfile, logout, retry: synchronize, saveChanges };
 }

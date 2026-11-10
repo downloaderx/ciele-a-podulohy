@@ -368,6 +368,7 @@ export default function Home() {
   const clearCompletionBurst = useCallback(() => setCompletionBurst(0), []);
   const [relationshipBoardSpaceId, setBoardSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [routinesSpaceId, setRoutinesSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const routinesSpaceRestored = useRef(false);
   const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const boardSpaceId = isFoodPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
@@ -388,6 +389,13 @@ export default function Home() {
     setGoals(data.goals); setPeople(data.people); setActivePersonId(data.activePersonId);
     setActivityLog(data.activityLog); setGoalRankings(data.goalRankings); setGratitudeEntries(data.gratitudeEntries ?? []);
     setBoardSpaceId((current) => current === sharedSpaceId || data.people.some((person) => person.id === current) ? current : sharedSpaceId);
+    if (!routinesSpaceRestored.current) {
+      routinesSpaceRestored.current = true;
+      try {
+        const saved = window.sessionStorage.getItem('foxies-routines-space');
+        if (saved && (saved === sharedSpaceId || data.people.some((person) => person.id === saved))) setRoutinesSpaceId(saved);
+      } catch { /* The board can still be selected when session storage is unavailable. */ }
+    }
   }, []);
   const sync = useBoardSync(state, applyState);
   const { loaded, authenticated } = sync;
@@ -514,8 +522,16 @@ export default function Home() {
     if (!canEditBoard) return;
     const routineId = id ?? createId();
     const draft = createRoutine(routineId, title, steps, activePersonId, boardSpaceId);
-    setGoals((current) => id ? current.map((goal) => goal.id === id && goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId ? { ...goal, title: draft.title, updatedById: activePersonId, children: [...draft.children, ...goal.children.filter((step) => !steps.some((item) => item.id === step.id)).map((step) => ({ ...step, deletedAt: step.deletedAt ?? new Date().toISOString() }))] } : goal) : [...current, draft]);
-    return routineId;
+    const queued = sync.saveChanges((current) => {
+      if (!id) return { ...current, goals: [...current.goals, draft] };
+      const existing = current.goals.find((goal) => goal.id === id && goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId && !goal.deletedAt);
+      if (!existing) return current;
+      const removed = existing.children.filter((step) => !steps.some((item) => item.id === step.id))
+        .map((step) => ({ ...step, deletedAt: step.deletedAt ?? new Date().toISOString() }));
+      const updated = { ...existing, title: draft.title, updatedById: activePersonId, children: [...draft.children, ...removed] };
+      return { ...current, goals: current.goals.map((goal) => goal.id === id ? updated : goal) };
+    });
+    return queued ? routineId : undefined;
   }
 
   function routineAction(id: string, action: 'start' | 'done' | 'skipped' | 'back' | 'pause' | 'resume') {
@@ -1361,7 +1377,10 @@ export default function Home() {
             onClick={() => {
               setRandomActivityId(null);
               setChoreReveal(null);
-              if (isRoutinesPage) setRoutinesSpaceId(space.id);
+              if (isRoutinesPage) {
+                setRoutinesSpaceId(space.id);
+                try { window.sessionStorage.setItem('foxies-routines-space', space.id); } catch { /* Keep the in-memory selection. */ }
+              }
               else if (isListsPage) { setListsSpaceId(space.id); setListMoveNotice(''); }
               else setBoardSpaceId(space.id);
             }}
@@ -1372,7 +1391,7 @@ export default function Home() {
         ))}
       </section>}
 
-      {isFoodPage ? <FoodWorkspace pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={(id) => toggleFood(id, false)} onSelectRecipe={(id) => toggleFood(id, true)} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
+      {isFoodPage ? <FoodWorkspace pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={(id) => toggleFood(id, false)} onSelectRecipe={(id) => toggleFood(id, true)} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} saveStatus={sync.status} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
         activityLog={activityLog}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
