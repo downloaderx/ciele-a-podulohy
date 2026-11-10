@@ -17,8 +17,7 @@ type Props = {
   activities: ReactNode;
   poll: ReactNode;
   calendar: ReactNode;
-  agreements?: (selectedId: string | undefined, onOpen: (id: string) => void) => ReactNode;
-  onMoveToAgreement: (id: string) => boolean;
+  onMoveToAgreement: (id: string) => void;
   changes: ReactNode;
   onAddRule: (text: string) => void;
   onRenameRule: (id: string, text: string) => void;
@@ -31,10 +30,7 @@ export function RelationshipWorkspace(props: Props) {
   const selectedGoal = props.goals.find((goal) => 'topic:' + goal.id === view);
   const groups = [
     { id: 'topics', label: 'Témy a ciele', pages: [{ id: 'poll', label: 'Anketa priorít' }] },
-    { id: 'agreements', label: props.personal ? 'Pravidlá' : 'Pravidlá a dohody', pages: [
-      { id: 'rulebook', label: 'Rulebook' },
-      ...(props.agreements ? [{ id: 'agreement', label: 'Hľadanie dohody' }] : []),
-    ] },
+    { id: 'agreements', label: props.personal ? 'Pravidlá' : 'Pravidlá a dohody', pages: [{ id: 'rulebook', label: 'Rulebook' }] },
     { id: 'moments', label: props.personal ? 'Aktivity a vďačnosť' : 'Spoločné chvíle', pages: [
       { id: 'gratitude', label: 'Vďačnosť' },
       { id: 'activities', label: props.personal ? 'Osobné aktivity' : 'Spoločné aktivity' },
@@ -43,9 +39,8 @@ export function RelationshipWorkspace(props: Props) {
     { id: 'history', label: 'História', pages: [{ id: 'changes', label: 'Zmeny' }] },
   ];
   const pages = groups.flatMap((group) => group.pages);
-  const agreementId = props.agreements && view.startsWith('agreement:') ? view.slice('agreement:'.length) : undefined;
   const isKnownView = selectedGoal || ['overview', 'add', ...pages.map((page) => page.id)].includes(view);
-  const current = agreementId ? 'agreement' : isKnownView ? view : 'overview';
+  const current = isKnownView ? view : 'overview';
   const addLabel = props.personal ? 'Pridať osobný cieľ' : 'Pridať spoločný cieľ';
   const title = selectedGoal?.title ?? pages.find((page) => page.id === current)?.label ?? (current === 'add' ? addLabel : 'Prehľad');
   function navigate(next: string) { setView(next); setMenuOpen(false); }
@@ -68,7 +63,7 @@ export function RelationshipWorkspace(props: Props) {
     </nav>
     <div className="chores-content relationship-content">
       {!props.canEdit && <p className="personal-readonly-note">Ak chceš pridať cieľ na túto tabuľu, najprv prepni líštičku hore.</p>}
-      {props.canEdit && current !== 'add' && current !== 'agreement' && <div className="chores-content-heading">
+      {props.canEdit && current !== 'add' && <div className="chores-content-heading">
         <button type="button" onClick={() => navigate('add')}>＋ {addLabel}</button>
       </div>}
       {current === 'overview' && <>
@@ -77,19 +72,15 @@ export function RelationshipWorkspace(props: Props) {
         <div className="chores-area-list relationship-topic-list">
           {props.goals.map((goal) => <button type="button" key={goal.id} onClick={() => navigate('topic:' + goal.id)}><strong>{goal.title}</strong><span>Otvoriť →</span></button>)}
           <button type="button" onClick={() => navigate('rulebook')}><strong>Rulebook</strong><span>{props.rules.length} pravidiel →</span></button>
-          {props.agreements && <button type="button" onClick={() => navigate('agreement')}><strong>Hľadanie dohody</strong><span>Otvoriť →</span></button>}
         </div>
       </>}
       {selectedGoal && <div className="board-edit-controls">
         {props.renderGoal(selectedGoal)}
-        {props.agreements && props.canEdit && <details className="agreement-move">
+        {!props.personal && props.canEdit && <details className="agreement-move">
           <summary>Presunúť cieľ</summary>
-          <button type="button" onClick={() => {
-            if (props.onMoveToAgreement(selectedGoal.id)) navigate('agreement:' + selectedGoal.id);
-          }}>Presunúť do Hľadania dohody</button>
+          <button type="button" onClick={() => props.onMoveToAgreement(selectedGoal.id)}>Presunúť do Hľadania dohody</button>
         </details>}
       </div>}
-      {current === 'agreement' && props.agreements?.(agreementId, (id) => navigate('agreement:' + id))}
       {current === 'add' && props.canEdit && <section><h2>{addLabel}</h2>{props.addForm((id, category) => navigate(category === 'activity' ? 'activities' : 'topic:' + id))}</section>}
       {current === 'rulebook' && <Rulebook rules={props.rules} canEdit={props.canEdit} onAdd={props.onAddRule} onRename={props.onRenameRule} onDelete={props.onDeleteRule} onOpenTopic={(id) => navigate('topic:' + id)} />}
       {current === 'poll' && props.poll}
