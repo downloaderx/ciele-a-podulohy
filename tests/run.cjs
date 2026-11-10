@@ -1370,6 +1370,22 @@ test('food coverage matches known Slovak ingredient forms without merging differ
   assert.deepEqual(missing.map(item => item.title), ['Ovsené mlieko', 'Maslová tekvica']);
 });
 
+test('a stocked vegetable mix covers a recipe that asks for any vegetable', () => {
+  const { pantry, recipe } = foodFixture();
+  const mix = foodModel.createFoodIngredient('vegetable-mix', 'Mrazená zelenina mixy (rôzne)', '', 'person-1', true);
+  pantry.children = [mix];
+  recipe.children = [
+    foodModel.createFoodIngredient('any-vegetable', 'ľubovoľná zelenina (napríklad karfiol, mrkva, hrášok,...)', '', 'person-1'),
+    foodModel.createFoodIngredient('fresh-vegetable', 'čerstvá zelenina', '', 'person-1'),
+  ];
+
+  const coverage = foodModel.recipeAvailability(recipe, [pantry]);
+  assert.deepEqual(coverage.have.map(item => item.id), ['any-vegetable']);
+  assert.deepEqual(coverage.missing.map(item => item.id), ['fresh-vegetable']);
+  mix.done = false;
+  assert.equal(foodModel.recipeAvailability(recipe, [pantry]).percent, 0);
+});
+
 test('food coverage ignores deleted/private stock and never reports empty recipes as fully available',()=>{
   const {pantry,recipe}=foodFixture();pantry.children[0].deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,50);pantry.deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);delete pantry.deletedAt;pantry.spaceId='person-1';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);
   recipe.children=[];assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,null);assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,0);

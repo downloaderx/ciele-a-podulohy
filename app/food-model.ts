@@ -34,10 +34,17 @@ const ingredientForms = new Map([
   ['muka', 'muky', 'muku', 'mukou', 'muke'],
   ['ryza', 'ryze', 'ryzu', 'ryzou', 'ryzi'],
   ['sol', 'soli', 'solou'],
+  ['zelenina', 'zeleniny', 'zelenine', 'zeleninu', 'zeleninou'],
 ].flatMap(([base, ...forms]) => [base, ...forms].map((form) => [form, base] as const)));
 
 function ingredientWords(key: string): string[] {
   return key.match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function recipeIngredientWords(key: string): string[] {
+  const name = key.replace(/\(\s*(?:napriklad|napr\.?)\s+[^()]*\)/gu, ' ')
+    .trimStart().replace(/^lubovoln(?:[aeouy]|ej|eho|ych)\s+/u, '');
+  return ingredientWords(name);
 }
 
 function matchesIngredientWords(first: string[], second: string[]): boolean {
@@ -60,7 +67,7 @@ export function recipeAvailability(recipe: Goal, pantries: Goal[]) {
   ingredients.delete('');
   const have: Task[] = [], missing: Task[] = [];
   for (const [key, item] of ingredients) {
-    const words = ingredientWords(key);
+    const words = recipeIngredientWords(key);
     const available = stock.has(key) || stockWords.some((candidate) => matchesIngredientWords(words, candidate));
     (available ? have : missing).push(item);
   }
