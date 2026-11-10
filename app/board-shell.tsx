@@ -377,7 +377,8 @@ export default function Home() {
   const routinesSpaceRestored = useRef(false);
   const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isFoodPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? sharedSpaceId : relationshipBoardSpaceId;
+  const [choresSpaceId, setChoresSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
+  const boardSpaceId = isFoodPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? choresSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -517,7 +518,7 @@ export default function Home() {
         }, { ...current }),
       );
     }
-    addActivity('pridal(a) plán', title);
+    addActivity(creationCategory === 'chore' ? 'pridal(a) oblasť chores' : 'pridal(a) plán', title);
     setNewGoalTitle('');
     setNewGoalDescription('');
     setNewGoalCategory('plan');
@@ -1261,10 +1262,10 @@ export default function Home() {
     catch { return null; }
   }, [importText]);
 
-  const choreTitles = new Set(goals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && goal.category === 'chore').flatMap((goal) => allTasks(goal).map((task) => task.title)));
+  const choreTitles = new Set(goals.filter((goal) => getGoalSpaceId(goal) === boardSpaceId && goal.category === 'chore').flatMap((goal) => [goal, ...allTasks(goal)].map((task) => task.title)));
   const activePerson = people.find((person) => person.id === activePersonId) ?? people[0];
-  const recentActivity = activityLog
-    .filter((item) => (item.spaceId ?? sharedSpaceId) === boardSpaceId)
+  const boardActivity = activityLog.filter((item) => (item.spaceId ?? sharedSpaceId) === boardSpaceId);
+  const recentActivity = boardActivity
     .filter((item) => !isChoresPage || item.action.toLowerCase().includes('chore') || choreTitles.has(item.target) || [...choreTitles].some((title) => item.target.endsWith(' → ' + title)))
     .slice(0, isChoresPage ? 80 : 12);
 
@@ -1402,7 +1403,7 @@ export default function Home() {
         <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage && !isFoodPage ? 'page' : undefined}>Ciele</Link>
       </nav>
       <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>
-      {!isChoresPage && !isFoodPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      {!isFoodPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1416,6 +1417,10 @@ export default function Home() {
                 try { window.sessionStorage.setItem('foxies-routines-space', space.id); } catch { /* Keep the in-memory selection. */ }
               }
               else if (isListsPage) { setListsSpaceId(space.id); setListMoveNotice(''); }
+              else if (isChoresPage) {
+                setChoresSpaceId(space.id);
+                if (space.id !== boardSpaceId) { setNewGoalTitle(''); setNewGoalDescription(''); }
+              }
               else setBoardSpaceId(space.id);
             }}
             type="button"
@@ -1426,15 +1431,16 @@ export default function Home() {
       </section>}
 
       {isFoodPage ? <FoodWorkspace personId={activePersonId} onSaveResource={saveGoalResource} onRemoveResource={removeGoalResource} pantries={activeGoals.filter((goal) => goal.category === 'pantry' && getGoalSpaceId(goal) === sharedSpaceId)} recipes={activeGoals.filter((goal) => goal.category === 'recipe' && getGoalSpaceId(goal) === sharedSpaceId)} onAddRecipe={addRecipe} onAddStock={addFoodStock} onAddIngredient={addRecipeIngredient} onEditIngredient={editFoodIngredient} onToggleStock={(id) => toggleFood(id, false)} onSelectRecipe={(id) => toggleFood(id, true)} onRename={renameTask} onDelete={deleteTask} /> : isRoutinesPage ? <RoutinesWorkspace key={boardSpaceId + activePersonId} canEdit={canEditBoard} personName={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} routines={activeGoals.filter((goal) => goal.category === 'routine' && getGoalSpaceId(goal) === boardSpaceId)} saveStatus={sync.status} onSave={saveRoutine} onAction={routineAction} onDelete={deleteTask} /> : isListsPage ? <ListsWorkspace onReset={resetList} spaces={boardSpaces} onMove={moveTodoList} moveNotice={listMoveNotice} key={boardSpaceId + activePersonId} canEdit={canEditBoard} spaceLabel={boardSpaceId === sharedSpaceId ? 'Spoločné' : people.find((person) => person.id === boardSpaceId)?.name ?? 'Osobné'} lists={todoLists} onCreate={addTodoList} onAddItem={addTodoItem} onToggle={toggleDone} onRename={renameTask} onColor={changeListColor} onDelete={deleteTask} /> : isChoresPage ? <ChoresWorkspace
-        activityLog={activityLog}
+        activityLog={boardActivity}
         key={boardSpaceId + ':' + activePersonId}
         goals={boardGoals}
         storageKey={'foxies-chores-menu:' + activePersonId + ':' + boardSpaceId}
         canEdit={canEditBoard}
+        personal={boardSpaceId !== sharedSpaceId}
         renderGoal={renderGoalPanel}
         onReveal={setChoreReveal}
         onSplitPantry={(sourceId) => {
-          if (!canEditBoard) return;
+          if (!canEditBoard || !boardGoals.some((goal) => goal.id === sourceId)) return;
           const id = createId();
           setGoals((current) => splitPantry(current, sourceId, id, activePersonId));
           addActivity('oddelil(a) oblasť chores', 'Špajza');
@@ -1442,7 +1448,7 @@ export default function Home() {
         changes={recentActivity.length ? <RecentActivityPanel activityLog={recentActivity} people={people} /> : <p>Zatiaľ bez zmien.</p>}
         completed={<CompletedWorkPanel completedItems={completedItems} people={people} />}
         addForm={(onCreated) => <form className="new-goal" onSubmit={(event) => { const id = addGoal(event); if (id) onCreated(id); }}>
-          <label>Názov oblasti<input required value={newGoalTitle} onChange={(event) => setNewGoalTitle(event.target.value)} placeholder="Napr. Špajza" /></label>
+          <label>Názov oblasti<input required value={newGoalTitle} onChange={(event) => setNewGoalTitle(event.target.value)} placeholder={boardSpaceId === sharedSpaceId ? 'Napr. Špajza' : 'Napr. Moja izba'} /></label>
           <label>Poznámka (voliteľná)<input value={newGoalDescription} onChange={(event) => setNewGoalDescription(event.target.value)} /></label>
           <button type="submit">Pridať oblasť</button>
         </form>}
@@ -2028,7 +2034,7 @@ function GoalPanel(props: GoalPanelProps) {
     setDescriptionChunks([]);
   }
 
-  if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} open={props.focusGoal} />;
+  if (props.boardSpaceId !== sharedSpaceId && props.boardSpaceId !== props.activePersonId) return <ReadOnlyGoal goal={props.goal} people={props.people} open={props.focusGoal || props.workspace} />;
 
   if (props.focusGoal) return <article className="simple-relationship-goal">
     <header className="simple-goal-heading">

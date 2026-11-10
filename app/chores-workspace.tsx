@@ -12,6 +12,7 @@ type Props = {
   activityLog: ActivityItem[];
   storageKey: string;
   canEdit: boolean;
+  personal: boolean;
   renderGoal: (goal: Goal) => ReactNode;
   addForm: (onCreated: (id: string) => void) => ReactNode;
   changes: ReactNode;
@@ -59,8 +60,10 @@ export function ChoresWorkspace(props: Props) {
       <button type="button" className="chores-changes-link" aria-current={current === 'changes' ? 'page' : undefined} onClick={() => navigate('changes')}>Zmeny</button>
     </nav>
     <div className="chores-content">
+      {!props.canEdit && <p className="personal-readonly-note">Osobné práce druhej líštičky sú na prezeranie.</p>}
       {current === 'overview' && <>
-        <header className="chores-content-heading"><h2>Prehľad chores</h2><p>Vyber oblasť v menu alebo si nechaj vybrať jednu prácu.</p></header>
+        <header className="chores-content-heading"><h2>{props.personal ? 'Osobné práce' : 'Prehľad chores'}</h2><p>{props.goals.length ? 'Vyber oblasť v menu alebo si nechaj vybrať jednu prácu.' : 'Zatiaľ tu nie sú žiadne oblasti.'}</p></header>
+        {!props.goals.length && props.canEdit && <button type="button" onClick={() => navigate('add')}>＋ Pridať prvú oblasť</button>}
         <div className="chores-quick-stats">
           <div><strong>{routine.doneWeight}/{routine.totalWeight}</strong><span>bodov bežných prác za posledných 7 dní</span></div>
           <div><strong>{occasionalAttention}</strong><span>občasných prác na kontrolu</span></div>
@@ -72,7 +75,7 @@ export function ChoresWorkspace(props: Props) {
         {pantry && props.canEdit && <div className="chores-split-note"><p>Práce v špajzi sú zatiaľ spolu s kuchyňou. Môžeš ich presunúť do samostatnej oblasti aj s históriou.</p><button type="button" onClick={() => props.onSplitPantry(pantry.id)}>Oddeliť špajzu</button></div>}
       </>}
       {selectedGoal && <div className="chores-area-content">{props.renderGoal(selectedGoal)}</div>}
-      {current === 'add' && props.canEdit && <section className="chores-add-form"><h2>Pridať oblasť</h2><p>Napríklad Kuchyňa, Špajza alebo Pranie.</p>{props.addForm((id) => navigate('area:' + id))}</section>}
+      {current === 'add' && props.canEdit && <section className="chores-add-form"><h2>Pridať oblasť</h2><p>{props.personal ? 'Napríklad Moja izba alebo Pracovný stôl.' : 'Napríklad Kuchyňa, Špajza alebo Pranie.'}</p>{props.addForm((id) => navigate('area:' + id))}</section>}
       {current === 'changes' && <>
         <header className="chores-content-heading"><h2>Zmeny</h2><p>História úprav a prehľad vykonaných prác na jednom mieste.</p></header>
         <div className="chores-change-tabs" role="tablist" aria-label="Druh histórie" onKeyDown={(event) => {
