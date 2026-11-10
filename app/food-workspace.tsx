@@ -78,7 +78,7 @@ function IngredientGroup({ title, items, kind, empty }: { title: string; items: 
 }
 
 function IngredientEditor({ item, onEdit }: { item: Task; onEdit: Props['onEditIngredient'] }) {
-  return <div className="food-ingredient-editor"><EditableInput aria-label={`Názov suroviny ${item.title}`} list="food-ingredient-names" maxLength={200} value={item.title} onCommit={(title) => onEdit(item.id, title, item.foodAmount ?? '')} /><EditableInput aria-label={`Množstvo suroviny ${item.title}`} maxLength={120} placeholder="Množstvo (voliteľné)" value={item.foodAmount ?? ''} onCommit={(amount) => onEdit(item.id, item.title, amount)} /></div>;
+  return <div className="food-ingredient-editor"><EditableInput aria-label={`Názov suroviny ${item.title}`} list="food-ingredient-names" maxLength={Math.max(200, item.title.length)} value={item.title} onCommit={(title) => onEdit(item.id, title, item.foodAmount ?? '')} /><EditableInput aria-label={`Množstvo suroviny ${item.title}`} maxLength={120} placeholder="Množstvo (voliteľné)" value={item.foodAmount ?? ''} onCommit={(amount) => onEdit(item.id, item.title, amount)} /></div>;
 }
 
 function IngredientForm({ label, onAdd }: { label: string; onAdd: (title: string, amount: string) => string | undefined }) {

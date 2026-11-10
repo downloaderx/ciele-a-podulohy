@@ -12,7 +12,7 @@ import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
 import { FoodWorkspace } from './food-workspace';
 import { createFoodCollection, createFoodIngredient, ingredientKey, addFoodIngredient } from './food-model';
 import { ListsWorkspace } from './lists-workspace';
-import { canMoveTodoList, createTodoItem, createTodoList, noteColors, resetTodoList } from './lists-model';
+import { canConvertTodoList, canMoveTodoList, convertTodoListToRecipe, createTodoItem, createTodoList, noteColors, resetTodoList } from './lists-model';
 import { BackupPanel } from './backup-panel';
 import { CompletionBubbles } from './completion-bubbles';
 
@@ -594,7 +594,8 @@ export default function Home() {
 
   function editFoodIngredient(id: string, title: string, amount: string) {
     const root = goals.find((goal) => ['pantry', 'recipe'].includes(goal.category ?? '') && getGoalSpaceId(goal) === sharedSpaceId && !goal.deletedAt && goal.children.some((child) => child.id === id && !child.deletedAt));
-    if (!root || !title.trim() || title.trim().length > 200 || amount.trim().length > 120) return;
+    const previousTitle = root?.children.find((child) => child.id === id)?.title ?? '';
+    if (!root || !title.trim() || title.trim().length > Math.max(200, previousTitle.length) || amount.trim().length > 120) return;
     setGoals((current) => current.map((goal) => goal.id === root.id ? { ...goal, updatedById: activePersonId, children: goal.children.map((item) => item.id === id ? { ...item, title: title.trim(), foodAmount: amount.trim(), updatedById: activePersonId } : item) } : goal));
   }
 
@@ -611,7 +612,21 @@ export default function Home() {
 
   function moveTodoList(listId: string, destination: string) {
     const list = goals.find((goal) => goal.id === listId);
-    if (!list || getGoalSpaceId(list) !== boardSpaceId || !canMoveTodoList(list, { ...list, spaceId: destination }, activePersonId)) return;
+    if (!list || getGoalSpaceId(list) !== boardSpaceId) return;
+    if (destination === 'recipe') {
+      const queued = sync.saveChanges((current) => {
+        const source = current.goals.find((goal) => goal.id === listId);
+        if (!canConvertTodoList(source, current.activePersonId) || getGoalSpaceId(source) !== boardSpaceId) return current;
+        const recipe = convertTodoListToRecipe(source, current.activePersonId);
+        return { ...current, goals: current.goals.map((goal) => goal.id === listId ? recipe : goal) };
+      });
+      if (queued) {
+        addActivity('presunul(a) zoznam do obľúbených jedál', list.title);
+        setListMoveNotice('„' + list.title + '“ je teraz medzi obľúbenými jedlami v Špajzničke.');
+      }
+      return;
+    }
+    if (!canMoveTodoList(list, { ...list, spaceId: destination }, activePersonId)) return;
     setGoals((current) => current.map((goal) => goal.id === listId && canMoveTodoList(goal, { ...goal, spaceId: destination }, activePersonId) ? { ...goal, spaceId: destination, updatedById: activePersonId } : goal));
     addActivity('presunul(a) zoznam', list.title + ' → ' + (boardSpaces.find((space) => space.id === destination)?.label ?? destination));
     setListsSpaceId(destination);

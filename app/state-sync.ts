@@ -165,8 +165,15 @@ export function mergeStates(base: AppStateData, local: AppStateData, remote: App
       return path.endsWith('/choreCompletions') ? items.sort((a, b) => String((b as { completedAt: string }).completedAt).localeCompare(String((a as { completedAt: string }).completedAt))).slice(0, 200) : items;
     }
     if (record(l) && record(r) && (b === undefined || record(b))) {
-      return Object.fromEntries([...new Set([...Object.keys(l), ...Object.keys(r), ...Object.keys(record(b) ? b : {})])]
+      const listConverted = b?.category === 'list' && (l.category === 'recipe' || r.category === 'recipe');
+      if (listConverted && r.category === 'list' && r.spaceId && r.spaceId !== 'shared' && r.spaceId !== local.activePersonId) {
+        conflicts.push({ path, local: l, remote: r });
+        return r;
+      }
+      const merged = Object.fromEntries([...new Set([...Object.keys(l), ...Object.keys(r), ...Object.keys(record(b) ? b : {})])]
         .map((key) => [key, merge(record(b) ? b[key] : undefined, l[key], r[key], `${path}/${key}`)]));
+      // A converted list and its shared destination must travel together.
+      return listConverted && merged.category === 'recipe' ? { ...merged, spaceId: 'shared' } : merged;
     }
     // Expansion is a view preference; merging it must not block substantive edits.
     if (path.endsWith('/recurrenceHistory') && Array.isArray(l) && Array.isArray(r)) {
