@@ -27,7 +27,8 @@ export function AgreementWorkspace({ topics, selectedId, people, personId, onOpe
   return <section className="agreement-workspace" aria-label="Hľadanie dohody">
     <header className="chores-content-heading">
       <h2>Hľadanie dohody</h2>
-      <p>Spíšte si, čo každý potrebuje, a porovnajte možnosti aj s dôvodmi.</p>
+      <p>Sem patria náročnejšie témy, ktoré ste presunuli z Cieľov alebo otvorili priamo tu. Nájsť pri nich riešenie, ktoré by vyhovovalo obom, môže byť veľmi ťažké, niekedy až takmer nemožné.</p>
+      <p>Môžete si tu spísať, čo každý potrebuje a prečo mu jednotlivé návrhy vyhovujú alebo prekážajú. K téme sa dá vrátiť aj neskôr, keď na ňu budete mať priestor.</p>
     </header>
     <div className="agreement-topic-bar">
       {topics.map((item) => <button key={item.id} type="button" aria-pressed={topic?.id === item.id} onClick={() => onOpen(item.id)}>{item.title}</button>)}
