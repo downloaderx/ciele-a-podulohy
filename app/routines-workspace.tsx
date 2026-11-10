@@ -10,24 +10,28 @@ type Props = {
   routines: Goal[];
   canEdit: boolean;
   personName: string;
+  saveStatus: string;
   onSave: (id: string | undefined, title: string, steps: Step[]) => string | undefined;
   onAction: (id: string, action: Action) => void;
   onDelete: (id: string) => void;
 };
 
-export function RoutinesWorkspace({ routines, canEdit, personName, onSave, onAction, onDelete }: Props) {
+export function RoutinesWorkspace({ routines, canEdit, personName, saveStatus, onSave, onAction, onDelete }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [steps, setSteps] = useState<Step[]>([]);
+  const [submittedId, setSubmittedId] = useState<string>();
+  const [saveError, setSaveError] = useState('');
   const selected = routines.find((routine) => routine.id === selectedId);
   const shown = selected ? [selected] : routines;
   function edit(routine?: Goal) {
     if (!canEdit) return;
     setSelectedId(routine?.id);
     setTitle(routine?.title ?? '');
+    setSaveError('');
     setSteps(routine ? routine.children.filter((step) => !step.deletedAt).map(({ id, title }) => ({ id, title })) : [{ id: crypto.randomUUID(), title: '' }]);
     setEditing(true); setMenuOpen(false); setCreating(!routine);
   }
@@ -49,22 +53,29 @@ export function RoutinesWorkspace({ routines, canEdit, personName, onSave, onAct
       <header className="lists-content-heading"><h1>{selected?.title ?? 'Rutiny'}</h1><p>{personName} · Malé kroky v tvojom poradí.</p>{!canEdit && <p>Osobné rutiny druhej líštičky sú na prezeranie.</p>}</header>
       {editing && canEdit ? <div className="lists-note-grid"><form className="todo-note routine-editor routine-note" onSubmit={(event) => {
         event.preventDefault();
-        if (!title.trim() || !steps.length || steps.some((step) => !step.title.trim())) return;
-        const id = onSave(creating ? undefined : selected?.id, title, steps);
-        if (!id) return;
+        const filledSteps = steps.filter((step) => step.title.trim());
+        if (!title.trim() || !filledSteps.length) {
+          setSaveError('Zadaj názov rutiny a aspoň jeden krok.');
+          return;
+        }
+        const id = (creating || selected) && onSave(creating ? undefined : selected?.id, title, filledSteps);
+        if (!id) { setSaveError('Rutinu sa nepodarilo uložiť. Skús znova.'); return; }
+        setSubmittedId(id);
         setSelectedId(id); setEditing(false); setCreating(false);
       }}>
         <h2>{creating ? 'Nová rutina' : 'Upraviť rutinu'}</h2>
         <label>Názov rutiny<input autoFocus required maxLength={200} value={title} placeholder="Napríklad Ranná rutina" onChange={(event) => setTitle(event.target.value)} /></label>
         <p>Zmeny krokov sa použijú pri ďalšom spustení.</p>
         <ol>{steps.map((step, index) => <li key={step.id}>
-          <input aria-label={`Krok ${index + 1}`} required maxLength={2000} value={step.title} placeholder="Čo spravím?" onChange={(event) => setSteps((current) => current.map((item) => item.id === step.id ? { ...item, title: event.target.value } : item))} />
+          <input aria-label={`Krok ${index + 1}`} maxLength={2000} value={step.title} placeholder="Čo spravím?" onChange={(event) => setSteps((current) => current.map((item) => item.id === step.id ? { ...item, title: event.target.value } : item))} />
           <div className="routine-step-tools"><button type="button" aria-label={`Krok ${index + 1} vyššie`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label={`Krok ${index + 1} nižšie`} disabled={index === steps.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" aria-label={`Odstrániť krok ${index + 1}`} disabled={steps.length === 1} onClick={() => setSteps((current) => current.filter((item) => item.id !== step.id))}>Odobrať</button></div>
         </li>)}</ol>
         <button type="button" disabled={steps.length >= 100} onClick={() => setSteps((current) => [...current, { id: crypto.randomUUID(), title: '' }])}>+ Pridať krok</button>
         <div className="routine-actions"><button type="submit">Uložiť rutinu</button><button type="button" onClick={() => { setEditing(false); setCreating(false); }}>Zrušiť</button></div>
+        {saveError && <p role="alert">{saveError}</p>}
         {!creating && selected && <footer className="todo-note-trash-area"><button type="button" onClick={() => { if (window.confirm('Presunúť túto rutinu do koša?')) { onDelete(selected.id); navigate(); } }}><span aria-hidden="true">🗑</span>Presunúť rutinu do koša</button></footer>}
       </form></div> : routines.length ? <>
+        {submittedId && selected?.id === submittedId && <p className="routine-footnote" role="status">{saveStatus}</p>}
         <div className="lists-note-grid">{shown.map((routine) => <RoutineNote key={routine.id} routine={routine} canEdit={canEdit} onEdit={() => edit(routine)} onAction={onAction} />)}</div>
         <p className="routine-footnote">Postup sa ukladá automaticky. Ďalšie spustenie začne od prvého kroku.</p>
       </> : <div className="lists-empty"><h2>Jeden krok za druhým</h2><p>Pridaj si rannú, večernú alebo inú rutinu. Kroky uvidíš priamo na kartičke.</p>{canEdit && <button type="button" onClick={() => edit()}>Vytvoriť prvú rutinu</button>}</div>}
