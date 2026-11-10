@@ -27,7 +27,7 @@ import { gratitudeDay } from './gratitude';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useBoardSync } from './use-board-sync';
 import { useReminders } from './use-reminders';
 import { allTasks, liveGoal, isValidState, visibleState } from './state-sync';
@@ -323,6 +323,10 @@ function splitLongDescription(description: string) {
 
 export default function Home() {
   const pathname = usePathname();
+  const router = useRouter();
+  const params = useParams<{ topic?: string[] }>();
+  const agreementPath = '/hladanie-dohody';
+  const isAgreementPage = pathname === agreementPath || pathname.startsWith(agreementPath + '/');
   const isFoodPage = pathname === '/spajznicka';
   const isChoresPage = pathname === '/chores';
   const isRoutinesPage = pathname === '/rutiny';
@@ -380,7 +384,7 @@ export default function Home() {
   const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [choresSpaceId, setChoresSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isFoodPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? choresSpaceId : relationshipBoardSpaceId;
+  const boardSpaceId = isFoodPage || isAgreementPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? choresSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -477,15 +481,20 @@ export default function Home() {
     return sync.saveChanges((current) => ({ ...current, goals: [...current.goals, topic] })) ? topic.id : undefined;
   }
 
+  function openAgreementTopic(id: string) {
+    router.push(`${agreementPath}/${encodeURIComponent(id)}`);
+  }
+
   function moveGoalToAgreement(id: string) {
-    if (boardSpaceId !== sharedSpaceId) return false;
-    return sync.saveChanges((current) => {
+    if (boardSpaceId !== sharedSpaceId) return;
+    const moved = sync.saveChanges((current) => {
       const source = current.goals.find((goal) => goal.id === id && !goal.deletedAt && getGoalSpaceId(goal) === sharedSpaceId && normalizeGoalCategory(goal.category) === 'plan');
       if (!source) return current;
       return { ...current, goals: current.goals.map((goal) => goal === source
         ? { ...goal, category: 'agreement', spaceId: sharedSpaceId, updatedById: current.activePersonId }
         : goal) };
     });
+    if (moved) openAgreementTopic(id);
   }
 
   function saveAgreementEntry(topicId: string, entry: AgreementEntry) {
@@ -1439,10 +1448,11 @@ export default function Home() {
         <Link href="/lists-and-todos" aria-current={isListsPage ? 'page' : undefined}>Lists &amp; todos</Link>
         <Link href="/rutiny" aria-current={isRoutinesPage ? 'page' : undefined}>Rutiny</Link>
         <Link href="/spajznicka" aria-current={isFoodPage ? 'page' : undefined}>Špajznička &amp; jedlá</Link>
-        <Link href="/vztahove-ciele" aria-current={!isChoresPage && !isListsPage && !isRoutinesPage && !isFoodPage ? 'page' : undefined}>Ciele</Link>
+        <Link href="/vztahove-ciele" aria-current={pathname === '/vztahove-ciele' ? 'page' : undefined}>Ciele</Link>
+        <Link href={agreementPath} aria-current={isAgreementPage ? 'page' : undefined}>Hľadanie dohody</Link>
       </nav>
-      <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>
-      {!isFoodPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      {!isAgreementPage && <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>}
+      {!isFoodPage && !isAgreementPage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1491,13 +1501,14 @@ export default function Home() {
           <label>Poznámka (voliteľná)<input value={newGoalDescription} onChange={(event) => setNewGoalDescription(event.target.value)} /></label>
           <button type="submit">Pridať oblasť</button>
         </form>}
-      /> : <RelationshipWorkspace key={boardSpaceId}
+      /> : isAgreementPage ? <div className="chores-content agreement-page">
+        <AgreementWorkspace key={activePersonId}
+          topics={activeGoals.filter((goal) => goal.category === 'agreement' && getGoalSpaceId(goal) === sharedSpaceId)}
+          selectedId={params.topic?.[0]} people={people} personId={activePersonId} onOpen={openAgreementTopic}
+          onCreate={addAgreementTopic} onSave={saveAgreementEntry} />
+      </div> : <RelationshipWorkspace key={boardSpaceId}
         goals={rankedActiveGoals} canEdit={canEditBoard} personal={boardSpaceId !== sharedSpaceId}
         onMoveToAgreement={moveGoalToAgreement}
-        agreements={boardSpaceId === sharedSpaceId ? (selectedId, onOpen) => <AgreementWorkspace key={activePersonId}
-          topics={activeGoals.filter((goal) => goal.category === 'agreement' && getGoalSpaceId(goal) === sharedSpaceId)}
-          selectedId={selectedId} people={people} personId={activePersonId} onOpen={onOpen}
-          onCreate={addAgreementTopic} onSave={saveAgreementEntry} /> : undefined}
         rules={collectRules(activeGoals, boardSpaceId)}
         onAddRule={(text) => { const rule = createRule(createId(), text, activePersonId, boardSpaceId); if (!rule || !canEditBoard) return; setGoals((current) => [...current, rule]); addActivity('pridal(a) pravidlo', rule.title); }}
         onRenameRule={renameTask} onDeleteRule={deleteTask}

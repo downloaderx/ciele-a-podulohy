@@ -3281,6 +3281,7 @@ html:has(.food-shell) { scrollbar-gutter: stable; }
 .food-recipes .lists-note-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 296px), 296px)); }
 .food-note { width: 100%; }
 
+.agreement-page { max-width: 1180px; margin: 0 auto; }
 .agreement-topic-bar, .agreement-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .agreement-workspace button, .agreement-move button { padding: 8px 12px; border-radius: 10px; }
 .agreement-topic-bar button[aria-pressed='true'] { background: var(--accent); color: var(--button-ink, var(--ink)); }
