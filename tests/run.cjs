@@ -1300,6 +1300,19 @@ test('food coverage matches names case/accent-insensitively, separates have/miss
   pantry.children[0].done=false;coverage=foodModel.recipeAvailability(recipe,[pantry]);assert.equal(coverage.percent,50);assert.equal(coverage.missing.length,2);assert.equal(foodModel.ingredientKey('  MÚKA   hladká '),'muka hladka');
   recipe.children.push(foodModel.createFoodIngredient('duplicate-food','muka','999 kg','person-1'));assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,4);
 });
+test('food coverage matches descriptive names and word prefixes without ignoring different qualifiers', () => {
+  const { pantry, recipe } = foodFixture();
+  pantry.children = ['Strúhaný parmezán', 'Morská soľ', 'Kokosové mlieko', 'Ryža', 'Olivový olej'].map((name, i) =>
+    foodModel.createFoodIngredient(`partial-stock-${i}`, name, '', 'person-1', true));
+  recipe.children = ['Parmez', 'Soľ', 'Ovsené mlieko', 'Ry', 'Extra panenský olivový olej'].map((name, i) =>
+    foodModel.createFoodIngredient(`partial-recipe-${i}`, name, '', 'person-1'));
+
+  const coverage = foodModel.recipeAvailability(recipe, [pantry]);
+  assert.deepEqual(coverage.have.map(item => item.title), ['Parmez', 'Soľ', 'Extra panenský olivový olej']);
+  assert.deepEqual(coverage.missing.map(item => item.title), ['Ovsené mlieko', 'Ry']);
+  assert.equal(coverage.percent, 60);
+});
+
 test('food coverage ignores deleted/private stock and never reports empty recipes as fully available',()=>{
   const {pantry,recipe}=foodFixture();pantry.children[0].deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,50);pantry.deletedAt='2026-11-08T12:00:00Z';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);delete pantry.deletedAt;pantry.spaceId='person-1';assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,0);
   recipe.children=[];assert.equal(foodModel.recipeAvailability(recipe,[pantry]).percent,null);assert.equal(foodModel.recipeAvailability(recipe,[pantry]).total,0);

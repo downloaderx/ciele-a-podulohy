@@ -20,13 +20,32 @@ export function liveFoodIngredients(collections: Goal[]): Task[] {
   return collections.filter((goal) => !goal.deletedAt && !goal.purgedAt).flatMap((goal) => goal.children.filter((item) => !item.deletedAt && !item.purgedAt));
 }
 
-// Match ingredient names, not amounts or guessed synonyms. Duplicate names count once.
+function ingredientWords(key: string): string[] {
+  return key.match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function matchesIngredientWords(first: string[], second: string[]): boolean {
+  const [shorter, longer] = first.length <= second.length ? [first, second] : [second, first];
+  if (!shorter.length) return false;
+
+  return longer.some((_, start) => start + shorter.length <= longer.length && shorter.every((word, offset) => {
+    const other = longer[start + offset];
+    return word === other || (Math.min(word.length, other.length) >= 4 && (word.startsWith(other) || other.startsWith(word)));
+  }));
+}
+
 export function recipeAvailability(recipe: Goal, pantries: Goal[]) {
   const stock = new Set(liveFoodIngredients(pantries.filter((goal) => goal.category === 'pantry' && (goal.spaceId ?? 'shared') === 'shared')).filter((item) => item.done).map((item) => ingredientKey(item.title)));
-  const ingredients = [...new Map(liveFoodIngredients([recipe]).filter((item) => ingredientKey(item.title)).map((item) => [ingredientKey(item.title), item])).values()];
-  const have = ingredients.filter((item) => stock.has(ingredientKey(item.title)));
-  const missing = ingredients.filter((item) => !stock.has(ingredientKey(item.title)));
-  return { have, missing, total: ingredients.length, percent: ingredients.length ? Math.round(have.length / ingredients.length * 100) : null };
+  const stockWords = [...stock].map(ingredientWords);
+  const ingredients = new Map(liveFoodIngredients([recipe]).map((item) => [ingredientKey(item.title), item]));
+  ingredients.delete('');
+  const have: Task[] = [], missing: Task[] = [];
+  for (const [key, item] of ingredients) {
+    const words = ingredientWords(key);
+    const available = stock.has(key) || stockWords.some((candidate) => matchesIngredientWords(words, candidate));
+    (available ? have : missing).push(item);
+  }
+  return { have, missing, total: ingredients.size, percent: ingredients.size ? Math.round(have.length / ingredients.size * 100) : null };
 }
 
 export function addFoodIngredient(collection: Goal, item: Task): Goal {
