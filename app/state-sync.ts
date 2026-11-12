@@ -59,7 +59,9 @@ export function isValidState(value: unknown): value is AppStateData {
   }
   if (!value.goals.every((goal: unknown) => {
     if (!validTask(goal, 0) || !record(goal) || !string(goal.description) ||
-        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'pantry', 'recipe', 'agreement', 'care'].includes(String(goal.category))) ||
+        (goal.category !== undefined && !['plan', 'chore', 'errand', 'habit', 'activity', 'list', 'rulebook', 'routine', 'pantry', 'recipe', 'agreement', 'advice', 'care'].includes(String(goal.category))) ||
+        (goal.category === 'advice' && (goal.spaceId !== 'shared' || !string(goal.title, 160) || !string(goal.description, 4000))) ||
+        (goal.adviceTopic !== undefined && (goal.category !== 'advice' || !string(goal.adviceTopic, 80))) ||
         (goal.category === 'agreement' && goal.spaceId !== 'shared') ||
         (goal.agreementEntries !== undefined && (goal.category !== 'agreement' || !validAgreementEntries(goal.agreementEntries))) ||
         (goal.foodSelected !== undefined && typeof goal.foodSelected !== 'boolean') ||

@@ -52,6 +52,7 @@ export type AgreementEntry = {
 });
 
 export type Goal = Task & {
+  adviceTopic?: string;
   agreementEntries?: AgreementEntry[];
   foodSelected?: boolean;
   routineRun?: RoutineRun;
@@ -72,7 +73,7 @@ export type Goal = Task & {
   spaceId?: BoardSpaceId;
 };
 
-export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine' | 'pantry' | 'recipe' | 'agreement';
+export type GoalCategory = 'plan' | 'chore' | 'errand' | 'habit' | 'activity' | 'list' | 'rulebook' | 'routine' | 'pantry' | 'recipe' | 'agreement' | 'advice';
 
 export type ActivityItem = {
   id: string;
@@ -272,6 +273,7 @@ export const goalCategories: Array<{ id: GoalCategory; label: string }> = [
   { id: 'pantry', label: 'Špajznička' },
   { id: 'recipe', label: 'Obľúbené jedlá' },
   { id: 'agreement', label: 'Hľadanie dohody' },
+  { id: 'advice', label: 'Rady' },
 ];
 export const taskKinds: Array<{ id: TaskKind; label: string }> = [
   { id: 'todo', label: 'Úloha' },

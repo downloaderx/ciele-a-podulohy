@@ -3282,6 +3282,20 @@ html:has(.food-shell) { scrollbar-gutter: stable; }
 .food-note { width: 100%; }
 
 .agreement-page { max-width: 1180px; margin: 0 auto; }
+.advice-page { max-width: 880px; margin: 0 auto; }
+.advice-header, .advice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.advice-header { justify-content: space-between; margin-bottom: 16px; }
+.advice-header button, .advice-actions button { padding: 8px 12px; border-radius: 10px; }
+.advice-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+.advice-filters label { display: grid; min-width: 0; gap: 5px; font-size: 13px; }
+.advice-filters input, .advice-filters select { width: 100%; min-width: 0; }
+.advice-group, .advice-form { margin-top: 16px; }
+.advice-group h3 { margin: 0 0 8px; overflow-wrap: anywhere; }
+.advice-card { margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; background: var(--panel-soft); }
+.advice-card summary { cursor: pointer; font-weight: 650; overflow-wrap: anywhere; }
+.advice-card p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.advice-card .advice-form { background: var(--panel); }
+@media (max-width: 480px) { .advice-filters { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 .agreement-topic-bar, .agreement-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .agreement-workspace button, .agreement-move button { padding: 8px 12px; border-radius: 10px; }
 .agreement-topic-bar button[aria-pressed='true'] { background: var(--accent); color: var(--button-ink, var(--ink)); }

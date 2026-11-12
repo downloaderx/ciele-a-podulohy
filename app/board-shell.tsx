@@ -7,6 +7,7 @@ import { quickUndoCompletion, choreQuickUndoMs } from './chore-quick-undo';
 import { purgeTask, selectedTrashRoots } from './trash';
 import { RelationshipWorkspace } from './relationship-workspace';
 import { AgreementWorkspace } from './agreement-workspace';
+import { AdviceWorkspace, type AdviceDraft } from './advice-workspace';
 import { collectRules, createRule } from './rulebook-model';
 import { RoutinesWorkspace } from './routines-workspace';
 import { createRoutine, startRoutine, advanceRoutine } from './routines-model';
@@ -327,6 +328,7 @@ export default function Home() {
   const params = useParams<{ topic?: string[] }>();
   const agreementPath = '/hladanie-dohody';
   const isAgreementPage = pathname === agreementPath || pathname.startsWith(agreementPath + '/');
+  const isAdvicePage = pathname === '/rady';
   const isFoodPage = pathname === '/spajznicka';
   const isChoresPage = pathname === '/chores';
   const isRoutinesPage = pathname === '/rutiny';
@@ -384,7 +386,7 @@ export default function Home() {
   const [listMoveNotice, setListMoveNotice] = useState('');
   const [listsSpaceId, setListsSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
   const [choresSpaceId, setChoresSpaceId] = useState<BoardSpaceId>(sharedSpaceId);
-  const boardSpaceId = isFoodPage || isAgreementPage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? choresSpaceId : relationshipBoardSpaceId;
+  const boardSpaceId = isFoodPage || isAgreementPage || isAdvicePage ? sharedSpaceId : isRoutinesPage ? routinesSpaceId : isListsPage ? listsSpaceId : isChoresPage ? choresSpaceId : relationshipBoardSpaceId;
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
@@ -474,6 +476,22 @@ export default function Home() {
       })),
     [rankedActiveGoals, boardGoals, boardSpaceId],
   );
+  function saveAdvice(id: string | undefined, draft: AdviceDraft) {
+    const title = draft.title.trim(), description = draft.text.trim(), adviceTopic = draft.topic.trim().replace(/\s+/gu, ' ');
+    if (!isAdvicePage || !title || !description || title.length > 160 || description.length > 4000 || adviceTopic.length > 80) return false;
+    return sync.saveChanges((current) => {
+      const fields = { title, description, adviceTopic, updatedById: current.activePersonId };
+      if (id) {
+        const existing = current.goals.find((goal) => goal.id === id && goal.category === 'advice' && goal.spaceId === sharedSpaceId && !goal.deletedAt);
+        if (!existing) return current;
+        return { ...current, goals: current.goals.map((goal) => goal === existing ? { ...goal, ...fields } : goal) };
+      }
+      const advice: Goal = { ...fields, id: createId(), ownerId: current.activePersonId, category: 'advice', spaceId: sharedSpaceId,
+        importanceByPerson: {}, done: false, expanded: false, children: [] };
+      return { ...current, goals: [advice, ...current.goals] };
+    });
+  }
+
   function addAgreementTopic(title: string) {
     if (boardSpaceId !== sharedSpaceId || !title.trim() || title.length > 200) return;
     const topic: Goal = { id: createId(), title: title.trim(), category: 'agreement', spaceId: sharedSpaceId,
@@ -1450,9 +1468,10 @@ export default function Home() {
         <Link href="/spajznicka" aria-current={isFoodPage ? 'page' : undefined}>Špajznička &amp; jedlá</Link>
         <Link href="/vztahove-ciele" aria-current={pathname === '/vztahove-ciele' ? 'page' : undefined}>Ciele</Link>
         <Link href={agreementPath} aria-current={isAgreementPage ? 'page' : undefined}>Hľadanie dohody</Link>
+        <Link href="/rady" aria-current={isAdvicePage ? 'page' : undefined}>Rady</Link>
       </nav>
-      {!isAgreementPage && <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>}
-      {!isFoodPage && !isAgreementPage && <section className="board-space-switcher" aria-label="Výber tabule">
+      {!isAgreementPage && !isAdvicePage && <h2 className="board-section-title">{isChoresPage ? 'Chores' : isListsPage ? 'Lists & todos' : isRoutinesPage ? 'Rutiny' : isFoodPage ? 'Špajznička & jedlá' : boardSpaceId === sharedSpaceId ? 'Vzťahové ciele' : 'Osobné ciele'}</h2>}
+      {!isFoodPage && !isAgreementPage && !isAdvicePage && <section className="board-space-switcher" aria-label="Výber tabule">
         {boardSpaces.map((space) => (
           <button
             aria-pressed={space.id === boardSpaceId}
@@ -1506,7 +1525,9 @@ export default function Home() {
           topics={activeGoals.filter((goal) => goal.category === 'agreement' && getGoalSpaceId(goal) === sharedSpaceId)}
           selectedId={params.topic?.[0]} people={people} personId={activePersonId} onOpen={openAgreementTopic}
           onCreate={addAgreementTopic} onSave={saveAgreementEntry} />
-      </div> : <RelationshipWorkspace key={boardSpaceId}
+      </div> : isAdvicePage ? <AdviceWorkspace key={activePersonId}
+        advice={activeGoals.filter((goal) => goal.category === 'advice' && goal.spaceId === sharedSpaceId)}
+        onSave={saveAdvice} onDelete={deleteTask} /> : <RelationshipWorkspace key={boardSpaceId}
         goals={rankedActiveGoals} canEdit={canEditBoard} personal={boardSpaceId !== sharedSpaceId}
         onMoveToAgreement={moveGoalToAgreement}
         rules={collectRules(activeGoals, boardSpaceId)}
